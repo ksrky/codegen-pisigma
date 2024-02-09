@@ -1,0 +1,77 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.36.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           codegen-pisigma
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/ksrky/codegen-pisigma#readme>
+homepage:       https://github.com/ksrky/codegen-pisigma#readme
+bug-reports:    https://github.com/ksrky/codegen-pisigma/issues
+author:         ksrk
+maintainer:     kswgrky@gmail.com
+copyright:      2023 ksrk
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ksrky/codegen-pisigma
+
+library
+  exposed-modules:
+      Anf
+      AnfToClos
+      Closure
+      Id
+      Lambda
+      LamToAnf
+      Parser
+      Prettyprinter.Prec
+      Toplevel
+  other-modules:
+      Paths_codegen_pisigma
+  autogen-modules:
+      Paths_codegen_pisigma
+  hs-source-dirs:
+      src
+  default-extensions:
+      ImportQualifiedPost
+      LambdaCase
+      OverloadedStrings
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+    , lens
+    , megaparsec
+    , mtl
+    , prettyprinter
+    , recursion-schemes
+    , text
+  default-language: GHC2021
+
+test-suite codegen-pisigma-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_codegen_pisigma
+  autogen-modules:
+      Paths_codegen_pisigma
+  hs-source-dirs:
+      test
+  default-extensions:
+      ImportQualifiedPost
+      LambdaCase
+      OverloadedStrings
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , codegen-pisigma
+  default-language: GHC2021
