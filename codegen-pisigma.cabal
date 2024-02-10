@@ -30,6 +30,7 @@ library
       Closure
       Id
       Lambda
+      Lambda.Prim
       LamToAnf
       Parser
       Prettyprinter.Prec

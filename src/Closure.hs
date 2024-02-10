@@ -127,15 +127,15 @@ instance PrettyPrec Val where
     prettyPrec _ (VValTy v t) = parens $ hsep [pretty v, ":", pretty t]
 
 instance PrettyPrec Dec where
-    pretty (DVal x v) = pretty x <+> "=" <+> pretty v
-    pretty (DCall x v1 vs2) = pretty x <+> "=" <+> pretty v1
+    pretty (DVal x v) = pretty x <+> "=" <> softline <> pretty v
+    pretty (DCall x v1 vs2) = pretty x <+> "=" <> softline <> pretty v1
         <+> parens (hsep (punctuate "," (map prettyMax vs2)))
-    pretty (DProj x v i) = pretty x <+> "=" <+> pretty v <> "." <> pretty i
+    pretty (DProj x v i) = pretty x <+> "=" <> softline <> pretty v <> "." <> pretty i
     pretty (DUnpack tv x v) = brackets (pretty tv <> "," <+> pretty x)
-        <+> "=" <+> "unpack" <+> prettyMax v
+        <+> "=" <> softline <> "unpack" <+> prettyMax v
 
 instance PrettyPrec Exp where
-    pretty (ELet d e)   = vsep ["let" <+> pretty d <+> "in", pretty e]
+    pretty (ELet d e)   = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
     pretty (ERet v)     = "ret" <+> prettyMax v
     pretty (EExpTy e t) = parens $ pretty e <+> ":" <+> pretty t
 

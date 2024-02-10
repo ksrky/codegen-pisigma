@@ -1,11 +1,12 @@
 module AnfToClos (a2cProg) where
 
-import Anf                   qualified as A
-import Closure               qualified as C
+import Anf                      qualified as A
+import Closure                  qualified as C
+import Control.Lens.Combinators
 import Control.Monad.RWS
 import Data.Functor.Foldable
-import Data.List             qualified as List
-import Data.Tuple            qualified as Tuple
+import Data.List                qualified as List
+import Data.Tuple               qualified as Tuple
 import Id
 
 type Locals = [Id]
@@ -25,7 +26,7 @@ findLocals :: C.Var -> CCM ()
 findLocals x = do
     lcls <- ask
     escs <- get
-    if fst x `elem` lcls || fst x `elem` map fst escs
+    if view extern x || fst x `elem` lcls || fst x `elem` map fst escs
         then return ()
         else modify (++ [x])
 
@@ -79,6 +80,10 @@ a2cVal = cata $ \case
 
 a2cDec :: A.Dec -> CCM [C.Dec]
 a2cDec (A.DVal x v)       = List.singleton <$> (C.DVal (a2cVar x) <$> a2cVal v)
+a2cDec (A.DCall x v1@(A.VVar f) vs2) | view extern f = do
+    v1' <- a2cVal v1
+    vs2' <- mapM a2cVal vs2
+    return [C.DCall (a2cVar x) v1' vs2']
 a2cDec (A.DCall x v1 vs2) = do
     let (tv_env, t_clos, t_code) = case a2cTy (A.typeof v1) of
             C.TEx tv t@(C.TTuple [t1, _]) -> (tv, t, t1)
@@ -92,9 +97,13 @@ a2cDec (A.DCall x v1 vs2) = do
     d4 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_env :) <$> mapM a2cVal vs2)
     return [d1, d2, d3, d4]
 
+getDecId :: A.Dec -> Id
+getDecId (A.DVal x _)    = fst x
+getDecId (A.DCall x _ _) = fst x
+
 a2cExp :: A.Exp -> CCM C.Exp
 a2cExp = cata $ \case
-    A.ELetF d me -> flip (foldr C.ELet) <$> a2cDec d <*> me
+    A.ELetF d me -> flip (foldr C.ELet) <$> a2cDec d <*> local (getDecId d:) me
     A.ERetF v -> C.ERet <$> a2cVal v
     A.EExpTyF me t -> C.EExpTy <$> me <*> pure (a2cTy t)
 
