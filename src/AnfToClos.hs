@@ -43,8 +43,10 @@ a2cTy = cata $ \case
 
 mkTEx :: [C.Ty] -> C.Ty -> C.Ty
 mkTEx ts t =
-    let tv = fromString "tv" in
-    C.TEx tv $ C.TTuple [C.TFun (C.TVar tv : ts) t, C.TVar tv]
+    let tv_env = fromString "t_env" in
+    let tv_cl = fromString "t_cl" in
+    C.TEx tv_env $ C.TRec tv_cl $
+        C.TRow $ C.RSeq (C.TFun (C.TVar tv_cl : ts) t) (C.RVar tv_env)
 
 a2cVar :: A.Var -> C.Var
 a2cVar (x, t) = (x, a2cTy t)
@@ -61,21 +63,26 @@ a2cVal = cata $ \case
         escs <- resetEscapes $ const []
         e' <- local (const $ map fst xs) $ a2cExp e
         escs' <- resetEscapes (escs ++)
-        let t_clos = mkTEx (map snd xs') (C.typeof e')
-            t_env = C.TTuple (map snd escs')
-            x_env = (fromString "x_env", t_env)
-            v_env = C.VTuple (map C.VVar escs')
-            t_code = C.TFun (t_env : map snd xs') (C.typeof e')
+        let r_env = foldr (C.RSeq . snd) C.REmpty escs'
+            t_env = C.TRow r_env
+            t_cl =
+                let tv_cl = fromString "tv_cl" in
+                C.TRec tv_cl $ C.TRow $
+                    C.RSeq (C.TFun (C.TVar tv_cl : map snd xs') (C.typeof e')) r_env
+            x_cl = (fromString "x_cl", t_cl)
+            t_code = C.TFun (t_cl : map snd xs') (C.typeof e')
             x_code = (fromString "x_code", t_code)
             v_code = C.Def {
                 C.name = x_code,
-                C.args = x_env : xs',
+                C.args = x_cl : xs',
                 C.body =
-                    let ds = zipWith (\x i -> C.DProj x (C.VVar x_env) i) escs [1..] in
-                    foldr C.ELet e' ds
+                    let x_env = (fromString "x_env", t_env) in
+                    let d = C.DProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
+                    let ds = zipWith (\x i -> C.DProj x (C.VVar x_env) i) escs' [1..] in
+                    foldr C.ELet e' (d : ds)
                 }
         appendDef v_code
-        return $ C.VPack t_env (C.VTuple [C.VGlb x_code, v_env]) t_clos
+        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb x_code : map C.VVar escs')) t_cl) t_cl
     A.VValTyF mv t -> C.VValTy <$> mv <*> pure (a2cTy t)
 
 a2cDec :: A.Dec -> CCM [C.Dec]
@@ -85,17 +92,16 @@ a2cDec (A.DCall x v1@(A.VVar f) vs2) | view extern f = do
     vs2' <- mapM a2cVal vs2
     return [C.DCall (a2cVar x) v1' vs2']
 a2cDec (A.DCall x v1 vs2) = do
-    let (tv_env, t_clos, t_code) = case a2cTy (A.typeof v1) of
-            C.TEx tv t@(C.TTuple [t1, _]) -> (tv, t, t1)
-            _                             -> error "impossible"
-    let x_clos = (fromString "x_clos", t_clos)
+    let (tv_env, t_cl) = case a2cTy (A.typeof v1) of
+            t@(C.TEx tv _) -> (tv, t)
+            _              -> error "impossible"
+    let x_cl = (fromString "x_cl", t_cl)
+    let t_code = C.TFun (t_cl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
     let x_code = (fromString "x_code", t_code)
-    let x_env = (fromString "x_env", C.TVar tv_env)
-    d1 <- C.DUnpack tv_env x_clos <$> a2cVal v1
-    let d2 = C.DProj x_code (C.VVar x_clos) 1
-    let d3 = C.DProj x_env (C.VVar x_clos) 2
-    d4 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_env :) <$> mapM a2cVal vs2)
-    return [d1, d2, d3, d4]
+    d1 <- C.DUnpack tv_env x_cl <$> a2cVal v1
+    let d2 = C.DProj x_code (C.VVar x_cl) 1
+    d3 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
+    return [d1, d2, d3]
 
 getDecId :: A.Dec -> Id
 getDecId (A.DVal x _)    = fst x

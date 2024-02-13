@@ -3,6 +3,7 @@
 module Closure (
     Lit(..),
     Ty(..),
+    Row(..),
     Var,
     Val(..),
     Dec(..),
@@ -27,8 +28,12 @@ data Ty
     = TInt
     | TVar TyVar
     | TFun [Ty] Ty
-    | TTuple [Ty]
     | TEx TyVar Ty
+    | TRec TyVar Ty
+    | TRow Row
+    deriving (Eq, Show)
+
+data Row = REmpty | RVar TyVar | RSeq Ty Row
     deriving (Eq, Show)
 
 type Var = (Id, Ty)
@@ -39,6 +44,8 @@ data Val
     | VGlb Var
     | VTuple [Val]
     | VPack Ty Val Ty
+    | VRoll Val Ty
+    | VUnroll Val
     | VValTy Val Ty
     deriving (Eq, Show)
 
@@ -81,8 +88,14 @@ instance Typeable Val where
         VLitF l -> typeof l
         VVarF x -> typeof x
         VGlbF f -> typeof f
-        VTupleF ts -> TTuple ts
+        VTupleF vs -> TRow $ foldr (RSeq . typeof) REmpty vs
         VPackF _ _ t -> t
+        VRollF _ t -> t
+        VUnrollF v -> case v of
+            TRec tv t -> (cata $ \case
+                TVarF tv' | tv == tv' -> v
+                t' -> embed t') t
+            _ -> error "impossible"
         VValTyF _ t -> t
 
 instance Typeable Dec where
@@ -91,8 +104,12 @@ instance Typeable Dec where
         TFun _ t12 -> t12
         _          -> error "impossible"
     typeof (DProj _ v i) = case typeof v of
-        TTuple ts -> ts !! i
-        _         -> error "impossible"
+        TRow r -> go i r
+        _      -> error "impossible"
+      where
+        go 1 (RSeq t _) = t
+        go n (RSeq _ r) = go (n - 1) r
+        go _ _          = error "impossible"
     typeof (DUnpack _ _ v) = case typeof v of
         TEx _ t -> t
         _       -> error "impossible"
@@ -111,8 +128,14 @@ instance PrettyPrec Ty where
     prettyPrec _ (TVar tv) = pretty tv
     prettyPrec p (TFun ts t) = parPrec p 2 $
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
-    prettyPrec _ (TTuple ts) = angles $ hsep $ punctuate "," $ map pretty ts
     prettyPrec p (TEx tv t) = parPrec p 0 $ "∃" <+> pretty tv <> "." <+> pretty t
+    prettyPrec p (TRec tv t) = parPrec p 0 $ "μ" <+> pretty tv <> "." <+> pretty t
+    prettyPrec _ (TRow r) = parens $ pretty r
+
+instance PrettyPrec Row where
+    pretty REmpty     = "ε"
+    pretty (RVar tv)  = pretty tv
+    pretty (RSeq t r) = pretty t <+> ", " <+> pretty r
 
 instance PrettyPrec Var where
     pretty (x, t) = pretty x <+> ":" <+> pretty t
@@ -124,13 +147,15 @@ instance PrettyPrec Val where
     prettyPrec _ (VTuple vs) = angles $ hsep $ punctuate "," $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
         parPrec p 0 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v), "as", pretty t2]
+    prettyPrec p (VRoll v t) = parPrec p 0 $ "roll" <+> pretty (VValTy v t)
+    prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
     prettyPrec _ (VValTy v t) = parens $ hsep [pretty v, ":", pretty t]
 
 instance PrettyPrec Dec where
     pretty (DVal x v) = pretty x <+> "=" <> softline <> pretty v
-    pretty (DCall x v1 vs2) = pretty x <+> "=" <> softline <> pretty v1
+    pretty (DCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
         <+> parens (hsep (punctuate "," (map prettyMax vs2)))
-    pretty (DProj x v i) = pretty x <+> "=" <> softline <> pretty v <> "." <> pretty i
+    pretty (DProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
     pretty (DUnpack tv x v) = brackets (pretty tv <> "," <+> pretty x)
         <+> "=" <> softline <> "unpack" <+> prettyMax v
 
