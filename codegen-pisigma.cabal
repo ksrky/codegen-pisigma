@@ -27,6 +27,7 @@ library
   exposed-modules:
       Anf
       AnfToClos
+      ClosToUnty
       Closure
       Id
       Lambda
@@ -35,6 +36,7 @@ library
       Parser
       Prettyprinter.Prec
       Toplevel
+      Untyped
   other-modules:
       Paths_codegen_pisigma
   autogen-modules:
@@ -75,4 +77,11 @@ test-suite codegen-pisigma-test
   build-depends:
       base >=4.7 && <5
     , codegen-pisigma
+    , hspec
+    , lens
+    , megaparsec
+    , mtl
+    , prettyprinter
+    , recursion-schemes
+    , text
   default-language: GHC2021

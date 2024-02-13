@@ -23,6 +23,12 @@ language: GHC2021
 
 dependencies:
   - base >= 4.7 && < 5
+  - lens
+  - megaparsec
+  - mtl
+  - prettyprinter
+  - recursion-schemes
+  - text
 
 ghc-options:
   - -Wall
@@ -43,13 +49,6 @@ default-extensions:
 
 library:
   source-dirs: src
-  dependencies:
-    - lens
-    - megaparsec
-    - mtl
-    - prettyprinter
-    - recursion-schemes
-    - text
 
 tests:
   codegen-pisigma-test:
@@ -61,3 +60,4 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - codegen-pisigma
+      - hspec

@@ -3,11 +3,14 @@
 module Closure (
     Lit(..),
     Ty(..),
+    TyF(..),
     Row(..),
     Var,
     Val(..),
+    ValF(..),
     Dec(..),
     Exp(..),
+    ExpF(..),
     Def(..),
     Prog,
     Typeable(..)) where
@@ -107,6 +110,10 @@ instance Typeable Dec where
         TRow r -> go i r
         _      -> error "impossible"
       where
+        go 1 REmpty     = TRow REmpty
+            -- tmp: projection to an empty environment
+            -- another representation is needed? for example, Nil or Void.
+            -- or, disallow it and make sure not to generate empty environements.
         go 1 (RSeq t _) = t
         go n (RSeq _ r) = go (n - 1) r
         go _ _          = error "impossible"
@@ -130,12 +137,12 @@ instance PrettyPrec Ty where
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
     prettyPrec p (TEx tv t) = parPrec p 0 $ "∃" <+> pretty tv <> "." <+> pretty t
     prettyPrec p (TRec tv t) = parPrec p 0 $ "μ" <+> pretty tv <> "." <+> pretty t
-    prettyPrec _ (TRow r) = parens $ pretty r
+    prettyPrec _ (TRow r) = angles $ pretty r
 
 instance PrettyPrec Row where
     pretty REmpty     = "ε"
     pretty (RVar tv)  = pretty tv
-    pretty (RSeq t r) = pretty t <+> ", " <+> pretty r
+    pretty (RSeq t r) = pretty t <> ";" <+> pretty r
 
 instance PrettyPrec Var where
     pretty (x, t) = pretty x <+> ":" <+> pretty t
@@ -146,8 +153,8 @@ instance PrettyPrec Val where
     prettyPrec _ (VGlb (f, _)) = pretty f
     prettyPrec _ (VTuple vs) = angles $ hsep $ punctuate "," $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
-        parPrec p 0 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v), "as", pretty t2]
-    prettyPrec p (VRoll v t) = parPrec p 0 $ "roll" <+> pretty (VValTy v t)
+        parPrec p 0 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v), "as", prettyPrec 2 t2]
+    prettyPrec p (VRoll v t) = parPrec p 0 $ "roll" <+> prettyMax v <+> "as" <+> prettyPrec 2 t
     prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
     prettyPrec _ (VValTy v t) = parens $ hsep [pretty v, ":", pretty t]
 

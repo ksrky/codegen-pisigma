@@ -79,7 +79,9 @@ a2cVal = cata $ \case
                     let x_env = (fromString "x_env", t_env) in
                     let d = C.DProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
                     let ds = zipWith (\x i -> C.DProj x (C.VVar x_env) i) escs' [1..] in
-                    foldr C.ELet e' (d : ds)
+                    if r_env == C.REmpty
+                        then foldr C.ELet e' ds
+                        else foldr C.ELet e' (d : ds)
                 }
         appendDef v_code
         return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb x_code : map C.VVar escs')) t_cl) t_cl
