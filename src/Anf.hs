@@ -42,6 +42,7 @@ data Dec
 
 data Exp
     = ELet Dec Exp
+    | ELetrec [Dec] Exp
     | ERet Val
     | EExpTy Exp Ty
     deriving (Eq, Show)
@@ -80,5 +81,6 @@ instance Typeable Dec where
 instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ e ->  e
+        ELetrecF _ e -> e
         ERetF v -> typeof v
         EExpTyF _ t -> t

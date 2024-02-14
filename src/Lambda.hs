@@ -31,6 +31,7 @@ data Exp
     | EApp Exp Exp
     | ELam Var Exp
     | ELet Var Exp Exp
+    | ELetrec [(Var, Exp)] Exp
     | EExpTy Exp Ty
     deriving (Eq, Show)
 
@@ -60,4 +61,5 @@ instance Typeable Exp where
             _          -> error "impossible"
         ELamF (_, t1) t2 -> TFun t1 t2
         ELetF _ _ t -> t
+        ELetrecF _ t -> t
         EExpTyF _ t -> t

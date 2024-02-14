@@ -7,7 +7,7 @@ module Untyped (
     Prog,) where
 
 import Id
-import Prettyprinter            hiding (pretty)
+import Prettyprinter      hiding (pretty)
 import Prettyprinter.Prec
 
 newtype Lit = LInt Int

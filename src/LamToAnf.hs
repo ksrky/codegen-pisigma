@@ -21,7 +21,7 @@ l2aExp (L.ELit l) kont = kont $ A.VLit (l2aLit l)
 l2aExp (L.EVar x) kont = kont $ A.VVar (l2aVar x)
 -- TODO: Defunctionalization
 -- for example, @(+) 1 2@ should not be curried,
--- and @(+) 1@ should be converted to @\x -> (+) x 1@ 
+-- and @(+) 1@ should be converted to @\x -> (+) x 1@
 l2aExp (L.EApp e1 e2) kont =
     l2aExp e1 $ \v1 ->
     l2aExp e2 $ \v2 ->
@@ -35,6 +35,10 @@ l2aExp (L.ELam x e) kont = kont $ A.VLam [l2aVar x] (l2aExp e A.ERet)
 l2aExp (L.ELet x e1 e2) kont =
     l2aExp e1 $ \v1 ->
     A.ELet (A.DVal (l2aVar x) v1) (l2aExp e2 kont)
+l2aExp (L.ELetrec xes1 e2) kont = go [] xes1
+  where
+    go acc [] = A.ELetrec (map (uncurry A.DVal) acc) (l2aExp e2 kont)
+    go acc ((x, e) : xes) = l2aExp e $ \v -> go ((l2aVar x, v) : acc) xes
 l2aExp (L.EExpTy e t) kont = l2aExp e $ \v -> kont $ A.VValTy v (l2aTy t)
 
 l2aProg :: L.Prog -> A.Prog
