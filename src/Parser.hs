@@ -1,13 +1,14 @@
 module Parser (pTy, pExp, parseProg) where
 
-import Data.Text                  hiding (empty)
+import Control.Monad
+import Control.Monad.Combinators.Expr
+import Data.Text                      (Text)
+import Data.Text                      qualified as Text
 import Data.Void
-import Id
-import Lambda
-import Lambda.Prim
+import Raw
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import Text.Megaparsec.Char.Lexer qualified as L
+import Text.Megaparsec.Char.Lexer     qualified as L
 
 type Parser = Parsec Void Text
 
@@ -29,77 +30,63 @@ stringL = lexeme . string
 parens :: Parser a -> Parser a
 parens = lexeme . between (char '(') (char ')')
 
-ifPrec :: Int -> Int -> Parser a -> Parser a
-ifPrec p1 p2 p = if p1 < p2 then p else empty
-
 pName :: Parser String
-pName = (:) <$> letterChar <*> many alphaNumChar <?> "<Id>"
-
-pId :: Parser Id
-pId = fromString <$> lexeme pName <?> "<Id>"
+pName = do
+    x <- lexeme ((:) <$> letterChar <*> many alphaNumChar) <?> "Name"
+    when (x `elem` ["let", "in", "Int"]) empty
+    return x
 
 pLit :: Parser Lit
-pLit = LInt <$> lexeme L.decimal <?> "<Lit>"
+pLit = LInt <$> lexeme L.decimal <?> "Lit"
 
 pTInt :: Parser Ty
-pTInt = TInt <$ stringL "Int" <?> "<TInt>"
+pTInt = TInt <$ stringL "Int" <?> "TInt"
 
-pTFun :: Parser Ty
-pTFun = TFun <$> pTy 2 <* stringL "->" <*> pTy 1 <?> "<TFun>"
+pTy1 :: Parser Ty
+pTy1 = lexeme (pTInt <|> parens pTy) <?> "Ty1"
 
-pTy :: Int -> Parser Ty
-pTy p = try (ifPrec p 1 pTFun) <|> pTInt <|> parens (pTy 0) <?> "<Ty>"
-
-pVar :: Parser Var
-pVar = (,) <$> pId <* charL ':' <*> pTy 0 <?> "<Var>"
+pTy :: Parser Ty
+pTy = makeExprParser pTy1 [[InfixR (TFun <$ stringL "->")]] <?> "Ty"
 
 pELit :: Parser Exp
-pELit = ELit <$> pLit <?> "<ELit>"
+pELit = ELit <$> pLit <?> "ELit"
 
 pEVar :: Parser Exp
-pEVar = EVar <$> parens pVar <?> "<EVar>"
+pEVar = EVar <$> pName <?> "EVar"
 
 pEApp :: Parser Exp
-pEApp = EApp <$> pExp 9 <*> pExp 8 <?> "<EApp>"
+pEApp = do
+    e1 <- pExp1
+    es <- some pExp1
+    return (foldl EApp e1 es) <?> "<EApp>"
 
 pELam :: Parser Exp
-pELam = ELam <$> (charL '\\' *> parens pVar) <* stringL "->" <*> pExp 0 <?> "<ELam>"
+pELam = ELam <$> (charL '\\' *> parens pName) <* charL ':' <*> pTy1 <* stringL "->" <*> pExp <?> "ELam"
 
 pELet :: Parser Exp
-pELet = ELet <$> (stringL "let" *> pVar) <* charL '=' <*> pExp 0 <* stringL "in" <*> pExp 0 <?> "<ELet>"
+pELet = ELet <$> (stringL "let" *> pName) <* charL '=' <*> pExp <* stringL "in" <*> pExp <?> "ELet"
 
-pEExpTy :: Parser Exp
-pEExpTy = parens (EExpTy <$> lexeme (pExp 0 <* char ':') <*> pTy 0) <?> "<EExpTy>"
-
-pBinMul :: Parser Exp
-pBinMul = EApp <$> (EApp (EVar varTimes) <$> pExp 7) <* charL '*' <*> pExp 6 <?> "<BinTimes>"
-
-pBinAdd :: Parser Exp
-pBinAdd = EApp <$> (EApp (EVar varPlus) <$> pExp 6) <* charL '+' <*> pExp 5 <?> "<BinAdd>"
-
-pAtom :: Parser Exp
-pAtom =
+pExp1 :: Parser Exp
+pExp1 =
     pELit
-    <|> try pEVar
-    <|> try pEExpTy
-    <|> try (parens (pExp 0)) <?> "<Atom>"
+    <|> pEVar
+    <|> parens pExp <?> "Exp1"
 
-pExp :: Int -> Parser Exp
-pExp p = lexeme (
-    try (ifPrec p 9 pEApp)
-    <|> try (ifPrec p 7 pBinMul)
-    <|> try (ifPrec p 6 pBinAdd)
-    <|> ifPrec p 1 pELet
-    <|> pAtom
-    <|> ifPrec p 2 pELam)
-    <?> "<Exp>"
+pExp2 :: Parser Exp
+pExp2 = makeExprParser (try pEApp <|> pExp1) table <?> "Exp2"
+  where
+    table =
+        [ [InfixL (EBinOp . Text.unpack <$> stringL "*")]
+        , [InfixL (EBinOp . Text.unpack <$> stringL "+")]
+        ]
+
+pExp :: Parser Exp
+pExp = pELam <|> pELet <|> pExp2 <?> "Exp"
 
 pProg :: Parser Prog
-pProg = pExp 0 <* eof <?> "<Prog>"
+pProg = pExp <* eof <?> "<Prog>"
 
 parseProg :: MonadFail m => String -> Text -> m Prog
 parseProg fname input = case runParser pProg fname input of
     Left err   -> fail $ errorBundlePretty err
     Right prog -> return prog
-
-

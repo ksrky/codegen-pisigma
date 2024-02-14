@@ -35,6 +35,8 @@ library
       LamToAnf
       Parser
       Prettyprinter.Prec
+      Raw
+      RawToLam
       Toplevel
       Untyped
   other-modules:
@@ -54,6 +56,7 @@ library
     , lens
     , megaparsec
     , mtl
+    , parser-combinators
     , prettyprinter
     , recursion-schemes
     , text
@@ -81,6 +84,7 @@ test-suite codegen-pisigma-test
     , lens
     , megaparsec
     , mtl
+    , parser-combinators
     , prettyprinter
     , recursion-schemes
     , text
