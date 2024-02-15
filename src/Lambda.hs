@@ -20,11 +20,11 @@ import Id
 newtype Lit = LInt Int
     deriving (Eq, Show)
 
-data Meta = Meta Int (IORef (Maybe Ty))
+newtype Meta = Meta (IORef (Maybe Ty))
     deriving (Eq)
 
 instance Show Meta where
-    show (Meta i _) = "?" ++ show i
+    show (Meta _) = "?m"
 
 data Ty
     = TInt

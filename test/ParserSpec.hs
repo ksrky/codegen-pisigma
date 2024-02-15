@@ -6,7 +6,7 @@ import Test.Hspec
 
 spec :: Spec
 spec = do
-  describe "parse" $ do
+  describe "parseProg" $ do
     it "42" $
       parseProg "42" `shouldReturn` ELit (LInt 42)
     it "x" $

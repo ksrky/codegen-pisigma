@@ -18,13 +18,13 @@ r2lLit :: R.Lit -> L.Lit
 r2lLit (R.LInt i) = L.LInt i
 
 newTyVar :: TcM L.Ty
-newTyVar = L.TMeta . L.Meta 0 <$> liftIO (newIORef Nothing)
+newTyVar = L.TMeta . L.Meta <$> liftIO (newIORef Nothing)
 
 readMeta :: L.Meta -> IO (Maybe L.Ty)
-readMeta (L.Meta _ ref) = readIORef ref
+readMeta (L.Meta ref) = readIORef ref
 
 writeMeta :: L.Meta -> L.Ty -> IO ()
-writeMeta (L.Meta _ ref) t = writeIORef ref (Just t)
+writeMeta (L.Meta ref) t = writeIORef ref (Just t)
 
 getMetas :: L.Ty -> [L.Meta]
 getMetas = cata $ \case
@@ -129,11 +129,14 @@ instance Zonking L.Ty where
         L.TIntF -> return L.TInt
         L.TFunF t1 t2 -> L.TFun <$> t1 <*> t2
         L.TMetaF m -> readMeta m >>= \case
-            Nothing -> return $ L.TMeta m
+            Nothing -> return L.TInt -- return $ L.TMeta m
             Just t -> do
                 t' <- zonk t
                 writeMeta m t'
-                return t'
+                -- return t'
+                case t' of
+                    L.TMeta _ -> return L.TInt
+                    _         -> return t'
 
 instance Zonking L.Var where
     zonk (x, t) = (x,) <$> zonk t
@@ -141,10 +144,10 @@ instance Zonking L.Var where
 instance Zonking L.Exp where
     zonk = cata $ \case
         L.ELitF l -> return $ L.ELit l
-        L.EVarF x -> return $ L.EVar x
+        L.EVarF x -> L.EVar <$> zonk x
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
-        L.ELamF x e -> L.ELam x <$> e
-        L.ELetF x e1 e2 -> L.ELet x <$> e1 <*> e2
+        L.ELamF x e -> L.ELam <$> zonk x <*> e
+        L.ELetF x e1 e2 -> L.ELet <$> zonk x <*> e1 <*> e2
         L.ELetrecF xes e2 -> L.ELetrec <$> mapM (\(x, e) -> ((,) <$> zonk x) <*> e) xes <*> e2
         L.EExpTyF e t -> L.EExpTy <$> e <*> zonk t
 

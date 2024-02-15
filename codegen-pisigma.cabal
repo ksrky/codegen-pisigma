@@ -32,6 +32,7 @@ library
       Id
       Lambda
       Lambda.Prim
+      Lambda.Tc
       LamToAnf
       Parser
       Prettyprinter.Prec
@@ -66,6 +67,7 @@ test-suite codegen-pisigma-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      LambdaSpec
       ParserSpec
       Paths_codegen_pisigma
   autogen-modules:

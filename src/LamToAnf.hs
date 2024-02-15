@@ -12,7 +12,7 @@ l2aTy :: L.Ty -> A.Ty
 l2aTy = cata $ \case
     L.TIntF       -> A.TInt
     L.TFunF t1 t2 -> A.TFun [t1] t2
-    L.TMetaF _    -> A.TInt -- TODO: polymorphism
+    L.TMetaF _    -> error "unsolved meta"
 
 l2aVar :: L.Var -> A.Var
 l2aVar (x, t) = (x, l2aTy t)
