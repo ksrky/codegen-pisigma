@@ -1,4 +1,4 @@
-module Parser (pTy, pExp, parseProg) where
+module Parser (pExp, parseProg) where
 
 import Control.Monad
 import Control.Monad.Combinators.Expr
@@ -33,20 +33,11 @@ parens = lexeme . between (char '(') (char ')')
 pName :: Parser String
 pName = do
     x <- lexeme ((:) <$> letterChar <*> many alphaNumChar) <?> "Name"
-    when (x `elem` ["let", "in", "Int"]) empty
+    when (x `elem` ["let", "in", "rec", "and", "Int"]) empty
     return x
 
 pLit :: Parser Lit
 pLit = LInt <$> lexeme L.decimal <?> "Lit"
-
-pTInt :: Parser Ty
-pTInt = TInt <$ stringL "Int" <?> "TInt"
-
-pTy1 :: Parser Ty
-pTy1 = lexeme (pTInt <|> parens pTy) <?> "Ty1"
-
-pTy :: Parser Ty
-pTy = makeExprParser pTy1 [[InfixR (TFun <$ stringL "->")]] <?> "Ty"
 
 pELit :: Parser Exp
 pELit = ELit <$> pLit <?> "ELit"
@@ -57,14 +48,23 @@ pEVar = EVar <$> pName <?> "EVar"
 pEApp :: Parser Exp
 pEApp = do
     e1 <- pExp1
-    es <- some pExp1
-    return (foldl EApp e1 es) <?> "<EApp>"
+    es <- some $ try pExp1
+    return (foldl EApp e1 es) <?> "EApp"
 
 pELam :: Parser Exp
-pELam = ELam <$> (charL '\\' *> parens pName) <* charL ':' <*> pTy1 <* stringL "->" <*> pExp <?> "ELam"
+pELam = ELam <$> (charL '\\' *> pName) <* stringL "->" <*> pExp <?> "ELam"
+
+pBinding :: Parser (String, Exp)
+pBinding = (,) <$> pName <* charL '=' <*> lexeme pExp <?> "Binding"
+
+pBindings :: Parser [(String, Exp)]
+pBindings = pBinding `sepBy` stringL "and" <?> "Bindings"
 
 pELet :: Parser Exp
-pELet = ELet <$> (stringL "let" *> pName) <* charL '=' <*> pExp <* stringL "in" <*> pExp <?> "ELet"
+pELet = ELet <$> (stringL "let" *> pBindings) <* stringL "in" <*> pExp <?> "ELet"
+
+pELetrec :: Parser Exp
+pELetrec = ELetrec <$> (stringL "let rec" *> pBindings) <* stringL "in" <*> pExp <?> "ELet"
 
 pExp1 :: Parser Exp
 pExp1 =
@@ -81,12 +81,12 @@ pExp2 = makeExprParser (try pEApp <|> pExp1) table <?> "Exp2"
         ]
 
 pExp :: Parser Exp
-pExp = pELam <|> pELet <|> pExp2 <?> "Exp"
+pExp = lexeme (pELam <|> try pELetrec <|> pELet <|> pExp2) <?> "Exp"
 
 pProg :: Parser Prog
-pProg = pExp <* eof <?> "<Prog>"
+pProg = pExp <* eof <?> "Prog"
 
-parseProg :: MonadFail m => String -> Text -> m Prog
-parseProg fname input = case runParser pProg fname input of
+parseProg :: MonadFail m => Text -> m Prog
+parseProg inp = case runParser pProg "main" inp of
     Left err   -> fail $ errorBundlePretty err
     Right prog -> return prog

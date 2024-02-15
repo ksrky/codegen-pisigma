@@ -5,56 +5,50 @@ module Id (
     HasAttr(..),
     Id(..),
     name,
-    attr,
     uniq,
-    fromString) where
+    fromString,
+    localId) where
 
 import Control.Lens.Combinators
+import Control.Lens.Operators
+import Control.Monad.IO.Class
 import Data.IORef
-import GHC.IO                   (unsafePerformIO)
 import Prettyprinter.Prec
 
-type Uniq = Int
+type Uniq = IORef ()
 
-uniqSupplier :: IO (IORef Uniq)
-uniqSupplier = newIORef 0
-
--- | TODO: replace with a pure implementation
-{-# NOINLINE newUniq #-}
-newUniq :: Uniq
-newUniq = unsafePerformIO $ do
-    ref <- uniqSupplier
-    uniq <- readIORef ref
-    modifyIORef ref (+ 1)
-    return uniq
+newUniq :: MonadIO m => m Uniq
+newUniq = liftIO $ newIORef ()
 
 newtype Attr = Attr {_extern :: Bool}
     deriving (Eq, Show)
 
-class HasAttr a where
-    attrL :: Lens' a Attr
-    extern :: Lens' a Bool
-    extern = attrL . go where go f (Attr x) = Attr <$> f x
-
-instance HasAttr Attr where
-    attrL = id
+makeClassy ''Attr
 
 instance HasAttr a => HasAttr (a, b) where
-    attrL = _1 . attrL
+    attr = _1 . attr
 
 noAttr :: Attr
 noAttr = Attr {_extern = False}
 
-data Id = Id {_name :: String, _attr :: Attr, _uniq :: Uniq}
-    deriving (Eq, Show)
+data Id = Id {_name :: String, _attr :: Attr, _uniq :: Maybe Uniq}
 
-makeLenses ''Id
+makeLensesFor [("_name", "name"), ("_uniq", "uniq")] ''Id
 
-fromString :: String -> Id
-fromString s = Id s noAttr newUniq
+instance Eq Id where
+    x == y = x ^. name == y ^.name && x ^. uniq == y ^. uniq
+
+instance Show Id where
+    show = _name
 
 instance HasAttr Id where
-    attrL = lens _attr (\x y -> x {_attr = y})
+    attr = lens _attr (\x y -> x {_attr = y})
 
 instance PrettyPrec Id where
     pretty = pretty . _name
+
+fromString :: MonadIO m => String -> m Id
+fromString s = Id s noAttr . Just <$> newUniq
+
+localId :: String -> Id
+localId s = Id s noAttr Nothing

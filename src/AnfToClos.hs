@@ -3,6 +3,7 @@ module AnfToClos (a2cProg) where
 import Anf                      qualified as A
 import Closure                  qualified as C
 import Control.Lens.Combinators
+import Control.Lens.Operators
 import Control.Monad.RWS
 import Data.Functor.Foldable
 import Data.List                qualified as List
@@ -14,7 +15,7 @@ type Locals = [Id]
 type Escapes = [C.Var]
 
 -- | Closure Conversion Monad
-type CCM = RWS Locals [C.Def] Escapes
+type CCM = RWST Locals [C.Def] Escapes IO
 
 resetEscapes :: ([C.Var] -> [C.Var]) -> CCM [C.Var]
 resetEscapes new = do
@@ -39,12 +40,12 @@ a2cLit (A.LInt i) = C.LInt i
 a2cTy :: A.Ty -> C.Ty
 a2cTy = cata $ \case
     A.TIntF       -> C.TInt
-    A.TFunF ts1 t2 -> mkTEx ts1 t2 -- tmp
+    A.TFunF ts1 t2 -> mkTEx ts1 t2
 
 mkTEx :: [C.Ty] -> C.Ty -> C.Ty
 mkTEx ts t =
-    let tv_env = fromString "t_env" in
-    let tv_cl = fromString "t_cl" in
+    let tv_env = localId "t_env" in
+    let tv_cl = localId "t_cl" in
     C.TEx tv_env $ C.TRec tv_cl $ C.TRow $ C.RSeq (C.TFun (C.TVar tv_cl : ts) t) (C.RVar tv_env)
 
 a2cVar :: A.Var -> C.Var
@@ -65,17 +66,17 @@ a2cVal = cata $ \case
         let r_env = foldr (C.RSeq . snd) C.REmpty escs'
             t_env = C.TRow r_env
             t_cl =
-                let tv_cl = fromString "tv_cl" in
+                let tv_cl = localId "tv_cl" in
                 C.TRec tv_cl $ C.TRow $
                     C.RSeq (C.TFun (C.TVar tv_cl : map snd xs') (C.typeof e')) r_env
-            x_cl = (fromString "x_cl", t_cl)
+            x_cl = (localId "x_cl", t_cl)
             t_code = C.TFun (t_cl : map snd xs') (C.typeof e')
-            x_code = (fromString "x_code", t_code)
-            v_code = C.Def {
+        x_code <- (,t_code) <$> fromString "x_code"
+        let v_code = C.Def {
                 C.name = x_code,
                 C.args = x_cl : xs',
                 C.body =
-                    let x_env = (fromString "x_env", t_env) in
+                    let x_env = (localId "x_env", t_env) in
                     if r_env == C.REmpty then e'
                     else
                         let d = C.DProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
@@ -96,9 +97,9 @@ a2cDec (A.DCall x v1 vs2) = do
     let (tv_env, t_cl) = case a2cTy (A.typeof v1) of
             t@(C.TEx tv _) -> (tv, t)
             _              -> error "impossible"
-    let x_cl = (fromString "x_cl", t_cl)
+    let x_cl = (localId "x_cl", t_cl)
     let t_code = C.TFun (t_cl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
-    let x_code = (fromString "x_code", t_code)
+    let x_code = (localId "x_code", t_code)
     d1 <- C.DUnpack tv_env x_cl <$> a2cVal v1
     let d2 = C.DProj x_code (C.VVar x_cl) 1
     d3 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
@@ -127,20 +128,20 @@ a2cExp = cata $ \case
             let r_escs = foldr (C.RSeq . snd) C.REmpty escs
                 r_env = foldr C.RSeq r_escs (tail $ rotate (i-1) t_excls)
                 t_env = C.TRow r_env
-                tv_cl = fromString $ "tv_cl" ++ show i
+                tv_cl = localId $ "tv_cl" ++ show i
                 t_cl = C.TRec tv_cl $ C.TRow $ C.RSeq (C.TFun (map snd xs) (C.typeof e)) r_env
                 t_excl = mkTEx (map snd xs) (C.typeof e)
-                x_cl = (fromString $ "x_cl" ++ show i, t_cl)
+                x_cl = (localId "x_cl", t_cl)
                 t_code = C.TFun (t_cl : map snd xs) (C.typeof e)
-                x_code = (fromString "x_code", t_code)
-                v_code = C.Def {
+            x_code <- (,t_code) <$> fromString (fst f ^. name  ++ "_code")
+            let v_code = C.Def {
                     C.name = x_code,
                     C.args = x_cl : xs,
                     C.body =
                         let di = C.DVal f $ C.VPack t_env (C.VVar x_cl) t_excl in
                         if r_env == C.REmpty then C.ELet di e
                         else
-                            let x_env = (fromString "x_env", t_env) in
+                            let x_env = (localId "x_env", t_env) in
                             let d_env = C.DProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
                             let ds_cl = zipWith (\fj j -> C.DProj fj (C.VVar x_env) j) (tail $ rotate (i-1) fs) [1..] in
                             let ds_esc = zipWith (\x j -> C.DProj x (C.VVar x_env) j) escs [n..] in
@@ -162,5 +163,5 @@ a2cRecDec (A.DVal f (A.VLam xs e)) = do
     return (a2cVar f, xs', e', escs')
 a2cRecDec _ = error "not implemented"
 
-a2cProg :: A.Prog -> C.Prog
-a2cProg e = Tuple.swap $ evalRWS (a2cExp e) [] []
+a2cProg :: A.Prog -> IO C.Prog
+a2cProg e = Tuple.swap <$> evalRWST (a2cExp e) [] []

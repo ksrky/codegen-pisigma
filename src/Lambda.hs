@@ -2,6 +2,7 @@
 
 module Lambda (
     Lit(..),
+    Meta(..),
     Ty(..),
     TyF(..),
     Var,
@@ -12,15 +13,23 @@ module Lambda (
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
+import Data.IORef
 import GHC.Stack
 import Id
 
 newtype Lit = LInt Int
     deriving (Eq, Show)
 
+data Meta = Meta Int (IORef (Maybe Ty))
+    deriving (Eq)
+
+instance Show Meta where
+    show (Meta i _) = "?" ++ show i
+
 data Ty
     = TInt
     | TFun Ty Ty
+    | TMeta Meta
     deriving (Eq, Show)
 
 type Var = (Id, Ty)

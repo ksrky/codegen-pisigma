@@ -5,13 +5,13 @@ import Id
 import Lambda
 
 idTimes :: Id
-idTimes = fromString "*" & extern .~ True
+idTimes = localId "*" & extern .~ True
 
 varTimes :: Var
 varTimes = (idTimes, TFun TInt (TFun TInt TInt))
 
 idPlus :: Id
-idPlus = fromString "+" & extern .~ True
+idPlus = localId "+" & extern .~ True
 
 varPlus :: Var
 varPlus = (idPlus, TFun TInt (TFun TInt TInt))

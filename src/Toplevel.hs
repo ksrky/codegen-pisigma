@@ -11,10 +11,10 @@ import RawToLam
 
 runMain :: Text -> IO ()
 runMain inp = do
-    raw_prog <- parseProg "interactive" inp
+    raw_prog <- parseProg inp
     lam_prog <- r2lProg raw_prog
     let anf_prog = l2aProg lam_prog
-    let clos_prog = a2cProg anf_prog
+    clos_prog <- a2cProg anf_prog
     let unty_prog = c2uProg clos_prog
     putDocW 60 $ pretty clos_prog
     putStrLn ""

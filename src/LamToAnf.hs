@@ -12,6 +12,7 @@ l2aTy :: L.Ty -> A.Ty
 l2aTy = cata $ \case
     L.TIntF       -> A.TInt
     L.TFunF t1 t2 -> A.TFun [t1] t2
+    L.TMetaF _    -> A.TInt -- TODO: polymorphism
 
 l2aVar :: L.Var -> A.Var
 l2aVar (x, t) = (x, l2aTy t)
@@ -28,7 +29,7 @@ l2aExp (L.EApp e1 e2) kont =
     let t_call = case A.typeof v1 of
             A.TFun _ t2 -> t2
             _           -> error "impossible" in
-    let x = (Id.fromString "x_call", t_call) in
+    let x = (localId "x_call", t_call) in -- tmp: localId?
     let body = kont (A.VVar x) in
     A.ELet (A.DCall x v1 [v2]) body
 l2aExp (L.ELam x e) kont = kont $ A.VLam [l2aVar x] (l2aExp e A.ERet)
