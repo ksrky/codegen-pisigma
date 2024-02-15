@@ -2,6 +2,7 @@
 
 module Closure (
     Lit(..),
+    TyVar,
     Ty(..),
     TyF(..),
     Row(..),
@@ -13,7 +14,9 @@ module Closure (
     ExpF(..),
     Def(..),
     Prog,
-    Typeable(..)) where
+    Typeable(..),
+    StripAnn(..),
+    mkTTuple) where
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
@@ -36,7 +39,7 @@ data Ty
     | TRow Row
     deriving (Eq, Show)
 
-data Row = REmpty | RVar TyVar | RSeq Ty Row
+data Row = REmpty | RVar TyVar | Ty :> Row
     deriving (Eq, Show)
 
 type Var = (Id, Ty)
@@ -91,7 +94,7 @@ instance Typeable Val where
         VLitF l -> typeof l
         VVarF x -> typeof x
         VGlbF f -> typeof f
-        VTupleF vs -> TRow $ foldr (RSeq . typeof) REmpty vs
+        VTupleF vs -> TRow $ foldr ((:>) . typeof) REmpty vs
         VPackF _ _ t -> t
         VRollF _ t -> t
         VUnrollF v -> case v of
@@ -110,13 +113,10 @@ instance Typeable Dec where
         TRow r -> go i r
         _      -> error "impossible"
       where
-        go 1 REmpty     = TRow REmpty
-            -- tmp: projection to an empty environment
-            -- another representation is needed? for example, Nil or Void.
-            -- or, disallow it and make sure not to generate empty environements.
-        go 1 (RSeq t _) = t
-        go n (RSeq _ r) = go (n - 1) r
-        go _ _          = error "impossible"
+        -- Make sure not to generate empty environements.
+        go 1 (t :> _) = t
+        go n (_ :> r) = go (n - 1) r
+        go _ _        = error "impossible"
     typeof (DUnpack _ _ v) = case typeof v of
         TEx _ t -> t
         _       -> error "impossible"
@@ -140,9 +140,9 @@ instance PrettyPrec Ty where
     prettyPrec _ (TRow r) = angles $ pretty r
 
 instance PrettyPrec Row where
-    pretty REmpty     = "ε"
-    pretty (RVar tv)  = pretty tv
-    pretty (RSeq t r) = pretty t <> ";" <+> pretty r
+    pretty REmpty    = "ε"
+    pretty (RVar tv) = pretty tv
+    pretty (t :> r)  = pretty t <> ";" <+> pretty r
 
 instance PrettyPrec Var where
     pretty (x, t) = pretty x <+> ":" <+> pretty t
@@ -172,7 +172,36 @@ instance PrettyPrec Exp where
     pretty (EExpTy e t) = parens $ pretty e <+> ":" <+> pretty t
 
 instance PrettyPrec Def where
-    pretty (Def (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <+> align (pretty e)
+    pretty (Def (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <> line <> indent 2 (pretty e)
 
 instance PrettyPrec Prog where
     pretty (ds, e) = vsep (map pretty ds) <> line <> pretty e
+
+class StripAnn a where
+    stripAnn :: a -> a
+
+instance StripAnn Val where
+    stripAnn = cata $ \case
+        VValTyF v _ -> v
+        v           -> embed v
+
+instance StripAnn Dec where
+    stripAnn (DVal x v)       = DVal x (stripAnn v)
+    stripAnn (DCall x v vs)   = DCall x (stripAnn v) (map stripAnn vs)
+    stripAnn (DProj x v i)    = DProj x (stripAnn v) i
+    stripAnn (DUnpack tv x v) = DUnpack tv x (stripAnn v)
+
+instance StripAnn Exp where
+    stripAnn = cata $ \case
+        ELetF d e -> ELet (stripAnn d) (stripAnn e)
+        ERetF v   -> ERet (stripAnn v)
+        EExpTyF e _ -> e
+
+instance StripAnn Def where
+    stripAnn (Def f xs e) = Def f xs (stripAnn e)
+
+instance StripAnn Prog where
+    stripAnn (ds, e) = (map stripAnn ds, stripAnn e)
+
+mkTTuple :: [Ty] -> Ty
+mkTTuple ts = TRow $ foldr (:>) REmpty ts

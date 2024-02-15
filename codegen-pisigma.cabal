@@ -30,6 +30,7 @@ library
       AnfToClos
       ClosToUnty
       Closure
+      Closure.Tc
       Id
       Lambda
       Lambda.Prim
@@ -69,6 +70,7 @@ test-suite codegen-pisigma-test
   main-is: Spec.hs
   other-modules:
       AnfSpec
+      ClosureSpec
       LambdaSpec
       ParserSpec
       Paths_codegen_pisigma

@@ -8,7 +8,7 @@ import Parser
 import RawToLam
 import Test.Hspec
 
-textToAnf :: Text -> IO Exp
+textToAnf :: Text -> IO Prog
 textToAnf inp = do
   raw_prog <- parseProg inp
   lam_prog <- r2lProg raw_prog
@@ -19,10 +19,10 @@ tcAnf inp = tcProg =<< textToAnf inp
 
 spec :: Spec
 spec = do
-  describe "textToLambda" $ do
+  describe "textToAnf" $ do
     it "42" $
       textToAnf "42" `shouldReturn` ERet (VValTy (VLit (LInt 42)) TInt)
-  describe "tcLambda" $ do
+  describe "tcAnf" $ do
     it "\\x -> x" $
       tcAnf "\\x -> x" `shouldReturn` ()
     it "let x = 42 in x" $

@@ -46,7 +46,7 @@ mkTEx :: [C.Ty] -> C.Ty -> C.Ty
 mkTEx ts t =
     let tv_env = localId "t_env" in
     let tv_cl = localId "t_cl" in
-    C.TEx tv_env $ C.TRec tv_cl $ C.TRow $ C.RSeq (C.TFun (C.TVar tv_cl : ts) t) (C.RVar tv_env)
+    C.TEx tv_env $ C.TRec tv_cl $ C.TRow $ C.TFun (C.TVar tv_cl : ts) t C.:> C.RVar tv_env
 
 a2cVar :: A.Var -> C.Var
 a2cVar (x, t) = (x, a2cTy t)
@@ -63,12 +63,13 @@ a2cVal = cata $ \case
         escs <- resetEscapes $ const []
         e' <- local (const $ map fst xs) $ a2cExp e
         escs' <- resetEscapes (escs ++)
-        let r_env = foldr (C.RSeq . snd) C.REmpty escs'
+        let r_env = foldr ((C.:>) . snd) C.REmpty escs'
             t_env = C.TRow r_env
             t_cl =
                 let tv_cl = localId "tv_cl" in
                 C.TRec tv_cl $ C.TRow $
-                    C.RSeq (C.TFun (C.TVar tv_cl : map snd xs') (C.typeof e')) r_env
+                    C.TFun (C.TVar tv_cl : map snd xs') (C.typeof e') C.:> r_env
+            t_excl = mkTEx (map snd xs') (C.typeof e')
             x_cl = (localId "x_cl", t_cl)
             t_code = C.TFun (t_cl : map snd xs') (C.typeof e')
         x_code <- (,t_code) <$> fromString "x_code"
@@ -84,7 +85,7 @@ a2cVal = cata $ \case
                         foldr C.ELet e' (d : ds)
                 }
         appendDef v_code
-        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb x_code : map C.VVar escs')) t_cl) t_cl
+        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb x_code : map C.VVar escs')) t_cl) t_excl
     A.VValTyF mv t -> C.VValTy <$> mv <*> pure (a2cTy t)
 
 a2cDec :: A.Dec -> CCM [C.Dec]
@@ -121,11 +122,11 @@ a2cExp = cata $ \case
             fs = map (view _1) predata
         ds' <- forM [1..n] $ \i -> do
             let (f, xs, e, escs) = predata !! (i - 1)
-            let r_escs = foldr (C.RSeq . snd) C.REmpty escs
-                r_env = foldr C.RSeq r_escs (tail $ rotate (i-1) t_excls)
+            let r_escs = foldr ((C.:>) . snd) C.REmpty escs
+                r_env = foldr (C.:>) r_escs (tail $ rotate (i-1) t_excls)
                 t_env = C.TRow r_env
                 tv_cl = localId $ "tv_cl" ++ show i
-                t_cl = C.TRec tv_cl $ C.TRow $ C.RSeq (C.TFun (map snd xs) (C.typeof e)) r_env
+                t_cl = C.TRec tv_cl $ C.TRow $ C.TFun (map snd xs) (C.typeof e) C.:> r_env
                 t_excl = mkTEx (map snd xs) (C.typeof e)
                 x_cl = (localId "x_cl", t_cl)
                 t_code = C.TFun (t_cl : map snd xs) (C.typeof e)
