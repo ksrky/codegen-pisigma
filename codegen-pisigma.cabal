@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Anf
+      Anf.Tc
       AnfToClos
       ClosToUnty
       Closure
@@ -67,6 +68,7 @@ test-suite codegen-pisigma-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      AnfSpec
       LambdaSpec
       ParserSpec
       Paths_codegen_pisigma

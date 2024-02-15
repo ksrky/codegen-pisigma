@@ -11,7 +11,8 @@ module Anf (
     Exp(..),
     ExpF(..),
     Prog,
-    Typeable(..)) where
+    Typeable(..),
+    getDecVar) where
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
@@ -84,3 +85,7 @@ instance Typeable Exp where
         ELetrecF _ e -> e
         ERetF v -> typeof v
         EExpTyF _ t -> t
+
+getDecVar :: Dec -> Var
+getDecVar (DVal x _)    = x
+getDecVar (DCall x _ _) = x

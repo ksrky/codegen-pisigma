@@ -15,7 +15,13 @@ check t1 t2 =
 
 tcExp :: Exp -> ReaderT [(Id, Ty)] IO Ty
 tcExp (ELit (LInt _)) = return TInt
-tcExp (EVar x) = return $ snd x
+tcExp (EVar x) = do
+    ctx <- ask
+    case lookup (fst x) ctx of
+        Just t  -> do
+            lift $ check (snd x) t
+            return t
+        Nothing -> fail $ "unbound variable: " ++ show x
 tcExp (EApp e1 e2) = do
     t1 <- tcExp e1
     t2 <- tcExp e2

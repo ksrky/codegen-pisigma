@@ -105,17 +105,13 @@ a2cDec (A.DCall x v1 vs2) = do
     d3 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
     return [d1, d2, d3]
 
-getDecId :: A.Dec -> Id
-getDecId (A.DVal x _)    = fst x
-getDecId (A.DCall x _ _) = fst x
-
 -- | ex. @xs = [x1, x2, x3]@ -> @rotate 1 xs = [x2, x3, x1]@
 rotate :: Int -> [a] -> [a]
 rotate n xs = zipWith const (drop n (cycle xs)) xs
 
 a2cExp :: A.Exp -> CCM C.Exp
 a2cExp = cata $ \case
-    A.ELetF d me -> flip (foldr C.ELet) <$> a2cDec d <*> local (getDecId d:) me
+    A.ELetF d me -> flip (foldr C.ELet) <$> a2cDec d <*> local (fst (A.getDecVar d):) me
     -- @ds@ is not empty
     A.ELetrecF ds me -> do
         let n = length ds
