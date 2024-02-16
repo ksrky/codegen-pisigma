@@ -73,12 +73,6 @@ instance Typeable Val where
         VLamF xs e -> TFun (map typeof xs) (typeof e)
         VValTyF _ t -> t
 
-instance Typeable Dec where
-    typeof (DVal _ v) = typeof v
-    typeof (DCall _ e1 _) = case typeof e1 of
-            TFun _ t12 -> t12
-            _          -> error "impossible"
-
 instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ e ->  e

@@ -2,7 +2,6 @@
 
 module Closure (
     Lit(..),
-    TyVar,
     Ty(..),
     TyF(..),
     Row(..),
@@ -14,6 +13,8 @@ module Closure (
     ExpF(..),
     Def(..),
     Prog,
+    substTop,
+    getDecVar,
     Typeable(..),
     StripAnn(..),
     mkTTuple) where
@@ -28,18 +29,16 @@ import Prettyprinter.Prec
 newtype Lit = LInt Int
     deriving (Eq, Show)
 
-type TyVar = Id
-
 data Ty
     = TInt
-    | TVar TyVar
+    | TVar Int
     | TFun [Ty] Ty
-    | TEx TyVar Ty
-    | TRec TyVar Ty
+    | TEx Ty
+    | TRec Ty
     | TRow Row
     deriving (Eq, Show)
 
-data Row = REmpty | RVar TyVar | Ty :> Row
+data Row = REmpty | RVar Int | Ty :> Row
     deriving (Eq, Show)
 
 type Var = (Id, Ty)
@@ -59,7 +58,7 @@ data Dec
     = DVal Var Val
     | DCall Var Val [Val]
     | DProj Var Val Int
-    | DUnpack TyVar Var Val
+    | DUnpack Var Val -- ignoring the type variable
     deriving (Eq, Show)
 
 data Exp
@@ -68,7 +67,7 @@ data Exp
     | EExpTy Exp Ty
     deriving (Eq, Show)
 
-data Def = Def {name :: Var, args :: [Var], body :: Exp}
+data Def = Def {code :: Var, args :: [Var], body :: Exp}
     deriving (Eq, Show)
 
 type Prog = ([Def], Exp)
@@ -76,6 +75,18 @@ type Prog = ([Def], Exp)
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Val
 makeBaseFunctor ''Exp
+
+substTop :: Ty -> Ty -> Ty
+substTop s = cata $ \case
+    TVarF 0 -> s
+    TVarF i -> TVar (i - 1)
+    t -> embed t
+
+getDecVar :: Dec -> Var
+getDecVar (DVal x _)    = x
+getDecVar (DCall x _ _) = x
+getDecVar (DProj x _ _) = x
+getDecVar (DUnpack x _) = x
 
 class Typeable a where
     typeof :: HasCallStack => a -> Ty
@@ -97,29 +108,11 @@ instance Typeable Val where
         VTupleF vs -> TRow $ foldr ((:>) . typeof) REmpty vs
         VPackF _ _ t -> t
         VRollF _ t -> t
-        VUnrollF v -> case v of
-            TRec tv t -> (cata $ \case
-                TVarF tv' | tv == tv' -> v
-                t' -> embed t') t
-            _ -> error "impossible"
+        VUnrollF v ->
+            case typeof v of
+                TRec t -> substTop (TRec t) t
+                _      -> error "required recursive type"
         VValTyF _ t -> t
-
-instance Typeable Dec where
-    typeof (DVal _ v) = typeof v
-    typeof (DCall _ e1 _) = case typeof e1 of
-        TFun _ t12 -> t12
-        _          -> error "impossible"
-    typeof (DProj _ v i) = case typeof v of
-        TRow r -> go i r
-        _      -> error "impossible"
-      where
-        -- Make sure not to generate empty environements.
-        go 1 (t :> _) = t
-        go n (_ :> r) = go (n - 1) r
-        go _ _        = error "impossible"
-    typeof (DUnpack _ _ v) = case typeof v of
-        TEx _ t -> t
-        _       -> error "impossible"
 
 instance Typeable Exp where
     typeof = cata $ \case
@@ -135,8 +128,8 @@ instance PrettyPrec Ty where
     prettyPrec _ (TVar tv) = pretty tv
     prettyPrec p (TFun ts t) = parPrec p 2 $
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
-    prettyPrec p (TEx tv t) = parPrec p 0 $ "∃" <+> pretty tv <> "." <+> pretty t
-    prettyPrec p (TRec tv t) = parPrec p 0 $ "μ" <+> pretty tv <> "." <+> pretty t
+    prettyPrec p (TEx t) = parPrec p 0 $ "∃." <+> pretty t
+    prettyPrec p (TRec t) = parPrec p 0 $ "μ." <+> pretty t
     prettyPrec _ (TRow r) = angles $ pretty r
 
 instance PrettyPrec Row where
@@ -163,8 +156,7 @@ instance PrettyPrec Dec where
     pretty (DCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
         <+> parens (hsep (punctuate "," (map prettyMax vs2)))
     pretty (DProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
-    pretty (DUnpack tv x v) = brackets (pretty tv <> "," <+> pretty x)
-        <+> "=" <> softline <> "unpack" <+> prettyMax v
+    pretty (DUnpack x v) = brackets ("_," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
 
 instance PrettyPrec Exp where
     pretty (ELet d e)   = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
@@ -186,10 +178,10 @@ instance StripAnn Val where
         v           -> embed v
 
 instance StripAnn Dec where
-    stripAnn (DVal x v)       = DVal x (stripAnn v)
-    stripAnn (DCall x v vs)   = DCall x (stripAnn v) (map stripAnn vs)
-    stripAnn (DProj x v i)    = DProj x (stripAnn v) i
-    stripAnn (DUnpack tv x v) = DUnpack tv x (stripAnn v)
+    stripAnn (DVal x v)     = DVal x (stripAnn v)
+    stripAnn (DCall x v vs) = DCall x (stripAnn v) (map stripAnn vs)
+    stripAnn (DProj x v i)  = DProj x (stripAnn v) i
+    stripAnn (DUnpack x v)  = DUnpack x (stripAnn v)
 
 instance StripAnn Exp where
     stripAnn = cata $ \case

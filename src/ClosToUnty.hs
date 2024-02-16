@@ -27,7 +27,7 @@ c2uDec :: C.Dec -> U.Dec
 c2uDec (C.DVal x v)       = U.DVal (c2uVar x) (c2uVal v)
 c2uDec (C.DCall x v1 vs2) = U.DCall (c2uVar x) (c2uVal v1) (map c2uVal vs2)
 c2uDec (C.DProj x v i)    = U.DProj (c2uVar x) (c2uVal v) i
-c2uDec (C.DUnpack _ x v)  = U.DVal (c2uVar x) (c2uVal v)
+c2uDec (C.DUnpack x v)    = U.DVal (c2uVar x) (c2uVal v)
 
 c2uExp :: C.Exp -> U.Exp
 c2uExp = cata $ \case

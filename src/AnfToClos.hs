@@ -43,10 +43,7 @@ a2cTy = cata $ \case
     A.TFunF ts1 t2 -> mkTEx ts1 t2
 
 mkTEx :: [C.Ty] -> C.Ty -> C.Ty
-mkTEx ts t =
-    let tv_env = localId "t_env" in
-    let tv_cl = localId "t_cl" in
-    C.TEx tv_env $ C.TRec tv_cl $ C.TRow $ C.TFun (C.TVar tv_cl : ts) t C.:> C.RVar tv_env
+mkTEx ts t = C.TEx $ C.TRec $ C.TRow $ C.TFun (C.TVar 0 : ts) t C.:> C.RVar 1
 
 a2cVar :: A.Var -> C.Var
 a2cVar (x, t) = (x, a2cTy t)
@@ -65,16 +62,13 @@ a2cVal = cata $ \case
         escs' <- resetEscapes (escs ++)
         let r_env = foldr ((C.:>) . snd) C.REmpty escs'
             t_env = C.TRow r_env
-            t_cl =
-                let tv_cl = localId "tv_cl" in
-                C.TRec tv_cl $ C.TRow $
-                    C.TFun (C.TVar tv_cl : map snd xs') (C.typeof e') C.:> r_env
+            t_cl = C.TRec $ C.TRow $ C.TFun (C.TVar 0 : map snd xs') (C.typeof e') C.:> r_env
             t_excl = mkTEx (map snd xs') (C.typeof e')
             x_cl = (localId "x_cl", t_cl)
             t_code = C.TFun (t_cl : map snd xs') (C.typeof e')
         x_code <- (,t_code) <$> fromString "x_code"
         let v_code = C.Def {
-                C.name = x_code,
+                C.code = x_code,
                 C.args = x_cl : xs',
                 C.body =
                     let x_env = (localId "x_env", t_env) in
@@ -95,13 +89,14 @@ a2cDec (A.DCall x v1@(A.VVar f) vs2) | view extern f = do
     vs2' <- mapM a2cVal vs2
     return [C.DCall (a2cVar x) v1' vs2']
 a2cDec (A.DCall x v1 vs2) = do
-    let (tv_env, t_cl) = case a2cTy (A.typeof v1) of
-            t@(C.TEx tv _) -> (tv, t)
-            _              -> error "impossible"
+    let (t_cl, t_cl') = case a2cTy (A.typeof v1) of
+            C.TEx t@(C.TRec t') -> (t, t')
+            _                   -> error "impossible"
     let x_cl = (localId "x_cl", t_cl)
-    let t_code = C.TFun (t_cl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
+    d1 <- C.DUnpack x_cl <$> a2cVal v1
+    let t_ucl = C.substTop t_cl' t_cl
+    let t_code = C.TFun (t_ucl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
     let x_code = (localId "x_code", t_code)
-    d1 <- C.DUnpack tv_env x_cl <$> a2cVal v1
     let d2 = C.DProj x_code (C.VVar x_cl) 1
     d3 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
     return [d1, d2, d3]
@@ -125,14 +120,13 @@ a2cExp = cata $ \case
             let r_escs = foldr ((C.:>) . snd) C.REmpty escs
                 r_env = foldr (C.:>) r_escs (tail $ rotate (i-1) t_excls)
                 t_env = C.TRow r_env
-                tv_cl = localId $ "tv_cl" ++ show i
-                t_cl = C.TRec tv_cl $ C.TRow $ C.TFun (map snd xs) (C.typeof e) C.:> r_env
+                t_cl = C.TRec $ C.TRow $ C.TFun (C.TVar 0 : map snd xs) (C.typeof e) C.:> r_env
                 t_excl = mkTEx (map snd xs) (C.typeof e)
                 x_cl = (localId "x_cl", t_cl)
                 t_code = C.TFun (t_cl : map snd xs) (C.typeof e)
             x_code <- (,t_code) <$> fromString (fst f ^. name  ++ "_code")
             let v_code = C.Def {
-                    C.name = x_code,
+                    C.code = x_code,
                     C.args = x_cl : xs,
                     C.body =
                         let di = C.DVal f $ C.VPack t_env (C.VVar x_cl) t_excl in

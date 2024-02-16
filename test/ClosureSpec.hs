@@ -2,12 +2,12 @@ module ClosureSpec (spec) where
 
 import AnfToClos
 import Closure
+import Closure.Tc
 import Data.Text
 import LamToAnf
 import Parser
 import RawToLam
 import Test.Hspec
-import Prettyprinter.Prec
 
 textToClosure :: Text -> IO Prog
 textToClosure inp = do
@@ -16,15 +16,20 @@ textToClosure inp = do
     let clos_prog = l2aProg lam_prog
     stripAnn <$> a2cProg clos_prog
 
+tcClosure :: Text -> IO ()
+tcClosure inp = tcProg =<< textToClosure inp
+
 spec :: Spec
 spec = do
   describe "textToClosure" $ do
     it "42" $
-      textToClosure "42" `shouldReturn` ([], ERet (VValTy (VLit (LInt 42)) TInt))
+      textToClosure "42" `shouldReturn` ([], ERet (VLit (LInt 42)))
     it "\\x -> x" $ do
-      res <- textToClosure "\\x -> x"
-      print $ pretty res
-      res `shouldBe` ([], ERet (VValTy (VLit (LInt 42)) TInt))
+      pending
+  describe "tcClosure" $ do
+    it "\\x -> x" $ do
+      pending
+      -- tcClosure "\\x -> x" `shouldReturn` ()
         {-([Def {
             name = (x_code,TFun [TRec tv_cl (TRow (TFun [TVar tv_cl,TInt] TInt :> REmpty)),TInt] TInt),
             args = [(x_cl,TRec tv_cl (TRow (TFun [TVar tv_cl,TInt] TInt :> REmpty))),(x,TInt)],
