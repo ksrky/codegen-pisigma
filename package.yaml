@@ -23,6 +23,7 @@ language: GHC2021
 
 dependencies:
   - base >= 4.7 && < 5
+  - containers
   - lens
   - megaparsec
   - mtl
@@ -53,7 +54,7 @@ library:
 
 tests:
   codegen-pisigma-test:
-    main: Spec.hs
+    main: Tests.hs
     source-dirs: test
     ghc-options:
       - -threaded
@@ -61,4 +62,7 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - codegen-pisigma
-      - hspec
+      - bytestring
+      - tasty
+      - tasty-hunit
+      - tasty-golden

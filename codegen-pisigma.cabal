@@ -56,6 +56,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , containers
     , lens
     , megaparsec
     , mtl
@@ -67,12 +68,12 @@ library
 
 test-suite codegen-pisigma-test
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: Tests.hs
   other-modules:
-      AnfSpec
-      ClosureSpec
-      LambdaSpec
-      ParserSpec
+      Tests.Anf
+      Tests.Closure
+      Tests.Lambda
+      Tests.Raw
       Paths_codegen_pisigma
   autogen-modules:
       Paths_codegen_pisigma
@@ -86,13 +87,17 @@ test-suite codegen-pisigma-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , codegen-pisigma
-    , hspec
+    , containers
     , lens
     , megaparsec
     , mtl
     , parser-combinators
     , prettyprinter
     , recursion-schemes
+    , tasty
+    , tasty-golden
+    , tasty-hunit
     , text
   default-language: GHC2021
