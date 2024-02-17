@@ -89,15 +89,14 @@ a2cDec (A.DCall x v1@(A.VVar f) vs2) | view extern f = do
     vs2' <- mapM a2cVal vs2
     return [C.DCall (a2cVar x) v1' vs2']
 a2cDec (A.DCall x v1 vs2) = do
-    let (t_cl, t_cl') = case a2cTy (A.typeof v1) of
-            C.TEx t@(C.TRec t') -> (t, t')
-            _                   -> error "impossible"
+    let t_cl= case a2cTy (A.typeof v1) of
+            C.TEx t -> t
+            _       -> error "impossible"
     let x_cl = (localId "x_cl", t_cl)
     d1 <- C.DUnpack x_cl <$> a2cVal v1
-    let t_ucl = C.substTop t_cl' t_cl
-    let t_code = C.TFun (t_ucl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
+    let t_code = C.TFun (t_cl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
     let x_code = (localId "x_code", t_code)
-    let d2 = C.DProj x_code (C.VVar x_cl) 1
+    let d2 = C.DProj x_code (C.VUnroll (C.VVar x_cl)) 1
     d3 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
     return [d1, d2, d3]
 

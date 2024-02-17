@@ -94,6 +94,18 @@ stepTests = testGroup "Step tests"
       e4 <- a2cProg e3
       Closure.tcProg e4
       step "Done"
+  , testCaseSteps "(\\x -> x) 5" $ \step -> do
+      e1 <- parseProg "(\\x -> x) 5"
+      step "Lambda.Tc"
+      e2 <- r2lProg e1
+      Lambda.tcProg e2
+      step "Anf.Tc"
+      let e3 = l2aProg e2
+      Anf.tcProg e3
+      step "Closure.Tc"
+      e4 <- a2cProg e3
+      Closure.tcProg e4
+      step "Done"
   ]
 
 outputClosString :: Text -> IO BL.ByteString
@@ -102,9 +114,11 @@ outputClosString  inp = do
   lam_prog <- r2lProg raw_prog
   let anf_prog = l2aProg lam_prog
   clos_prog <- a2cProg anf_prog
-  let out = renderStrict $ layoutPretty defaultLayoutOptions $ pretty clos_prog
+  let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
+  let out = renderStrict $ layoutPretty layoutOptions $ pretty clos_prog
   return $ BL.fromStrict $ encodeUtf8 out
 
 goldenTests :: TestTree
 goldenTests = testGroup "Golden tests"
-  [goldenVsString "\\x -> x" ".golden/_\\x_->_x" $ outputClosString "\\x -> x"]
+  [ goldenVsString "\\x -> x" ".golden/_\\x -> x" $ outputClosString "\\x -> x"
+  , goldenVsString "(\\x -> x) 5" ".golden/(\\x -> x) 5" $ outputClosString "(\\x -> x) 5"]

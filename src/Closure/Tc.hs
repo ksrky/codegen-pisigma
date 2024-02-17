@@ -23,8 +23,7 @@ checkRow (RVar x) (RVar y) | x == y = return ()
 checkRow (t1 :> r1) (t2 :> r2) = do
     check t1 t2
     checkRow r1 r2
-checkRow _ _ = fail "type mismatch"
-
+checkRow r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
 
 tcVal :: Val -> ReaderT [Var] IO Ty
 tcVal (VLit (LInt _)) = return TInt
@@ -49,20 +48,20 @@ tcVal (VPack t1 v t2) = do
     t <- tcVal v
     case t2 of
         TEx t2' -> do
-            lift $ check (substTop t1 t2') t
+            lift $ check (substEx t1 t2') t
             return t2
         _ -> fail $ "expected existential type, but got " ++ show t2
 tcVal (VRoll v t) = do
     t' <- tcVal v
     case t of
         TRec t2 -> do
-            lift $ check (substTop t' t2) t'
+            lift $ check (substRec t t2) t'
             return t
         _ -> fail $ "expected recursive type, but got " ++ show t
 tcVal (VUnroll v) = do
     t <- tcVal v
     case t of
-        TRec t2 -> return $ substTop t t2
+        TRec t2 -> return $ substRec t t2
         _       -> fail $ "expected recursive type, but got " ++ show t
 tcVal (VValTy v t) = do
     t' <- tcVal v
@@ -90,13 +89,12 @@ tcDec (DProj x v i) = do
             go 1 (t1 :> _) = t1
             go n (_  :> r) = go (n - 1) r
             go _ _         = error "impossible"
-        _ -> fail $ "required tuple type, but got " ++ show t
+        _ -> fail $ "required row type, but got " ++ show t
 tcDec (DUnpack x v2) = do
     t2 <- tcVal v2
     case t2 of
         TEx t -> lift $ check (snd x) t
         _     -> fail $ "required existential type, but got " ++ show t2
-    undefined
 
 tcExp :: Exp -> ReaderT [Var] IO Ty
 tcExp (ELet d e) = do

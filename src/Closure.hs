@@ -13,7 +13,8 @@ module Closure (
     ExpF(..),
     Def(..),
     Prog,
-    substTop,
+    substRec,
+    substEx,
     getDecVar,
     Typeable(..),
     StripAnn(..),
@@ -73,14 +74,17 @@ data Def = Def {code :: Var, args :: [Var], body :: Exp}
 type Prog = ([Def], Exp)
 
 makeBaseFunctor ''Ty
+makeBaseFunctor ''Row
 makeBaseFunctor ''Val
 makeBaseFunctor ''Exp
 
-substTop :: Ty -> Ty -> Ty
-substTop s = cata $ \case
-    TVarF 0 -> s
-    TVarF i -> TVar (i - 1)
-    t -> embed t
+substRec :: Ty -> Ty -> Ty
+substRec s (TRow (TFun (TVar 0: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> r
+substRec _ _                                   = error "impossible"
+
+substEx :: Ty -> Ty -> Ty
+substEx (TRow r) (TRec (TRow (TFun ts1 t2 :> RVar 1))) = TRec $ TRow $ TFun ts1 t2 :> r
+substEx  _ _                                 = error "impossible"
 
 getDecVar :: Dec -> Var
 getDecVar (DVal x _)    = x
@@ -110,7 +114,7 @@ instance Typeable Val where
         VRollF _ t -> t
         VUnrollF v ->
             case typeof v of
-                TRec t -> substTop (TRec t) t
+                TRec t -> substRec (TRec t) t
                 _      -> error "required recursive type"
         VValTyF _ t -> t
 
@@ -146,10 +150,10 @@ instance PrettyPrec Val where
     prettyPrec _ (VGlb (f, _)) = pretty f
     prettyPrec _ (VTuple vs) = angles $ hsep $ punctuate "," $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
-        parPrec p 0 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v), "as", prettyPrec 2 t2]
-    prettyPrec p (VRoll v t) = parPrec p 0 $ "roll" <+> prettyMax v <+> "as" <+> prettyPrec 2 t
+        parPrec p 0 $ hang 2 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v) <> softline <> "as", prettyPrec 2 t2]
+    prettyPrec p (VRoll v t) = parPrec p 0 $ hang 2 $ hsep ["roll", prettyMax v <> softline <> "as", prettyPrec 2 t]
     prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
-    prettyPrec _ (VValTy v t) = parens $ hsep [pretty v, ":", pretty t]
+    prettyPrec _ (VValTy v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
 
 instance PrettyPrec Dec where
     pretty (DVal x v) = pretty x <+> "=" <> softline <> pretty v
@@ -161,7 +165,7 @@ instance PrettyPrec Dec where
 instance PrettyPrec Exp where
     pretty (ELet d e)   = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
     pretty (ERet v)     = "ret" <+> prettyMax v
-    pretty (EExpTy e t) = parens $ pretty e <+> ":" <+> pretty t
+    pretty (EExpTy e t) = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
 instance PrettyPrec Def where
     pretty (Def (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <> line <> indent 2 (pretty e)
