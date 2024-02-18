@@ -1,17 +1,17 @@
 import Anf.Tc                    qualified as Anf
-import AnfToClos
+import AnfClos
 import Closure.Tc                qualified as Closure
 import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
 import Data.Text.Encoding
+import LamAnf
 import Lambda.Tc                 qualified as Lambda
-import LamToAnf
 import Parser
 import Prettyprinter             hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text
-import RawToLam
+import RawLam
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.HUnit
@@ -54,17 +54,17 @@ stepTests = testGroup "Step tests"
       step "Parser"
       e1 <- parseProg "42"
       e1 @?= Raw.progMap Map.! "42"
-      step "RawToLam"
+      step "RawLam"
       e2 <- r2lProg e1
       e2 @?= Lambda.progMap Map.! "42"
       step "Lambda.Tc"
       Lambda.tcProg e2
-      step "LamToAnf"
+      step " LamAnf"
       let e3 = l2aProg e2
       e3 @?= Anf.progMap Map.! "42"
       step "Anf.Tc"
       Anf.tcProg e3
-      step "AnfToClos"
+      step "AnfClos"
       e4 <- a2cProg e3
       e4 @?= Closure.progMap Map.! "42"
       step "Closure.Tc"
@@ -120,5 +120,5 @@ outputClosString  inp = do
 
 goldenTests :: TestTree
 goldenTests = testGroup "Golden tests"
-  [ goldenVsString "\\x -> x" ".golden/_\\x -> x" $ outputClosString "\\x -> x"
-  , goldenVsString "(\\x -> x) 5" ".golden/(\\x -> x) 5" $ outputClosString "(\\x -> x) 5"]
+  [ goldenVsString "\\x -> x" ".golden/_\\x -> x.txt" $ outputClosString "\\x -> x"
+  , goldenVsString "(\\x -> x) 5" ".golden/(\\x -> x) 5.txt" $ outputClosString "(\\x -> x) 5"]

@@ -1,4 +1,4 @@
-module RawToLam (r2lProg) where
+module RawLam (r2lProg) where
 
 import Control.Lens.Operators
 import Control.Monad.Except

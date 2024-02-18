@@ -1,4 +1,4 @@
-module AnfToClos (a2cProg) where
+module AnfClos (a2cProg) where
 
 import Anf                      qualified as A
 import Closure                  qualified as C

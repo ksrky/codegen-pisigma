@@ -1,13 +1,13 @@
 module Toplevel (runMain) where
 
-import AnfToClos
-import ClosToUnty
+import AnfClos
+import ClosUnty
 import Data.Text          (Text)
-import LamToAnf
+import LamAnf
 import Parser
 import Prettyprinter.Prec
 import Prettyprinter.Util
-import RawToLam
+import RawLam
 
 runMain :: Text -> IO ()
 runMain inp = do

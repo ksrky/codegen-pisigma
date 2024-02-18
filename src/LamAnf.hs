@@ -1,4 +1,4 @@
-module LamToAnf (l2aProg) where
+module  LamAnf (l2aProg) where
 
 import Anf                   qualified as A
 import Data.Functor.Foldable

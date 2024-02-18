@@ -1,4 +1,4 @@
-module ClosToUnty (c2uProg) where
+module ClosUnty (c2uProg) where
 
 import Closure               qualified as C
 import Data.Functor.Foldable
