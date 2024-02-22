@@ -42,7 +42,8 @@ a2cLit (A.LInt i) = C.LInt i
 
 a2cTy :: A.Ty -> C.Ty
 a2cTy = cata $ \case
-    A.TIntF       -> C.TInt
+    A.TIntF        -> C.TInt
+    A.TNameF x     -> C.TName x
     A.TFunF ts1 t2 -> mkTEx ts1 t2
 
 mkTEx :: [C.Ty] -> C.Ty -> C.Ty
@@ -58,6 +59,7 @@ a2cVal = cata $ \case
         let x' = a2cVar x
         findLocals x'
         return $ C.VVar x'
+    A.VLabF l t -> return $ C.VLab l (a2cTy t)
     A.VLamF xs e -> do
         let xs' = map a2cVar xs
             lcls = map fst xs
@@ -78,28 +80,28 @@ a2cVal = cata $ \case
                     let x_env = (localId "x_env", t_env) in
                     if r_env == C.REmpty then e'
                     else
-                        let d = C.DProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
-                        let ds = zipWith (\x i -> C.DProj x (C.VVar x_env) i) escs' [1..] in
+                        let d = C.BProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
+                        let ds = zipWith (\x i -> C.BProj x (C.VVar x_env) i) escs' [1..] in
                         foldr C.ELet e' (d : ds)
                 }
         appendDef v_code
         return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs')) t_cl) t_excl
     A.VValTyF mv t -> C.VValTy <$> mv <*> pure (a2cTy t)
 
-a2cDec :: A.Dec -> CCM [C.Dec]
-a2cDec (A.DVal x v)       = List.singleton <$> (C.DVal (a2cVar x) <$> a2cVal v)
-a2cDec (A.DCall x v1@(A.VVar f) vs2) | view extern f = do
+a2cBind :: A.Bind -> CCM [C.Bind]
+a2cBind (A.BVal x v)       = List.singleton <$> (C.BVal (a2cVar x) <$> a2cVal v)
+a2cBind (A.BCall x v1@(A.VVar f) vs2) | view extern f = do
     v1' <- a2cVal v1
     vs2' <- mapM a2cVal vs2
-    return [C.DCall (a2cVar x) v1' vs2']
-a2cDec (A.DCall x v1 vs2)
+    return [C.BCall (a2cVar x) v1' vs2']
+a2cBind (A.BCall x v1 vs2)
     | C.TEx t_cl <- a2cTy (A.typeof v1) = do
     let x_cl = (localId "x_cl", t_cl)
-    d1 <- C.DUnpack x_cl <$> a2cVal v1
+    d1 <- C.BUnpack x_cl <$> a2cVal v1
     let t_code = C.TFun (t_cl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
     let x_code = (localId "x_code", t_code)
-    let d2 = C.DProj x_code (C.VUnroll (C.VVar x_cl)) 1
-    d3 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
+    let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) 1
+    d3 <- C.BCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
     return [d1, d2, d3]
     | otherwise = error "impossible"
 
@@ -109,11 +111,11 @@ rotate n xs = zipWith const (drop n (cycle xs)) xs
 
 a2cExp :: A.Exp -> CCM C.Exp
 a2cExp = cata $ \case
-    A.ELetF d me -> flip (foldr C.ELet) <$> a2cDec d <*> local (fst (A.getDecVar d):) me
+    A.ELetF d me -> flip (foldr C.ELet) <$> a2cBind d <*> local (fst (A.getBindVar d):) me
     -- @ds@ is not empty
     A.ELetrecF ds me -> do
         let n = length ds
-        predata <- mapM a2cRecDec ds
+        predata <- mapM a2cRecBind ds
         put $ List.nub $ concatMap (\(_, ls, _, es) -> es List.\\ ls) predata
         let t_excls = map (\(_, xs, e, _) -> mkTEx (map snd xs) (C.typeof e)) predata
             fs = map (view _1) predata
@@ -131,30 +133,31 @@ a2cExp = cata $ \case
                     C.code = f_code,
                     C.args = x_cl : xs,
                     C.body =
-                        let di = C.DVal f $ C.VPack t_env (C.VVar x_cl) t_excl in
+                        let di = C.BVal f $ C.VPack t_env (C.VVar x_cl) t_excl in
                         if r_env == C.REmpty then C.ELet di e
                         else
                             let x_env = (localId "x_env", t_env) in
-                            let d_env = C.DProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
-                            let ds_cl = zipWith (\fj j -> C.DProj fj (C.VVar x_env) j) (tail $ rotate (i-1) fs) [1..] in
-                            let ds_esc = zipWith (\x j -> C.DProj x (C.VVar x_env) j) escs [n..] in
+                            let d_env = C.BProj x_env (C.VUnroll (C.VVar x_cl)) 2 in
+                            let ds_cl = zipWith (\fj j -> C.BProj fj (C.VVar x_env) j) (tail $ rotate (i-1) fs) [1..] in
+                            let ds_esc = zipWith (\x j -> C.BProj x (C.VVar x_env) j) escs [n..] in
                             foldr C.ELet e (di : d_env : ds_cl ++ ds_esc)
                     }
             appendDef v_code
             let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs)) t_cl) t_excl
-            return $ C.DVal f v
+            return $ C.BVal f v
         flip (foldr C.ELet) ds' <$> me
+    A.ECaseF v les -> C.ECase <$> a2cVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
     A.ERetF v -> C.ERet <$> a2cVal v
     A.EExpTyF me t -> C.EExpTy <$> me <*> pure (a2cTy t)
 
-a2cRecDec :: A.Dec -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
-a2cRecDec (A.DVal f (A.VLam xs e)) = do
+a2cRecBind :: A.Bind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
+a2cRecBind (A.BVal f (A.VLam xs e)) = do
     let xs' = map a2cVar xs
     escs <- resetEscapes $ const []
     e' <- local (const $ map fst xs) $ a2cExp e
     escs' <- resetEscapes (const escs)
     return (a2cVar f, xs', e', escs')
-a2cRecDec _ = error "not implemented"
+a2cRecBind _ = error "not implemented"
 
 a2cProg :: A.Prog -> IO C.Prog
 a2cProg e = Tuple.swap <$> evalRWST (a2cExp e) [] []

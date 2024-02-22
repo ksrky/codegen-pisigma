@@ -8,14 +8,14 @@ module Closure (
     Var,
     Val(..),
     ValF(..),
-    Dec(..),
+    Bind(..),
     Exp(..),
     ExpF(..),
     Def(..),
     Prog,
     substRec,
     substEx,
-    getDecVar,
+    getBindVar,
     Typeable(..),
     StripAnn(..),
     mkTTuple) where
@@ -30,9 +30,12 @@ import Prettyprinter.Prec
 newtype Lit = LInt Int
     deriving (Eq, Show)
 
+type Label = String
+
 data Ty
     = TInt
     | TVar Int
+    | TName Id
     | TFun [Ty] Ty
     | TEx Ty
     | TRec Ty
@@ -48,6 +51,7 @@ data Val
     = VLit Lit
     | VVar Var
     | VGlb Var
+    | VLab Label Ty
     | VTuple [Val]
     | VPack Ty Val Ty
     | VRoll Val Ty
@@ -55,15 +59,16 @@ data Val
     | VValTy Val Ty
     deriving (Eq, Show)
 
-data Dec
-    = DVal Var Val
-    | DCall Var Val [Val]
-    | DProj Var Val Int
-    | DUnpack Var Val -- ignoring the type variable
+data Bind
+    = BVal Var Val
+    | BCall Var Val [Val]
+    | BProj Var Val Int
+    | BUnpack Var Val -- ignoring the type variable
     deriving (Eq, Show)
 
 data Exp
-    = ELet Dec Exp
+    = ELet Bind Exp
+    | ECase Val [(Label, Exp)]
     | ERet Val
     | EExpTy Exp Ty
     deriving (Eq, Show)
@@ -86,11 +91,11 @@ substEx :: Ty -> Ty -> Ty
 substEx (TRow r) (TRec (TRow (TFun ts1 t2 :> RVar 1))) = TRec $ TRow $ TFun ts1 t2 :> r
 substEx  _ _                                 = error "impossible"
 
-getDecVar :: Dec -> Var
-getDecVar (DVal x _)    = x
-getDecVar (DCall x _ _) = x
-getDecVar (DProj x _ _) = x
-getDecVar (DUnpack x _) = x
+getBindVar :: Bind -> Var
+getBindVar (BVal x _)    = x
+getBindVar (BCall x _ _) = x
+getBindVar (BProj x _ _) = x
+getBindVar (BUnpack x _) = x
 
 class Typeable a where
     typeof :: HasCallStack => a -> Ty
@@ -109,6 +114,7 @@ instance Typeable Val where
         VLitF l -> typeof l
         VVarF x -> typeof x
         VGlbF f -> typeof f
+        VLabF _ t -> t
         VTupleF vs -> TRow $ foldr ((:>) . typeof) REmpty vs
         VPackF _ _ t -> t
         VRollF _ t -> t
@@ -121,6 +127,8 @@ instance Typeable Val where
 instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ t -> t
+        ECaseF _ lts | (_, t) : _ <- lts -> t
+                     | otherwise         -> error "impossible"
         ERetF v -> typeof v
         EExpTyF _ t -> t
 
@@ -130,6 +138,7 @@ instance PrettyPrec Lit where
 instance PrettyPrec Ty where
     prettyPrec _ TInt = "Int"
     prettyPrec _ (TVar tv) = pretty tv
+    prettyPrec _ (TName l) = pretty l
     prettyPrec p (TFun ts t) = parPrec p 2 $
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
     prettyPrec p (TEx t) = parPrec p 0 $ "∃." <+> pretty t
@@ -148,6 +157,7 @@ instance PrettyPrec Val where
     prettyPrec _ (VLit l) = pretty l
     prettyPrec _ (VVar (x, _)) = pretty x
     prettyPrec _ (VGlb (f, _)) = pretty f
+    prettyPrec _ (VLab l _) = "`" <> pretty l
     prettyPrec _ (VTuple vs) = angles $ hsep $ punctuate "," $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
         parPrec p 0 $ hang 2 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v) <> softline <> "as", prettyPrec 2 t2]
@@ -155,17 +165,18 @@ instance PrettyPrec Val where
     prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
     prettyPrec _ (VValTy v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
 
-instance PrettyPrec Dec where
-    pretty (DVal x v) = pretty x <+> "=" <> softline <> pretty v
-    pretty (DCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
+instance PrettyPrec Bind where
+    pretty (BVal x v) = pretty x <+> "=" <> softline <> pretty v
+    pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
         <+> parens (hsep (punctuate "," (map prettyMax vs2)))
-    pretty (DProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
-    pretty (DUnpack x v) = brackets ("_," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
+    pretty (BProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
+    pretty (BUnpack x v) = brackets ("_," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
 
 instance PrettyPrec Exp where
-    pretty (ELet d e)   = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
-    pretty (ERet v)     = "ret" <+> prettyMax v
-    pretty (EExpTy e t) = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
+    pretty (ELet d e)    = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
+    pretty (ECase v les) = "case" <+> pretty v <+> "of" <+> vsep (map (\(li, ei) -> pretty li <+> "->" <+> pretty ei) les)
+    pretty (ERet v)      = "ret" <+> prettyMax v
+    pretty (EExpTy e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
 instance PrettyPrec Def where
     pretty (Def (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <> line <> indent 2 (pretty e)
@@ -181,17 +192,16 @@ instance StripAnn Val where
         VValTyF v _ -> v
         v           -> embed v
 
-instance StripAnn Dec where
-    stripAnn (DVal x v)     = DVal x (stripAnn v)
-    stripAnn (DCall x v vs) = DCall x (stripAnn v) (map stripAnn vs)
-    stripAnn (DProj x v i)  = DProj x (stripAnn v) i
-    stripAnn (DUnpack x v)  = DUnpack x (stripAnn v)
+instance StripAnn Bind where
+    stripAnn (BVal x v)     = BVal x (stripAnn v)
+    stripAnn (BCall x v vs) = BCall x (stripAnn v) (map stripAnn vs)
+    stripAnn (BProj x v i)  = BProj x (stripAnn v) i
+    stripAnn (BUnpack x v)  = BUnpack x (stripAnn v)
 
 instance StripAnn Exp where
     stripAnn = cata $ \case
-        ELetF d e -> ELet (stripAnn d) (stripAnn e)
-        ERetF v   -> ERet (stripAnn v)
         EExpTyF e _ -> e
+        e           -> embed e
 
 instance StripAnn Def where
     stripAnn (Def f xs e) = Def f xs (stripAnn e)

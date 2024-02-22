@@ -8,6 +8,7 @@ import Prelude              hiding (exp)
 check :: Ty -> Ty -> IO ()
 check TInt TInt = return ()
 check (TVar x) (TVar y) | x == y = return ()
+check (TName x) (TName y) | x == y = return ()
 check (TFun ts1 t2) (TFun us1 u2) = do
     zipWithM_ check ts1 us1
     check t2 u2
@@ -41,6 +42,7 @@ tcVal (VGlb f) = do
             lift $ check (snd f) t
             return t
         Nothing -> fail $ "unbound global: " ++ show f
+tcVal (VLab _ t) = return t -- TODO: check label
 tcVal (VTuple vs) = do
     ts <- mapM tcVal vs
     return $ mkTTuple ts
@@ -68,11 +70,11 @@ tcVal (VValTy v t) = do
     lift $ check t t'
     return t
 
-tcDec :: Dec -> ReaderT [Var] IO ()
-tcDec (DVal x v) = do
+tcBind :: Bind -> ReaderT [Var] IO ()
+tcBind (BVal x v) = do
     t <- tcVal v
     lift $ check (snd x) t
-tcDec (DCall x v vs) = do
+tcBind (BCall x v vs) = do
     t <- tcVal v
     ts <- mapM tcVal vs
     case t of
@@ -80,7 +82,7 @@ tcDec (DCall x v vs) = do
             zipWithM_ check ts1 ts
             check (snd x) t2
         _ -> fail $ "required function type, but got " ++ show t
-tcDec (DProj x v i) = do
+tcBind (BProj x v i) = do
     t <- tcVal v
     case t of
         TRow row -> do
@@ -90,16 +92,21 @@ tcDec (DProj x v i) = do
             go n (_  :> r) = go (n - 1) r
             go _ _         = error "impossible"
         _ -> fail $ "required row type, but got " ++ show t
-tcDec (DUnpack x v2) = do
+tcBind (BUnpack x v2) = do
     t2 <- tcVal v2
     case t2 of
         TEx t -> lift $ check (snd x) t
         _     -> fail $ "required existential type, but got " ++ show t2
 
 tcExp :: Exp -> ReaderT [Var] IO Ty
-tcExp (ELet d e) = do
-    tcDec d
-    local (getDecVar d:) $ tcExp e
+tcExp (ELet b e) = do
+    tcBind b
+    local (getBindVar b:) $ tcExp e
+tcExp (ECase v les) = do
+    t <- tcVal v
+    ts <- mapM (\(_, e) -> local (const []) $ tcExp e) les
+    lift $ mapM_ (check t) ts
+    return $ head ts
 tcExp (ERet v) = tcVal v
 tcExp (EExpTy e t) = do
     t' <- tcExp e

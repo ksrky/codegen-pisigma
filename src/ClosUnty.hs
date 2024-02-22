@@ -17,21 +17,23 @@ c2uVal = cata $ \case
     C.VLitF l -> U.VLit $ c2uLit l
     C.VVarF x -> U.VVar $ c2uVar x
     C.VGlbF f -> U.VGlb $ c2uVar f
+    C.VLabF l _ -> U.VLab l
     C.VTupleF vs -> U.VTuple vs
     C.VPackF _ v _ -> v
     C.VRollF v _ -> v
     C.VUnrollF v -> v
     C.VValTyF v _ -> v
 
-c2uDec :: C.Dec -> U.Dec
-c2uDec (C.DVal x v)       = U.DVal (c2uVar x) (c2uVal v)
-c2uDec (C.DCall x v1 vs2) = U.DCall (c2uVar x) (c2uVal v1) (map c2uVal vs2)
-c2uDec (C.DProj x v i)    = U.DProj (c2uVar x) (c2uVal v) i
-c2uDec (C.DUnpack x v)    = U.DVal (c2uVar x) (c2uVal v)
+c2uBind :: C.Bind -> U.Bind
+c2uBind (C.BVal x v)       = U.BVal (c2uVar x) (c2uVal v)
+c2uBind (C.BCall x v1 vs2) = U.BCall (c2uVar x) (c2uVal v1) (map c2uVal vs2)
+c2uBind (C.BProj x v i)    = U.BProj (c2uVar x) (c2uVal v) i
+c2uBind (C.BUnpack x v)    = U.BVal (c2uVar x) (c2uVal v)
 
 c2uExp :: C.Exp -> U.Exp
 c2uExp = cata $ \case
-    C.ELetF d e -> U.ELet (c2uDec d) e
+    C.ELetF d e -> U.ELet (c2uBind d) e
+    C.ECaseF v les -> U.ECase (c2uVal v) les
     C.ERetF v -> U.ERet (c2uVal v)
     C.EExpTyF e _ -> e
 
