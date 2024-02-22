@@ -1,11 +1,13 @@
 import Anf.Tc                    qualified as Anf
 import AnfClos
+import ClosUnty
 import Closure.Tc                qualified as Closure
 import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
 import Data.Text.Encoding
 import LamAnf
+import Lambda                    qualified as L
 import Lambda.Tc                 qualified as Lambda
 import Parser
 import Prettyprinter             hiding (pretty)
@@ -24,7 +26,7 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "codegen-pisigma" [parserTests, stepTests, goldenTests]
+tests = testGroup "codegen-pisigma" [parserTests, scopeTests, stepTests, goldenTests]
 
 parserTests :: TestTree
 parserTests = testGroup "Parser tests"
@@ -46,6 +48,16 @@ parserTests = testGroup "Parser tests"
   , testCase "let x = 42 in x" $ do
       e <- parseProg "let rec f = \\x -> g x and g = \\x -> f x in f 0"
       e @?= Raw.progMap Map.! "let rec f = \\x -> g x and g = \\x -> f x in f 0"
+  ]
+
+scopeTests :: TestTree
+scopeTests = testGroup "Scope tests"
+  [ testCase "\\x -> x * x" $ do
+      e1 <- parseProg "\\x -> x * x"
+      e2 <- r2lProg e1
+      case L.stripAnn e2 of
+        L.ELam x0 (L.EApp (L.EApp _ (L.EVar x1)) (L.EVar x2)) -> do x0 @?= x1; x1 @?= x2
+        e                                                     -> assertFailure $ "unexpected: " ++ show e
   ]
 
 stepTests :: TestTree
@@ -118,7 +130,22 @@ outputClosString  inp = do
   let out = renderStrict $ layoutPretty layoutOptions $ pretty clos_prog
   return $ BL.fromStrict $ encodeUtf8 out
 
+outputUntyString :: Text -> IO BL.ByteString
+outputUntyString  inp = do
+  raw_prog <- parseProg inp
+  lam_prog <- r2lProg raw_prog
+  let anf_prog = l2aProg lam_prog
+  clos_prog <- a2cProg anf_prog
+  let unty_prog = c2uProg clos_prog
+  let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
+  let out = renderStrict $ layoutPretty layoutOptions $ pretty unty_prog
+  return $ BL.fromStrict $ encodeUtf8 out
+
 goldenTests :: TestTree
 goldenTests = testGroup "Golden tests"
-  [ goldenVsString "\\x -> x" ".golden/_\\x -> x.txt" $ outputClosString "\\x -> x"
-  , goldenVsString "(\\x -> x) 5" ".golden/(\\x -> x) 5.txt" $ outputClosString "(\\x -> x) 5"]
+  [ goldenVsString "\\x -> x" ".golden/clos_\\x -> x.txt" $ outputClosString "\\x -> x"
+  , goldenVsString "(\\x -> x) 5" ".golden/clos_(\\x -> x) 5.txt" $ outputClosString "(\\x -> x) 5"
+  , goldenVsString "\\x -> (\\y -> x + y)" ".golden/clos_\\x -> (\\y -> x + y).txt" $ outputClosString "\\x -> (\\y -> x + y)"
+  , goldenVsString "\\x -> x" ".golden/unty_\\x -> x.txt" $ outputUntyString "\\x -> x"
+  , goldenVsString "(\\x -> x) 5" ".golden/unty_(\\x -> x) 5.txt" $ outputUntyString "(\\x -> x) 5"
+  , goldenVsString "\\x -> (\\y -> x + y)" ".golden/unty_\\x -> (\\y -> x + y).txt" $ outputUntyString "\\x -> (\\y -> x + y)"]

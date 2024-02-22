@@ -17,7 +17,7 @@ type Escapes = [C.Var]
 -- | Closure Conversion Monad
 type CCM = RWST Locals [C.Def] Escapes IO
 
-resetEscapes :: ([C.Var] -> [C.Var]) -> CCM [C.Var]
+resetEscapes :: (Escapes -> Escapes) -> CCM Escapes
 resetEscapes new = do
     escs <- get
     put (new escs)
@@ -30,6 +30,9 @@ findLocals x = do
     if view extern x || fst x `elem` lcls || fst x `elem` map fst escs
         then return ()
         else modify (++ [x])
+
+removeLocals :: Escapes -> Locals -> Escapes
+removeLocals escs lcls = filter (\x -> fst x `notElem` lcls) escs
 
 appendDef :: C.Def -> CCM ()
 appendDef = tell . List.singleton
@@ -57,18 +60,19 @@ a2cVal = cata $ \case
         return $ C.VVar x'
     A.VLamF xs e -> do
         let xs' = map a2cVar xs
+            lcls = map fst xs
         escs <- resetEscapes $ const []
-        e' <- local (const $ map fst xs) $ a2cExp e
-        escs' <- resetEscapes (escs ++)
+        e' <- local (const lcls) $ a2cExp e
+        escs' <- (`removeLocals` lcls) <$> resetEscapes (escs ++)
         let r_env = foldr ((C.:>) . snd) C.REmpty escs'
             t_env = C.TRow r_env
             t_cl = C.TRec $ C.TRow $ C.TFun (C.TVar 0 : map snd xs') (C.typeof e') C.:> r_env
             t_excl = mkTEx (map snd xs') (C.typeof e')
             x_cl = (localId "x_cl", t_cl)
             t_code = C.TFun (t_cl : map snd xs') (C.typeof e')
-        x_code <- (,t_code) <$> fromString "x_code"
+        f_code <- (,t_code) <$> fromString "f_code"
         let v_code = C.Def {
-                C.code = x_code,
+                C.code = f_code,
                 C.args = x_cl : xs',
                 C.body =
                     let x_env = (localId "x_env", t_env) in
@@ -79,7 +83,7 @@ a2cVal = cata $ \case
                         foldr C.ELet e' (d : ds)
                 }
         appendDef v_code
-        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb x_code : map C.VVar escs')) t_cl) t_excl
+        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs')) t_cl) t_excl
     A.VValTyF mv t -> C.VValTy <$> mv <*> pure (a2cTy t)
 
 a2cDec :: A.Dec -> CCM [C.Dec]
@@ -88,10 +92,8 @@ a2cDec (A.DCall x v1@(A.VVar f) vs2) | view extern f = do
     v1' <- a2cVal v1
     vs2' <- mapM a2cVal vs2
     return [C.DCall (a2cVar x) v1' vs2']
-a2cDec (A.DCall x v1 vs2) = do
-    let t_cl= case a2cTy (A.typeof v1) of
-            C.TEx t -> t
-            _       -> error "impossible"
+a2cDec (A.DCall x v1 vs2)
+    | C.TEx t_cl <- a2cTy (A.typeof v1) = do
     let x_cl = (localId "x_cl", t_cl)
     d1 <- C.DUnpack x_cl <$> a2cVal v1
     let t_code = C.TFun (t_cl : map (a2cTy . A.typeof) vs2) (a2cTy (A.typeof x))
@@ -99,6 +101,7 @@ a2cDec (A.DCall x v1 vs2) = do
     let d2 = C.DProj x_code (C.VUnroll (C.VVar x_cl)) 1
     d3 <- C.DCall (a2cVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
     return [d1, d2, d3]
+    | otherwise = error "impossible"
 
 -- | ex. @xs = [x1, x2, x3]@ -> @rotate 1 xs = [x2, x3, x1]@
 rotate :: Int -> [a] -> [a]
@@ -111,7 +114,7 @@ a2cExp = cata $ \case
     A.ELetrecF ds me -> do
         let n = length ds
         predata <- mapM a2cRecDec ds
-        put $ List.nub $ concatMap (view _4) predata
+        put $ List.nub $ concatMap (\(_, ls, _, es) -> es List.\\ ls) predata
         let t_excls = map (\(_, xs, e, _) -> mkTEx (map snd xs) (C.typeof e)) predata
             fs = map (view _1) predata
         ds' <- forM [1..n] $ \i -> do
@@ -123,9 +126,9 @@ a2cExp = cata $ \case
                 t_excl = mkTEx (map snd xs) (C.typeof e)
                 x_cl = (localId "x_cl", t_cl)
                 t_code = C.TFun (t_cl : map snd xs) (C.typeof e)
-            x_code <- (,t_code) <$> fromString (fst f ^. name  ++ "_code")
+            f_code <- (,t_code) <$> fromString (fst f ^. name  ++ "_code")
             let v_code = C.Def {
-                    C.code = x_code,
+                    C.code = f_code,
                     C.args = x_cl : xs,
                     C.body =
                         let di = C.DVal f $ C.VPack t_env (C.VVar x_cl) t_excl in
@@ -138,7 +141,7 @@ a2cExp = cata $ \case
                             foldr C.ELet e (di : d_env : ds_cl ++ ds_esc)
                     }
             appendDef v_code
-            let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlb x_code : map C.VVar escs)) t_cl) t_excl
+            let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs)) t_cl) t_excl
             return $ C.DVal f v
         flip (foldr C.ELet) ds' <$> me
     A.ERetF v -> C.ERet <$> a2cVal v

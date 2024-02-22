@@ -9,7 +9,8 @@ module Lambda (
     Exp(..),
     ExpF(..),
     Prog,
-    Typeable(..)) where
+    Typeable(..),
+    stripAnn) where
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
@@ -72,3 +73,8 @@ instance Typeable Exp where
         ELetF _ _ t -> t
         ELetrecF _ t -> t
         EExpTyF _ t -> t
+
+stripAnn :: Exp -> Exp
+stripAnn = cata $ \case
+    EExpTyF e _ -> e
+    e -> embed e

@@ -36,7 +36,7 @@ data Id = Id {_name :: String, _attr :: Attr, _uniq :: Maybe Uniq}
 makeLensesFor [("_name", "name"), ("_uniq", "uniq")] ''Id
 
 instance Eq Id where
-    x == y = x ^. name == y ^.name && x ^. uniq == y ^. uniq
+    x == y = x ^. name == y ^. name && x ^. uniq == y ^. uniq
 
 instance Show Id where
     show = _name
