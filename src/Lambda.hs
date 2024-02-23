@@ -8,6 +8,7 @@ module Lambda (
     Var,
     Exp(..),
     ExpF(..),
+    Dec(..),
     Prog,
     Typeable(..),
     stripAnn) where

@@ -40,7 +40,7 @@ tcExp (ELetrec bs e) =
     local (map getBindVar bs ++) $ do
         mapM_ tcBind bs
         tcExp e
-tcExp (ECase v les) = do
+tcExp (ECase v les) = do -- TODO
     t <- tcVal v
     ts <- mapM (tcExp . snd) les
     lift $ mapM_ (check t) ts

@@ -22,6 +22,7 @@ tcExp (EVar x) = do
             lift $ check (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x
+tcExp (ELab _ t) = return t -- TODO: check label
 tcExp (EApp e1 e2) = do
     t1 <- tcExp e1
     t2 <- tcExp e2
@@ -43,6 +44,14 @@ tcExp (ELetrec xes e2) =
             t <- tcExp e
             lift $ check (snd x) t
         tcExp e2
+tcExp (ECase e les)
+    | (_, t1) : _ <- les = do -- TODO: wrong checking
+        t <- tcExp e
+        ts <- mapM (tcExp . snd) les
+        t1' <- tcExp t1
+        lift $ mapM_ (check t1') ts
+        return t
+    | [] <- les = error "empty alternatives"
 tcExp (EExpTy e t) = do
     t' <- tcExp e
     lift $ check t t'

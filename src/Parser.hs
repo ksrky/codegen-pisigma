@@ -32,9 +32,12 @@ parens = lexeme . between (char '(') (char ')')
 
 pName :: Parser String
 pName = do
-    x <- lexeme ((:) <$> letterChar <*> many alphaNumChar) <?> "Name"
+    x <- lexeme ((:) <$> lowerChar <*> many alphaNumChar) <?> "Name"
     when (x `elem` ["let", "in", "rec", "and", "Int"]) empty
     return x
+
+pLabel :: Parser String
+pLabel = lexeme ((:) <$> upperChar <*> many alphaNumChar) <?> "Label"
 
 pLit :: Parser Lit
 pLit = LInt <$> lexeme L.decimal <?> "Lit"
@@ -44,6 +47,9 @@ pELit = ELit <$> pLit <?> "ELit"
 
 pEVar :: Parser Exp
 pEVar = EVar <$> pName <?> "EVar"
+
+pELab :: Parser Exp
+pELab = ELab <$> pLabel <?> "ELab"
 
 pEApp :: Parser Exp
 pEApp = do
@@ -70,6 +76,7 @@ pExp1 :: Parser Exp
 pExp1 =
     pELit
     <|> pEVar
+    <|> pELab
     <|> parens pExp <?> "Exp1"
 
 pExp2 :: Parser Exp

@@ -4,6 +4,7 @@ import Anf                   qualified as A
 import Data.Functor.Foldable
 import Id
 import Lambda                qualified as L
+import Prelude               hiding (exp)
 
 l2aLit :: L.Lit -> A.Lit
 l2aLit (L.LInt i) = A.LInt i
@@ -31,7 +32,7 @@ l2aExp (L.EApp e1 e2) kont =
     let t_call = case A.typeof v1 of
             A.TFun _ t2 -> t2
             _           -> error "impossible" in
-    let x = (localId "x_call", t_call) in -- tmp: localId?
+    let x = (mkIdUnsafe "x_call", t_call) in
     let body = kont (A.VVar x) in
     A.ELet (A.BCall x v1 [v2]) body
 l2aExp (L.ELam x e) kont = kont $ A.VLam [l2aVar x] (l2aExp e A.ERet)
@@ -44,6 +45,8 @@ l2aExp (L.ELetrec xes1 e2) kont = go [] xes1
     go acc ((x, e) : xes) = l2aExp e $ \v -> go ((l2aVar x, v) : acc) xes
 l2aExp (L.ECase e les) kont =
     l2aExp e $ \v ->
+    -- [Note] Duplication of continuation is innefficient.
+    --        Use join point to avoid this.
     A.ECase v $ map (\(li, ei) -> (li, l2aExp ei kont)) les
 l2aExp (L.EExpTy e t) kont = l2aExp e $ \v -> kont $ A.VValTy v (l2aTy t)
 

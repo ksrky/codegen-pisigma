@@ -34,7 +34,7 @@ library
       Id
       LamAnf
       Lambda
-      Lambda.Prim
+      Lambda.Init
       Lambda.Tc
       Parser
       Prettyprinter.Prec

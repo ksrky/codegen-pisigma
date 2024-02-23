@@ -7,10 +7,10 @@ import Data.Functor.Foldable
 import Data.IORef
 import Id
 import Lambda                 qualified as L
-import Lambda.Prim
+import Lambda.Init
 import Raw                    qualified as R
 
-type Ctx = [(String, L.Var)]
+type Ctx = [(String, (Id, L.Ty))]
 
 type TcM = ReaderT Ctx IO
 
@@ -29,6 +29,7 @@ writeMeta (L.Meta ref) t = writeIORef ref (Just t)
 getMetas :: L.Ty -> [L.Meta]
 getMetas = cata $ \case
     L.TIntF -> []
+    L.TNameF _ -> []
     L.TFunF t1 t2 -> t1 ++ t2
     L.TMetaF m -> [m]
 
@@ -71,26 +72,34 @@ checkExp (R.ELit l) exp_ty = do
     lift $ unify exp_ty L.TInt
     return $ L.ELit (r2lLit l)
 checkExp (R.EVar x) exp_ty = do
-    env <- ask
-    case lookup x env of
+    ctx <- ask
+    case lookup x ctx of
         Just (x', t) -> do
             lift $ unify exp_ty t
             return $ L.EVar (x', t)
         Nothing -> fail "unbound variable"
+checkExp (R.ELab l) exp_ty = do
+    ctx <- ask
+    case lookup l ctx of
+        Just (_, t) -> do
+            lift $ unify exp_ty t
+            return $ L.ELab l t
+        Nothing      -> fail "unknown label"
 checkExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar
     e1' <- checkExp e1 (L.TFun t2 exp_ty)
     e2' <- checkExp e2 t2
     return $ L.EExpTy (L.EApp e1' e2') exp_ty
 checkExp (R.ELam x e) exp_ty = do
-    x' <- fromString x
+    x' <- mkId x
     t1 <- newTyVar
     t2 <- newTyVar
     lift $ unify exp_ty (L.TFun t1 t2)
     e' <- local ((x, (x', t1)):) $ checkExp e t2
     return $ L.EExpTy (L.ELam (x', t1) e') exp_ty
 checkExp (R.EBinOp op e1 e2) exp_ty = do
-    op' <- case lookup op primDict of
+    ctx <- ask
+    op' <- case lookup op ctx of
         Just op' -> return op'
         Nothing  -> fail "unknown binop"
     case snd op' of
@@ -102,7 +111,7 @@ checkExp (R.EBinOp op e1 e2) exp_ty = do
         _ -> fail "required function type"
 checkExp (R.ELet xes e2) exp_ty = do
     xes' <- forM xes $ \(x, e) -> do
-        x' <- fromString x
+        x' <- mkId x
         t <- newTyVar
         e' <- checkExp e t
         return ((x', t), e')
@@ -110,7 +119,7 @@ checkExp (R.ELet xes e2) exp_ty = do
     return $ L.EExpTy (foldr (uncurry L.ELet) e2' xes') exp_ty
 checkExp (R.ELetrec xes e2) exp_ty = do
     env <- forM xes $ \(x, _) -> do
-        x' <- fromString x
+        x' <- mkId x
         tv <- newTyVar
         return (x, (x', tv))
     local (env ++) $ do
@@ -119,6 +128,11 @@ checkExp (R.ELetrec xes e2) exp_ty = do
             return (x, e')) env xes
         e2' <- local (env ++) $ checkExp e2 exp_ty
         return $ L.EExpTy (L.ELetrec xes' e2') exp_ty
+checkExp (R.EIf e1 e2 e3) exp_ty = do
+    e1' <- checkExp e1 tyBool
+    e2' <- checkExp e2 exp_ty
+    e3' <- checkExp e3 exp_ty
+    return $ L.EExpTy (L.ECase (L.EExpTy e1' tyBool) [("True", e2'), ("False", e3')]) exp_ty
 
 class Zonking a where
     zonk :: a -> IO a
@@ -127,6 +141,7 @@ instance Zonking L.Ty where
     zonk :: L.Ty -> IO L.Ty
     zonk = cata $ \case
         L.TIntF -> return L.TInt
+        L.TNameF x -> return $ L.TName x
         L.TFunF t1 t2 -> L.TFun <$> t1 <*> t2
         L.TMetaF m -> readMeta m >>= \case
             Nothing -> return L.TInt -- return $ L.TMeta m
@@ -145,11 +160,13 @@ instance Zonking L.Exp where
     zonk = cata $ \case
         L.ELitF l -> return $ L.ELit l
         L.EVarF x -> L.EVar <$> zonk x
+        L.ELabF l t -> return $ L.ELab l t
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
         L.ELamF x e -> L.ELam <$> zonk x <*> e
         L.ELetF x e1 e2 -> L.ELet <$> zonk x <*> e1 <*> e2
         L.ELetrecF xes e2 -> L.ELetrec <$> mapM (\(x, e) -> ((,) <$> zonk x) <*> e) xes <*> e2
+        L.ECaseF e les -> L.ECase <$> e <*> mapM (\(l, ei) -> (l,) <$> ei) les
         L.EExpTyF e t -> L.EExpTy <$> e <*> zonk t
 
 r2lProg :: R.Prog -> IO L.Prog
-r2lProg r = zonk =<< runReaderT (r2lExp r) []
+r2lProg raw_prog = zonk =<< runReaderT (r2lExp raw_prog) initCtx

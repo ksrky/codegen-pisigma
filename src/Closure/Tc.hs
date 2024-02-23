@@ -102,7 +102,7 @@ tcExp :: Exp -> ReaderT [Var] IO Ty
 tcExp (ELet b e) = do
     tcBind b
     local (getBindVar b:) $ tcExp e
-tcExp (ECase v les) = do
+tcExp (ECase v les) = do -- TODO
     t <- tcVal v
     ts <- mapM (\(_, e) -> local (const []) $ tcExp e) les
     lift $ mapM_ (check t) ts

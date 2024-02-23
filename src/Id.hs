@@ -6,13 +6,14 @@ module Id (
     Id(..),
     name,
     uniq,
-    fromString,
-    localId) where
+    mkId,
+    mkIdUnsafe) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad.IO.Class
 import Data.IORef
+import GHC.IO.Unsafe
 import Prettyprinter.Prec
 
 type Uniq = IORef ()
@@ -31,12 +32,12 @@ instance HasAttr a => HasAttr (a, b) where
 noAttr :: Attr
 noAttr = Attr {_extern = False}
 
-data Id = Id {_name :: String, _attr :: Attr, _uniq :: Maybe Uniq}
+data Id = Id {_name :: String, _attr :: Attr, _uniq :: Uniq}
 
 makeLensesFor [("_name", "name"), ("_uniq", "uniq")] ''Id
 
 instance Eq Id where
-    x == y = x ^. name == y ^. name && x ^. uniq == y ^. uniq
+    x == y = x ^. uniq == y ^. uniq
 
 instance Show Id where
     show = _name
@@ -47,8 +48,8 @@ instance HasAttr Id where
 instance PrettyPrec Id where
     pretty = pretty . _name
 
-fromString :: MonadIO m => String -> m Id
-fromString s = Id s noAttr . Just <$> newUniq
+mkId :: MonadIO m => String -> m Id
+mkId s = Id s noAttr <$> newUniq
 
-localId :: String -> Id
-localId s = Id s noAttr Nothing
+mkIdUnsafe :: String -> Id
+mkIdUnsafe s = unsafePerformIO $ mkId s
