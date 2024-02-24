@@ -33,7 +33,7 @@ parens = lexeme . between (char '(') (char ')')
 pName :: Parser String
 pName = do
     x <- lexeme ((:) <$> lowerChar <*> many alphaNumChar) <?> "Name"
-    when (x `elem` ["let", "in", "rec", "and", "Int"]) empty
+    guard (x `notElem` ["let", "in", "rec", "and", "if", "then", "else"])
     return x
 
 pLabel :: Parser String
@@ -72,6 +72,9 @@ pELet = ELet <$> (stringL "let" *> pBindings) <* stringL "in" <*> pExp <?> "ELet
 pELetrec :: Parser Exp
 pELetrec = ELetrec <$> (stringL "let rec" *> pBindings) <* stringL "in" <*> pExp <?> "ELet"
 
+pEIf :: Parser Exp
+pEIf = EIf <$> (stringL "if" *> pExp) <*> (stringL "then" *> pExp) <*> (stringL "else" *> pExp) <?> "EIf"
+
 pExp1 :: Parser Exp
 pExp1 =
     pELit
@@ -85,10 +88,11 @@ pExp2 = makeExprParser (try pEApp <|> pExp1) table <?> "Exp2"
     table =
         [ [InfixL (EBinOp . Text.unpack <$> stringL "*")]
         , [InfixL (EBinOp . Text.unpack <$> stringL "+")]
+        , [InfixL (EBinOp . Text.unpack <$> stringL "==")]
         ]
 
 pExp :: Parser Exp
-pExp = lexeme (pELam <|> try pELetrec <|> pELet <|> pExp2) <?> "Exp"
+pExp = lexeme (pELam <|> try pELetrec <|> pELet <|> pEIf <|> pExp2) <?> "Exp"
 
 pProg :: Parser Prog
 pProg = pExp <* eof <?> "Prog"

@@ -48,6 +48,15 @@ parserTests = testGroup "Parser tests"
   , testCase "let x = 42 in x" $ do
       e <- parseProg "let rec f = \\x -> g x and g = \\x -> f x in f 0"
       e @?= Raw.progMap Map.! "let rec f = \\x -> g x and g = \\x -> f x in f 0"
+  , testCase "True" $ do
+      e <- parseProg "True"
+      e @?= Raw.progMap Map.! "True"
+  , testCase "if True then 1 else 0" $ do
+      e <- parseProg "if True then 1 else 0"
+      e @?= Raw.progMap Map.! "if True then 1 else 0"
+  , testCase "2 * 3 == 6" $ do
+      e <- parseProg "2 * 3 == 6"
+      e @?= Raw.progMap Map.! "2 * 3 == 6"
   ]
 
 scopeTests :: TestTree
@@ -108,6 +117,18 @@ stepTests = testGroup "Step tests"
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
       e1 <- parseProg "(\\x -> x) 5"
+      step "Lambda.Tc"
+      e2 <- r2lProg e1
+      Lambda.tcProg e2
+      step "Anf.Tc"
+      let e3 = l2aProg e2
+      Anf.tcProg e3
+      step "Closure.Tc"
+      e4 <- a2cProg e3
+      Closure.tcProg e4
+      step "Done"
+  , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
+      e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
       step "Lambda.Tc"
       e2 <- r2lProg e1
       Lambda.tcProg e2

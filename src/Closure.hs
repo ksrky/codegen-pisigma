@@ -13,6 +13,10 @@ module Closure (
     ExpF(..),
     Def(..),
     Prog,
+    Env,
+    lookupEnumEnv,
+    lookupBindEnv,
+    extendBindEnv,
     substRec,
     substEx,
     getBindVar,
@@ -82,6 +86,28 @@ makeBaseFunctor ''Ty
 makeBaseFunctor ''Row
 makeBaseFunctor ''Val
 makeBaseFunctor ''Exp
+
+data Dec
+    = DEnum Id [Label]
+    | DBind Id Ty
+    deriving (Eq, Show)
+
+type Env = [Dec]
+
+lookupEnumEnv :: MonadFail m => Id -> Env -> m [Label]
+lookupEnumEnv x = \case
+    DEnum y ls : _ | x == y -> return ls
+    _ : env -> lookupEnumEnv x env
+    [] -> fail "Enum not found"
+
+lookupBindEnv :: MonadFail m => Id -> Env -> m Ty
+lookupBindEnv x = \case
+    DBind y t : _ | x == y -> return t
+    _ : env -> lookupBindEnv x env
+    [] -> fail "Func not found"
+
+extendBindEnv :: Var -> Env -> Env
+extendBindEnv (x, t) = (DBind x t:)
 
 substRec :: Ty -> Ty -> Ty
 substRec s (TRow (TFun (TVar 0: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> r

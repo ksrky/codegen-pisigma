@@ -26,23 +26,23 @@ checkRow (t1 :> r1) (t2 :> r2) = do
     checkRow r1 r2
 checkRow r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
 
-tcVal :: Val -> ReaderT [Var] IO Ty
+tcVal :: Val -> ReaderT Env IO Ty
 tcVal (VLit (LInt _)) = return TInt
 tcVal (VVar x) = do
-    ctx <- ask
-    case lookup (fst x) ctx of
+    env <- ask
+    case lookupBindEnv (fst x) env of
         Just t  -> do
             lift $ check (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x
 tcVal (VGlb f) = do
-    ctx <- ask
-    case lookup (fst f) ctx of
+    env <- ask
+    case lookupBindEnv (fst f) env of
         Just t  -> do
             lift $ check (snd f) t
             return t
         Nothing -> fail $ "unbound global: " ++ show f
-tcVal (VLab _ t) = return t -- TODO: check label
+tcVal (VLab _ t) = return t
 tcVal (VTuple vs) = do
     ts <- mapM tcVal vs
     return $ mkTTuple ts
@@ -70,7 +70,7 @@ tcVal (VValTy v t) = do
     lift $ check t t'
     return t
 
-tcBind :: Bind -> ReaderT [Var] IO ()
+tcBind :: Bind -> ReaderT Env IO ()
 tcBind (BVal x v) = do
     t <- tcVal v
     lift $ check (snd x) t
@@ -98,27 +98,33 @@ tcBind (BUnpack x v2) = do
         TEx t -> lift $ check (snd x) t
         _     -> fail $ "required existential type, but got " ++ show t2
 
-tcExp :: Exp -> ReaderT [Var] IO Ty
+tcExp :: Exp -> ReaderT Env IO Ty
 tcExp (ELet b e) = do
     tcBind b
-    local (getBindVar b:) $ tcExp e
-tcExp (ECase v les) = do -- TODO
-    t <- tcVal v
-    ts <- mapM (\(_, e) -> local (const []) $ tcExp e) les
-    lift $ mapM_ (check t) ts
-    return $ head ts
+    local (extendBindEnv (getBindVar b)) $ tcExp e
+tcExp (ECase v les)
+    | (_, t1) : _ <- les = do
+        ls <- tcVal v >>= \case
+            TName x -> lookupEnumEnv x =<< ask
+            _       -> fail "TName required"
+        guard $ all (\(l, _) -> l `elem` ls) les -- mapbe non-exhaustive
+        ts <- mapM (tcExp . snd) les
+        t1' <- tcExp t1
+        lift $ mapM_ (check t1') ts
+        return t1'
+    | [] <- les = error "empty alternatives"
 tcExp (ERet v) = tcVal v
 tcExp (EExpTy e t) = do
     t' <- tcExp e
     lift $ check t t'
     return t
 
-tcDef :: Def -> ReaderT [Var] IO ()
+tcDef :: Def -> ReaderT Env IO ()
 tcDef (Def f xs e) = do
-    t <- local (xs ++) $ tcExp e
+    t <- local (flip (foldr extendBindEnv) xs) $ tcExp e
     lift $ check (snd f) (TFun (map snd xs) t)
 
 tcProg :: Prog -> IO ()
 tcProg (defs, exp) = do
-    let ctx = map (\Def{code} -> code) defs
-    runReaderT (mapM_ tcDef defs >> void (tcExp exp)) ctx
+    let env = foldr (\Def{code} -> extendBindEnv code) [] defs
+    runReaderT (mapM_ tcDef defs >> void (tcExp exp)) env

@@ -4,7 +4,8 @@ module Lambda.Init (
     externPlus,
     externTimes,
     externEq,
-    initCtx) where
+    initCtx,
+    initEnv) where
 
 import Control.Lens.Operators
 import Id
@@ -29,25 +30,33 @@ idPlus :: Id
 idPlus = mkIdUnsafe "+" & extern .~ True
 
 externPlus :: Dec
-externPlus = DExtern idPlus (TFun TInt (TFun TInt TInt))
+externPlus = DBind idPlus (TFun TInt (TFun TInt TInt))
 
 idTimes :: Id
 idTimes = mkIdUnsafe "*" & extern .~ True
 
 externTimes :: Dec
-externTimes = DExtern idTimes (TFun TInt (TFun TInt TInt))
+externTimes = DBind idTimes (TFun TInt (TFun TInt TInt))
 
 idEq :: Id
 idEq = mkIdUnsafe "==" & extern .~ True
 
 externEq :: Dec
-externEq = DExtern idEq (TFun TInt (TFun TInt tyBool))
+externEq = DBind idEq (TFun TInt (TFun TInt tyBool))
 
 initCtx :: [(String, (Id, Ty))]
 initCtx =
-    [ ("True", (idTrue, TName idBool))
+    [ ("True", (idTrue, TName idBool)) -- tmp: idTrue is redundant
     , ("False", (idFalse, TName idBool))
     , ("+", (idPlus, TFun TInt (TFun TInt TInt)))
     , ("*", (idTimes, TFun TInt (TFun TInt TInt)))
     , ("==", (idEq, TFun TInt (TFun TInt tyBool)))
+    ]
+
+initEnv :: Env
+initEnv =
+    [ DEnum idBool ["True", "False"]
+    , DBind idPlus (TFun TInt (TFun TInt TInt))
+    , DBind idTimes (TFun TInt (TFun TInt TInt))
+    , DBind idEq (TFun TInt (TFun TInt tyBool))
     ]

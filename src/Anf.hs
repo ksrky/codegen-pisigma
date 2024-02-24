@@ -10,7 +10,12 @@ module Anf (
     Bind(..),
     Exp(..),
     ExpF(..),
+    Dec(..),
     Prog,
+    Env,
+    lookupEnumEnv,
+    lookupBindEnv,
+    extendBindEnv,
     Typeable(..),
     getBindVar) where
 
@@ -53,11 +58,33 @@ data Exp
     | EExpTy Exp Ty
     deriving (Eq, Show)
 
+data Dec
+    = DEnum Id [Label]
+    | DBind Id Ty
+    deriving (Eq, Show)
+
 type Prog = Exp
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Val
 makeBaseFunctor ''Exp
+
+type Env = [Dec]
+
+lookupEnumEnv :: MonadFail m => Id -> Env -> m [Label]
+lookupEnumEnv x = \case
+    DEnum y ls : _ | x == y -> return ls
+    _ : env -> lookupEnumEnv x env
+    [] -> fail "Enum not found"
+
+lookupBindEnv :: MonadFail m => Id -> Env -> m Ty
+lookupBindEnv x = \case
+    DBind y t : _ | x == y -> return t
+    _ : env -> lookupBindEnv x env
+    [] -> fail "Func not found"
+
+extendBindEnv :: Var -> Env -> Env
+extendBindEnv (x, t) = (DBind x t:)
 
 class Typeable a where
     typeof :: HasCallStack => a -> Ty

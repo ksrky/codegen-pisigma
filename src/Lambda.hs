@@ -10,6 +10,10 @@ module Lambda (
     ExpF(..),
     Dec(..),
     Prog,
+    Env,
+    lookupEnumEnv,
+    lookupBindEnv,
+    extendBindEnv,
     Typeable(..),
     stripAnn) where
 
@@ -53,13 +57,30 @@ data Exp
 
 data Dec
     = DEnum Id [Label]
-    | DExtern Id Ty
+    | DBind Id Ty
     deriving (Eq, Show)
 
 type Prog = Exp
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Exp
+
+type Env = [Dec]
+
+lookupEnumEnv :: MonadFail m => Id -> Env -> m [Label]
+lookupEnumEnv x = \case
+    DEnum y ls : _ | x == y -> return ls
+    _ : env -> lookupEnumEnv x env
+    [] -> fail "Enum not found"
+
+lookupBindEnv :: MonadFail m => Id -> Env -> m Ty
+lookupBindEnv x = \case
+    DBind y t : _ | x == y -> return t
+    _ : env -> lookupBindEnv x env
+    [] -> fail "Func not found"
+
+extendBindEnv :: Var -> Env -> Env
+extendBindEnv (x, t) = (DBind x t:)
 
 class Typeable a where
     typeof :: HasCallStack => a -> Ty
