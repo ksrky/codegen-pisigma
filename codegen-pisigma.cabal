@@ -64,6 +64,7 @@ library
     , prettyprinter
     , recursion-schemes
     , text
+    , transformers
   default-language: GHC2021
 
 test-suite codegen-pisigma-test
@@ -100,4 +101,5 @@ test-suite codegen-pisigma-test
     , tasty-golden
     , tasty-hunit
     , text
+    , transformers
   default-language: GHC2021

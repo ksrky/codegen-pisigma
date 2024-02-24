@@ -47,17 +47,18 @@ instance PrettyPrec Val where
     prettyPrec _ (VVar x)    = pretty x
     prettyPrec _ (VGlb f)    = pretty f
     prettyPrec _ (VLab l)    = pretty l
-    prettyPrec _ (VTuple vs) = angles $ hsep $ punctuate "," $ map pretty vs
+    prettyPrec _ (VTuple vs) = brackets $ hsep $ punctuate ";" $ map pretty vs
 
 instance PrettyPrec Bind where
     pretty (BVal x v) = pretty x <+> "=" <> softline <> pretty v
     pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
-        <+> parens (hsep (punctuate "," (map prettyMax vs2)))
+        <> parens (hsep (punctuate "," (map prettyMax vs2)))
     pretty (BProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
 
 instance PrettyPrec Exp where
     pretty (ELet d e) = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
-    pretty (ECase v les) = "case" <+> pretty v <+> "of" <+> vsep (map (\(li, ei) -> pretty li <+> "->" <+> pretty ei) les)
+    pretty (ECase v les) = vsep [ "case" <+> pretty v <+> "of"
+                                , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
     pretty (ERet v)   = "ret" <+> prettyMax v
 
 instance PrettyPrec Def where

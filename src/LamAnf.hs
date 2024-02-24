@@ -24,9 +24,6 @@ l2aExp :: L.Exp -> (A.Val -> A.Exp) -> A.Exp
 l2aExp (L.ELit l) kont = kont $ A.VLit (l2aLit l)
 l2aExp (L.EVar x) kont = kont $ A.VVar (l2aVar x)
 l2aExp (L.ELab l t) kont = kont $ A.VLab l (l2aTy t)
--- TODO: Defunctionalization
--- for example, @(+) 1 2@ should not be curried,
--- and @(+) 1@ should be converted to @\x -> (+) x 1@
 l2aExp (L.EApp e1 e2) kont =
     l2aExp e1 $ \v1 ->
     l2aExp e2 $ \v2 ->

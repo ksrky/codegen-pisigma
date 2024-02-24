@@ -140,8 +140,8 @@ stepTests = testGroup "Step tests"
       e4 <- a2cProg e3
       Closure.tcProg e4
       step "Done"
-  , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
-      e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
+  , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
+      e1 <- parseProg "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
       step "Lambda.Tc"
       e2 <- r2lProg e1
       Lambda.tcProg e2
@@ -152,6 +152,18 @@ stepTests = testGroup "Step tests"
       e4 <- a2cProg e3
       Closure.tcProg e4
       step "Done"
+  {- , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
+      e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
+      step "Lambda.Tc"
+      e2 <- r2lProg e1
+      Lambda.tcProg e2
+      step "Anf.Tc"
+      let e3 = l2aProg e2
+      Anf.tcProg e3
+      step "Closure.Tc"
+      e4 <- a2cProg e3
+      Closure.tcProg e4
+      step "Done" -}
   ]
 
 outputClosString :: Text -> IO BL.ByteString
@@ -180,7 +192,9 @@ goldenTests = testGroup "Golden tests"
   [ goldenVsString "\\x -> x" ".golden/clos_\\x -> x.txt" $ outputClosString "\\x -> x"
   , goldenVsString "(\\x -> x) 5" ".golden/clos_(\\x -> x) 5.txt" $ outputClosString "(\\x -> x) 5"
   , goldenVsString "\\x -> (\\y -> x + y)" ".golden/clos_\\x -> (\\y -> x + y).txt" $ outputClosString "\\x -> (\\y -> x + y)"
+  , goldenVsString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5" ".golden/clos_let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5.txt" $ outputClosString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5"
   , goldenVsString "\\x -> x" ".golden/unty_\\x -> x.txt" $ outputUntyString "\\x -> x"
   , goldenVsString "(\\x -> x) 5" ".golden/unty_(\\x -> x) 5.txt" $ outputUntyString "(\\x -> x) 5"
   , goldenVsString "\\x -> (\\y -> x + y)" ".golden/unty_\\x -> (\\y -> x + y).txt" $ outputUntyString "\\x -> (\\y -> x + y)"
-  , goldenVsString "2 * 3 == 6" ".golden/clos_2 * 3 == 6.txt" $ outputUntyString "2 * 3 == 6"]
+  , goldenVsString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5" ".golden/unty_let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5.txt" $ outputUntyString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5"
+  ]

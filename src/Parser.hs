@@ -86,8 +86,8 @@ pExp2 :: Parser Exp
 pExp2 = makeExprParser (try pEApp <|> pExp1) table <?> "Exp2"
   where
     table =
-        [ [InfixL (EBinOp . Text.unpack <$> stringL "*")]
-        , [InfixL (EBinOp . Text.unpack <$> stringL "+")]
+        [ [InfixL (EBinOp . Text.unpack <$> stringL "*"), InfixL (EBinOp . Text.unpack <$> stringL "/")]
+        , [InfixL (EBinOp . Text.unpack <$> stringL "+"), InfixL (EBinOp . Text.unpack <$> stringL "-")]
         , [InfixL (EBinOp . Text.unpack <$> stringL "==")]
         ]
 

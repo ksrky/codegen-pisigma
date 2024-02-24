@@ -170,7 +170,7 @@ instance PrettyPrec Ty where
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
     prettyPrec p (TEx t) = parPrec p 0 $ "∃." <+> pretty t
     prettyPrec p (TRec t) = parPrec p 0 $ "μ." <+> pretty t
-    prettyPrec _ (TRow r) = angles $ pretty r
+    prettyPrec _ (TRow r) = brackets $ pretty r
 
 instance PrettyPrec Row where
     pretty REmpty    = "ε"
@@ -185,7 +185,7 @@ instance PrettyPrec Val where
     prettyPrec _ (VVar (x, _)) = pretty x
     prettyPrec _ (VGlb (f, _)) = pretty f
     prettyPrec _ (VLab l _) = "`" <> pretty l
-    prettyPrec _ (VTuple vs) = angles $ hsep $ punctuate "," $ map pretty vs
+    prettyPrec _ (VTuple vs) = brackets $ hsep $ punctuate ";" $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
         parPrec p 0 $ hang 2 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v) <> softline <> "as", prettyPrec 2 t2]
     prettyPrec p (VRoll v t) = parPrec p 0 $ hang 2 $ hsep ["roll", prettyMax v <> softline <> "as", prettyPrec 2 t]
@@ -195,13 +195,14 @@ instance PrettyPrec Val where
 instance PrettyPrec Bind where
     pretty (BVal x v) = pretty x <+> "=" <> softline <> pretty v
     pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
-        <+> parens (hsep (punctuate "," (map prettyMax vs2)))
+        <> parens (hsep (punctuate "," (map prettyMax vs2)))
     pretty (BProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
     pretty (BUnpack x v) = brackets ("_," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
 
 instance PrettyPrec Exp where
     pretty (ELet d e)    = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
-    pretty (ECase v les) = "case" <+> pretty v <+> "of" <+> vsep (map (\(li, ei) -> pretty li <+> "->" <+> pretty ei) les)
+    pretty (ECase v les) = vsep [ "case" <+> pretty v <+> "of"
+                                , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
     pretty (ERet v)      = "ret" <+> prettyMax v
     pretty (EExpTy e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 

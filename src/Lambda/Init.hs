@@ -1,8 +1,5 @@
 module Lambda.Init (
     tyBool,
-    enumBool,
-    externPlus,
-    externTimes,
     externEq,
     initCtx,
     initEnv) where
@@ -23,23 +20,20 @@ idTrue = mkIdUnsafe "True"
 idFalse :: Id
 idFalse = mkIdUnsafe "False"
 
-enumBool :: Dec
-enumBool = DEnum idBool ["True", "False"]
-
 idPlus :: Id
-idPlus = mkIdUnsafe "+" & extern .~ True
+idPlus = mkIdUnsafe "#add" & extern .~ True
 
-externPlus :: Dec
-externPlus = DBind idPlus (TFun (TTuple [TInt, TInt]) TInt)
+idMinus :: Id
+idMinus = mkIdUnsafe "#sub" & extern .~ True
 
 idTimes :: Id
-idTimes = mkIdUnsafe "*" & extern .~ True
+idTimes = mkIdUnsafe "#mul" & extern .~ True
 
-externTimes :: Dec
-externTimes = DBind idTimes (TFun (TTuple [TInt, TInt]) TInt)
+idDiv :: Id
+idDiv = mkIdUnsafe "#div" & extern .~ True
 
 idEq :: Id
-idEq = mkIdUnsafe "==" & extern .~ True
+idEq = mkIdUnsafe "#eq" & extern .~ True
 
 externEq :: Dec
 externEq = DBind idEq (TFun (TTuple [TInt, TInt]) tyBool)
@@ -49,7 +43,9 @@ initCtx =
     [ ("True", (idTrue, TName idBool)) -- tmp: idTrue is redundant
     , ("False", (idFalse, TName idBool))
     , ("+", (idPlus, TFun (TTuple [TInt, TInt]) TInt))
+    , ("-", (idMinus, TFun (TTuple [TInt, TInt]) TInt))
     , ("*", (idTimes, TFun (TTuple [TInt, TInt]) TInt))
+    , ("/", (idDiv, TFun (TTuple [TInt, TInt]) TInt))
     , ("==", (idEq, TFun (TTuple [TInt, TInt]) tyBool))
     ]
 
@@ -57,6 +53,8 @@ initEnv :: Env
 initEnv =
     [ DEnum idBool ["True", "False"]
     , DBind idPlus (TFun (TTuple [TInt, TInt]) TInt)
+    , DBind idMinus (TFun (TTuple [TInt, TInt]) TInt)
     , DBind idTimes (TFun (TTuple [TInt, TInt]) TInt)
+    , DBind idDiv (TFun (TTuple [TInt, TInt]) TInt)
     , DBind idEq (TFun (TTuple [TInt, TInt]) tyBool)
     ]

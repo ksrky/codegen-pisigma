@@ -36,13 +36,14 @@ getMetas = cata $ \case
 
 unify :: L.Ty -> L.Ty -> IO ()
 unify L.TInt L.TInt = return ()
+unify (L.TName x) (L.TName y) | x == y = return ()
 unify (L.TFun t1 t2) (L.TFun t1' t2') = do
     unify t1 t1'
     unify t2 t2'
 unify (L.TMeta m1) (L.TMeta m2) | m1 == m2 = return ()
 unify (L.TMeta m) t = unifyMeta m t
 unify t (L.TMeta m) = unifyMeta m t
-unify _ _ = fail "unification failed"
+unify t1 t2 = fail $ "type mismatched. expected " ++ show t1 ++ ", but got " ++ show t2
 
 unifyMeta :: L.Meta -> L.Ty -> IO ()
 unifyMeta m1 t2 = do
