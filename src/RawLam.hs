@@ -149,6 +149,7 @@ instance Zonking L.Ty where
                 t' <- zonk t
                 writeMeta m t'
                 -- return t'
+                -- tmp: unsolved meta is coerced to TInt
                 case t' of
                     L.TMeta _ -> return L.TInt
                     _         -> return t'
@@ -169,4 +170,6 @@ instance Zonking L.Exp where
         L.EExpTyF e t -> L.EExpTy <$> e <*> zonk t
 
 r2lProg :: R.Prog -> IO L.Prog
-r2lProg raw_prog = zonk =<< runReaderT (r2lExp raw_prog) initCtx
+r2lProg raw_prog = do
+    e <- zonk =<< runReaderT (r2lExp raw_prog) initCtx
+    return (initEnv, e)

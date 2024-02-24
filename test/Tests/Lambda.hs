@@ -1,9 +1,9 @@
-module Tests.Lambda (progMap) where
+module Tests.Lambda (expMap) where
 
 import Data.Map.Strict qualified as Map
 import Lambda
 
-progMap :: Map.Map String Prog
-progMap = Map.fromList
+expMap :: Map.Map String Exp
+expMap = Map.fromList
   [ ("42", EExpTy (ELit (LInt 42)) TInt)
   ]

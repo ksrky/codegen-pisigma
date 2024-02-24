@@ -60,7 +60,7 @@ data Dec
     | DBind Id Ty
     deriving (Eq, Show)
 
-type Prog = Exp
+type Prog = ([Dec], Exp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Exp

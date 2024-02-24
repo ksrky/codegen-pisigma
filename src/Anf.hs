@@ -17,7 +17,7 @@ module Anf (
     lookupBindEnv,
     extendBindEnv,
     Typeable(..),
-    getBindVar) where
+    bindVar) where
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
@@ -63,7 +63,7 @@ data Dec
     | DBind Id Ty
     deriving (Eq, Show)
 
-type Prog = Exp
+type Prog = ([Dec], Exp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Val
@@ -115,6 +115,6 @@ instance Typeable Exp where
         ERetF v -> typeof v
         EExpTyF _ t -> t
 
-getBindVar :: Bind -> Var
-getBindVar (BVal x _)    = x
-getBindVar (BCall x _ _) = x
+bindVar :: Bind -> Var
+bindVar (BVal x _)    = x
+bindVar (BCall x _ _) = x

@@ -9,8 +9,8 @@ check :: Ty -> Ty -> IO ()
 check TInt TInt = return ()
 check (TName x) (TName y) | x == y = return ()
 check (TFun t1 t2) (TFun u1 u2) = do
-    check t1 t2
-    check u1 u2
+    check t1 u1
+    check t2 u2
 check t1 t2 =
     fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
@@ -62,4 +62,4 @@ tcExp (EExpTy e t) = do
     return t
 
 tcProg :: Prog -> IO ()
-tcProg e = void $ runReaderT (tcExp e) initEnv
+tcProg (_, e) = void $ runReaderT (tcExp e) initEnv

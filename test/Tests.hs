@@ -2,6 +2,7 @@ import Anf.Tc                    qualified as Anf
 import AnfClos
 import ClosUnty
 import Closure.Tc                qualified as Closure
+import Control.Lens
 import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
@@ -32,31 +33,31 @@ parserTests :: TestTree
 parserTests = testGroup "Parser tests"
   [ testCase "42" $ do
       e <- parseProg "42"
-      e @?= Raw.progMap Map.! "42"
+      e @?= Raw.expMap Map.! "42"
   , testCase "x" $ do
       e <- parseProg "x"
-      e @?= Raw.progMap Map.! "x"
+      e @?= Raw.expMap Map.! "x"
   , testCase "f x" $ do
       e <- parseProg "f x"
-      e @?= Raw.progMap Map.! "f x"
+      e @?= Raw.expMap Map.! "f x"
   , testCase "\\x -> x" $ do
       e <- parseProg "\\x -> x"
-      e @?= Raw.progMap Map.! "\\x -> x"
+      e @?= Raw.expMap Map.! "\\x -> x"
   , testCase "let x = 42 in x" $ do
       e <- parseProg "let x = 42 in x"
-      e @?= Raw.progMap Map.! "let x = 42 in x"
+      e @?= Raw.expMap Map.! "let x = 42 in x"
   , testCase "let x = 42 in x" $ do
       e <- parseProg "let rec f = \\x -> g x and g = \\x -> f x in f 0"
-      e @?= Raw.progMap Map.! "let rec f = \\x -> g x and g = \\x -> f x in f 0"
+      e @?= Raw.expMap Map.! "let rec f = \\x -> g x and g = \\x -> f x in f 0"
   , testCase "True" $ do
       e <- parseProg "True"
-      e @?= Raw.progMap Map.! "True"
+      e @?= Raw.expMap Map.! "True"
   , testCase "if True then 1 else 0" $ do
       e <- parseProg "if True then 1 else 0"
-      e @?= Raw.progMap Map.! "if True then 1 else 0"
+      e @?= Raw.expMap Map.! "if True then 1 else 0"
   , testCase "2 * 3 == 6" $ do
       e <- parseProg "2 * 3 == 6"
-      e @?= Raw.progMap Map.! "2 * 3 == 6"
+      e @?= Raw.expMap Map.! "2 * 3 == 6"
   ]
 
 scopeTests :: TestTree
@@ -64,7 +65,7 @@ scopeTests = testGroup "Scope tests"
   [ testCase "\\x -> x * x" $ do
       e1 <- parseProg "\\x -> x * x"
       e2 <- r2lProg e1
-      case L.stripAnn e2 of
+      case L.stripAnn (snd e2) of
         L.ELam x0 (L.EApp (L.EApp _ (L.EVar x1)) (L.EVar x2)) -> do x0 @?= x1; x1 @?= x2
         e                                                     -> assertFailure $ "unexpected: " ++ show e
   ]
@@ -74,20 +75,20 @@ stepTests = testGroup "Step tests"
   [ testCaseSteps "42" $ \step -> do
       step "Parser"
       e1 <- parseProg "42"
-      e1 @?= Raw.progMap Map.! "42"
+      e1 @?= Raw.expMap Map.! "42"
       step "RawLam"
       e2 <- r2lProg e1
-      e2 @?= Lambda.progMap Map.! "42"
+      snd e2 @?= Lambda.expMap Map.! "42"
       step "Lambda.Tc"
       Lambda.tcProg e2
       step " LamAnf"
       let e3 = l2aProg e2
-      e3 @?= Anf.progMap Map.! "42"
+      snd e3 @?= Anf.expMap Map.! "42"
       step "Anf.Tc"
       Anf.tcProg e3
       step "AnfClos"
       e4 <- a2cProg e3
-      e4 @?= Closure.progMap Map.! "42"
+      view _3 e4 @?= Closure.expMap Map.! "42"
       step "Closure.Tc"
       Closure.tcProg e4
       step "Done"
@@ -127,10 +128,24 @@ stepTests = testGroup "Step tests"
       e4 <- a2cProg e3
       Closure.tcProg e4
       step "Done"
+  , testCaseSteps "2 * 3 == 6" $ \step -> do
+      e1 <- parseProg "2 * 3 == 6"
+      step "Lambda.Tc"
+      e2 <- r2lProg e1
+      print e2
+      Lambda.tcProg e2
+      step "Anf.Tc"
+      let e3 = l2aProg e2
+      Anf.tcProg e3
+      step "Closure.Tc"
+      e4 <- a2cProg e3
+      Closure.tcProg e4
+      step "Done"
   , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
       e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
       step "Lambda.Tc"
       e2 <- r2lProg e1
+      print e2
       Lambda.tcProg e2
       step "Anf.Tc"
       let e3 = l2aProg e2

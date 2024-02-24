@@ -7,7 +7,6 @@ import Control.Lens.Operators
 import Control.Monad.RWS
 import Data.Functor.Foldable
 import Data.List                qualified as List
-import Data.Tuple               qualified as Tuple
 import Id
 
 type Locals = [Id]
@@ -111,7 +110,7 @@ rotate n xs = zipWith const (drop n (cycle xs)) xs
 
 a2cExp :: A.Exp -> CCM C.Exp
 a2cExp = cata $ \case
-    A.ELetF d me -> flip (foldr C.ELet) <$> a2cBind d <*> local (fst (A.getBindVar d):) me
+    A.ELetF d me -> flip (foldr C.ELet) <$> a2cBind d <*> local (fst (A.bindVar d):) me
     -- @ds@ is not empty
     A.ELetrecF ds me -> do
         let n = length ds
@@ -159,5 +158,12 @@ a2cRecBind (A.BVal f (A.VLam xs e)) = do
     return (a2cVar f, xs', e', escs')
 a2cRecBind _ = error "not implemented"
 
+a2cDec :: A.Dec -> C.Dec
+a2cDec (A.DEnum x ls) = C.DEnum x ls
+a2cDec (A.DBind x t)  = C.DBind x (a2cTy t)
+
 a2cProg :: A.Prog -> IO C.Prog
-a2cProg e = Tuple.swap <$> evalRWST (a2cExp e) [] []
+a2cProg (decs, e) = do
+    (e', defs) <- evalRWST (a2cExp e) [] []
+    let decs' = foldr (C.extendBindEnv . C.code) (map a2cDec decs) defs
+    return (decs', defs, e')

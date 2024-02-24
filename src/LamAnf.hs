@@ -50,5 +50,9 @@ l2aExp (L.ECase e les) kont =
     A.ECase v $ map (\(li, ei) -> (li, l2aExp ei kont)) les
 l2aExp (L.EExpTy e t) kont = l2aExp e $ \v -> kont $ A.VValTy v (l2aTy t)
 
+l2aDec :: L.Dec -> A.Dec
+l2aDec (L.DEnum x ls) = A.DEnum x ls
+l2aDec (L.DBind x t)  = A.DBind x (l2aTy t)
+
 l2aProg :: L.Prog -> A.Prog
-l2aProg = flip l2aExp A.ERet
+l2aProg (decs, exp) = (map l2aDec decs, l2aExp exp A.ERet)

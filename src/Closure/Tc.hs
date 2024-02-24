@@ -101,7 +101,7 @@ tcBind (BUnpack x v2) = do
 tcExp :: Exp -> ReaderT Env IO Ty
 tcExp (ELet b e) = do
     tcBind b
-    local (extendBindEnv (getBindVar b)) $ tcExp e
+    local (extendBindEnv (bindVar b)) $ tcExp e
 tcExp (ECase v les)
     | (_, t1) : _ <- les = do
         ls <- tcVal v >>= \case
@@ -125,6 +125,4 @@ tcDef (Def f xs e) = do
     lift $ check (snd f) (TFun (map snd xs) t)
 
 tcProg :: Prog -> IO ()
-tcProg (defs, exp) = do
-    let env = foldr (\Def{code} -> extendBindEnv code) [] defs
-    runReaderT (mapM_ tcDef defs >> void (tcExp exp)) env
+tcProg (decs, defs, exp) = runReaderT (mapM_ tcDef defs >> void (tcExp exp)) decs

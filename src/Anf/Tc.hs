@@ -34,9 +34,9 @@ tcVal (VValTy v t) = do
 tcExp :: Exp -> ReaderT Env IO Ty
 tcExp (ELet b e) = do
     tcBind b
-    local (extendBindEnv (getBindVar b)) $ tcExp e
+    local (extendBindEnv (bindVar b)) $ tcExp e
 tcExp (ELetrec bs e) =
-    local (flip (foldr (extendBindEnv . getBindVar)) bs) $ do
+    local (flip (foldr (extendBindEnv . bindVar)) bs) $ do
         mapM_ tcBind bs
         tcExp e
 tcExp (ECase v les)
@@ -70,5 +70,4 @@ tcBind (BCall x v vs) = do
         _ -> fail $ "required function type, but got " ++ show t
 
 tcProg :: Prog -> IO ()
-tcProg e = void $ runReaderT (tcExp e) []
-
+tcProg (decs, e) = void $ runReaderT (tcExp e) decs

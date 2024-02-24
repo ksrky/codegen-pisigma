@@ -11,6 +11,7 @@ module Closure (
     Bind(..),
     Exp(..),
     ExpF(..),
+    Dec(..),
     Def(..),
     Prog,
     Env,
@@ -19,7 +20,7 @@ module Closure (
     extendBindEnv,
     substRec,
     substEx,
-    getBindVar,
+    bindVar,
     Typeable(..),
     StripAnn(..),
     mkTTuple) where
@@ -77,20 +78,20 @@ data Exp
     | EExpTy Exp Ty
     deriving (Eq, Show)
 
+data Dec
+    = DEnum Id [Label]
+    | DBind Id Ty
+    deriving (Eq, Show)
+
 data Def = Def {code :: Var, args :: [Var], body :: Exp}
     deriving (Eq, Show)
 
-type Prog = ([Def], Exp)
+type Prog = ([Dec], [Def], Exp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Row
 makeBaseFunctor ''Val
 makeBaseFunctor ''Exp
-
-data Dec
-    = DEnum Id [Label]
-    | DBind Id Ty
-    deriving (Eq, Show)
 
 type Env = [Dec]
 
@@ -117,11 +118,11 @@ substEx :: Ty -> Ty -> Ty
 substEx (TRow r) (TRec (TRow (TFun ts1 t2 :> RVar 1))) = TRec $ TRow $ TFun ts1 t2 :> r
 substEx  _ _                                 = error "impossible"
 
-getBindVar :: Bind -> Var
-getBindVar (BVal x _)    = x
-getBindVar (BCall x _ _) = x
-getBindVar (BProj x _ _) = x
-getBindVar (BUnpack x _) = x
+bindVar :: Bind -> Var
+bindVar (BVal x _)    = x
+bindVar (BCall x _ _) = x
+bindVar (BProj x _ _) = x
+bindVar (BUnpack x _) = x
 
 class Typeable a where
     typeof :: HasCallStack => a -> Ty
@@ -208,7 +209,7 @@ instance PrettyPrec Def where
     pretty (Def (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <> line <> indent 2 (pretty e)
 
 instance PrettyPrec Prog where
-    pretty (ds, e) = vsep (map pretty ds) <> line <> pretty e
+    pretty (_, ds, e) = vsep (map pretty ds) <> line <> pretty e
 
 class StripAnn a where
     stripAnn :: a -> a
@@ -233,7 +234,7 @@ instance StripAnn Def where
     stripAnn (Def f xs e) = Def f xs (stripAnn e)
 
 instance StripAnn Prog where
-    stripAnn (ds, e) = (map stripAnn ds, stripAnn e)
+    stripAnn (decs, defs, e) = (decs, map stripAnn defs, stripAnn e)
 
 mkTTuple :: [Ty] -> Ty
 mkTTuple ts = TRow $ foldr (:>) REmpty ts

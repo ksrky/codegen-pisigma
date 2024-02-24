@@ -41,4 +41,4 @@ c2uDef :: C.Def -> U.Def
 c2uDef (C.Def f xs e) = U.Def (c2uVar f) (map c2uVar xs) (c2uExp e)
 
 c2uProg :: C.Prog -> U.Prog
-c2uProg (defs, exp) = (map c2uDef defs, c2uExp exp)
+c2uProg (_, defs, exp) = (map c2uDef defs, c2uExp exp)

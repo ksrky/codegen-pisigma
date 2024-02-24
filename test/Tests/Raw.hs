@@ -1,10 +1,10 @@
-module Tests.Raw (progMap) where
+module Tests.Raw (expMap) where
 
 import Data.Map.Strict qualified as Map
 import Raw
 
-progMap :: Map.Map String Prog
-progMap = Map.fromList
+expMap :: Map.Map String Exp
+expMap = Map.fromList
   [ ("42", ELit (LInt 42))
   , ("x", EVar "x")
   , ("f x", EApp (EVar "f") (EVar "x"))
