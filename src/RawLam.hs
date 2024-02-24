@@ -31,6 +31,7 @@ getMetas = cata $ \case
     L.TIntF -> []
     L.TNameF _ -> []
     L.TFunF t1 t2 -> t1 ++ t2
+    L.TTupleF ts -> concat ts
     L.TMetaF m -> [m]
 
 unify :: L.Ty -> L.Ty -> IO ()
@@ -103,12 +104,12 @@ checkExp (R.EBinOp op e1 e2) exp_ty = do
         Just op' -> return op'
         Nothing  -> fail "unknown binop"
     case snd op' of
-        L.TFun t1' (L.TFun t2' tr) -> do
+        L.TFun (L.TTuple [t1', t2']) tr -> do
             e1' <- checkExp e1 t1'
             e2' <- checkExp e2 t2'
             lift $ unify exp_ty tr
-            return $ L.EExpTy (L.EApp (L.EApp (L.EVar op') e1') e2') exp_ty -- tmp: (+) (e1, e2)
-        _ -> fail "required function type"
+            return $ L.EExpTy (L.EApp (L.EVar op') (L.ETuple [e1', e2'])) exp_ty
+        _ -> fail "required binary function type"
 checkExp (R.ELet xes e2) exp_ty = do
     xes' <- forM xes $ \(x, e) -> do
         x' <- mkId x
@@ -143,6 +144,7 @@ instance Zonking L.Ty where
         L.TIntF -> return L.TInt
         L.TNameF x -> return $ L.TName x
         L.TFunF t1 t2 -> L.TFun <$> t1 <*> t2
+        L.TTupleF ts -> L.TTuple <$> sequence ts
         L.TMetaF m -> readMeta m >>= \case
             Nothing -> return L.TInt -- return $ L.TMeta m
             Just t -> do
@@ -166,6 +168,7 @@ instance Zonking L.Exp where
         L.ELamF x e -> L.ELam <$> zonk x <*> e
         L.ELetF x e1 e2 -> L.ELet <$> zonk x <*> e1 <*> e2
         L.ELetrecF xes e2 -> L.ELetrec <$> mapM (\(x, e) -> ((,) <$> zonk x) <*> e) xes <*> e2
+        L.ETupleF es -> L.ETuple <$> sequence es
         L.ECaseF e les -> L.ECase <$> e <*> mapM (\(l, ei) -> (l,) <$> ei) les
         L.EExpTyF e t -> L.EExpTy <$> e <*> zonk t
 

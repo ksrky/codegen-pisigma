@@ -11,6 +11,7 @@ check (TName x) (TName y) | x == y = return ()
 check (TFun t1 t2) (TFun u1 u2) = do
     check t1 u1
     check t2 u2
+check (TTuple ts) (TTuple us) = zipWithM_ check ts us
 check t1 t2 =
     fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
@@ -45,6 +46,7 @@ tcExp (ELetrec xes e2) =
             t <- tcExp e
             lift $ check (snd x) t
         tcExp e2
+tcExp (ETuple es) = TTuple <$> mapM tcExp es
 tcExp (ECase e les)
     | (_, t1) : _ <- les = do
         ls <- tcExp e >>= \case

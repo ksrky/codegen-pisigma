@@ -30,33 +30,33 @@ idPlus :: Id
 idPlus = mkIdUnsafe "+" & extern .~ True
 
 externPlus :: Dec
-externPlus = DBind idPlus (TFun TInt (TFun TInt TInt))
+externPlus = DBind idPlus (TFun (TTuple [TInt, TInt]) TInt)
 
 idTimes :: Id
 idTimes = mkIdUnsafe "*" & extern .~ True
 
 externTimes :: Dec
-externTimes = DBind idTimes (TFun TInt (TFun TInt TInt))
+externTimes = DBind idTimes (TFun (TTuple [TInt, TInt]) TInt)
 
 idEq :: Id
 idEq = mkIdUnsafe "==" & extern .~ True
 
 externEq :: Dec
-externEq = DBind idEq (TFun TInt (TFun TInt tyBool))
+externEq = DBind idEq (TFun (TTuple [TInt, TInt]) tyBool)
 
 initCtx :: [(String, (Id, Ty))]
 initCtx =
     [ ("True", (idTrue, TName idBool)) -- tmp: idTrue is redundant
     , ("False", (idFalse, TName idBool))
-    , ("+", (idPlus, TFun TInt (TFun TInt TInt)))
-    , ("*", (idTimes, TFun TInt (TFun TInt TInt)))
-    , ("==", (idEq, TFun TInt (TFun TInt tyBool)))
+    , ("+", (idPlus, TFun (TTuple [TInt, TInt]) TInt))
+    , ("*", (idTimes, TFun (TTuple [TInt, TInt]) TInt))
+    , ("==", (idEq, TFun (TTuple [TInt, TInt]) tyBool))
     ]
 
 initEnv :: Env
 initEnv =
     [ DEnum idBool ["True", "False"]
-    , DBind idPlus (TFun TInt (TFun TInt TInt))
-    , DBind idTimes (TFun TInt (TFun TInt TInt))
-    , DBind idEq (TFun TInt (TFun TInt tyBool))
+    , DBind idPlus (TFun (TTuple [TInt, TInt]) TInt)
+    , DBind idTimes (TFun (TTuple [TInt, TInt]) TInt)
+    , DBind idEq (TFun (TTuple [TInt, TInt]) tyBool)
     ]

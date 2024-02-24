@@ -10,6 +10,7 @@ check (TName x) (TName y) | x == y = return ()
 check (TFun ts1 t2) (TFun us1 u2) = do
     zipWithM_ check ts1 us1
     check t2 u2
+check (TTuple ts) (TTuple us) = zipWithM_ check ts us
 check t1 t2 =
     fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
@@ -26,6 +27,7 @@ tcVal (VLab _ t) = return t
 tcVal (VLam xs e) = do
     t <- local (flip (foldr extendBindEnv) xs) $ tcExp e
     return $ TFun (map snd xs) t
+tcVal (VTuple vs) = TTuple <$> mapM tcVal vs
 tcVal (VValTy v t) = do
     t' <- tcVal v
     lift $ check t t'

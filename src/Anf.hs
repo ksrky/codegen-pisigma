@@ -31,8 +31,9 @@ type Label = String
 
 data Ty
     = TInt
-    | TFun [Ty] Ty
     | TName Id
+    | TFun [Ty] Ty
+    | TTuple [Ty]
     deriving (Eq, Show)
 
 type Var = (Id, Ty)
@@ -42,6 +43,7 @@ data Val
     | VVar Var
     | VLab Label Ty
     | VLam [Var] Exp
+    | VTuple [Val]
     | VValTy Val Ty
     deriving (Eq, Show)
 
@@ -104,6 +106,7 @@ instance Typeable Val where
         VVarF x -> typeof x
         VLabF _ t -> t
         VLamF xs e -> TFun (map typeof xs) (typeof e)
+        VTupleF vs -> TTuple (map typeof vs)
         VValTyF _ t -> t
 
 instance Typeable Exp where

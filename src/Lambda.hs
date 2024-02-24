@@ -36,8 +36,9 @@ type Label = String
 
 data Ty
     = TInt
-    | TFun Ty Ty
     | TName Id
+    | TFun Ty Ty
+    | TTuple [Ty]
     | TMeta Meta
     deriving (Eq, Show)
 
@@ -49,6 +50,7 @@ data Exp
     | ELab Label Ty
     | EApp Exp Exp
     | ELam Var Exp
+    | ETuple [Exp]
     | ELet Var Exp Exp
     | ELetrec [(Var, Exp)] Exp
     | ECase Exp [(Label, Exp)]
@@ -104,6 +106,7 @@ instance Typeable Exp where
         ELamF (_, t1) t2 -> TFun t1 t2
         ELetF _ _ t -> t
         ELetrecF _ t -> t
+        ETupleF ts -> TTuple ts
         ECaseF _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
         EExpTyF _ t -> t

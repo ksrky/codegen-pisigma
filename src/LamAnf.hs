@@ -12,8 +12,9 @@ l2aLit (L.LInt i) = A.LInt i
 l2aTy :: L.Ty -> A.Ty
 l2aTy = cata $ \case
     L.TIntF       -> A.TInt
-    L.TFunF t1 t2 -> A.TFun [t1] t2
     L.TNameF x    -> A.TName x
+    L.TFunF t1 t2 -> A.TFun [t1] t2
+    L.TTupleF ts  -> A.TTuple ts
     L.TMetaF _    -> error "unsolved meta"
 
 l2aVar :: L.Var -> A.Var
@@ -41,8 +42,14 @@ l2aExp (L.ELet x e1 e2) kont =
     A.ELet (A.BVal (l2aVar x) v1) (l2aExp e2 kont)
 l2aExp (L.ELetrec xes1 e2) kont = go [] xes1
   where
+    go :: [(A.Var, A.Val)] -> [(L.Var, L.Exp)] -> A.Exp
     go acc [] = A.ELetrec (map (uncurry A.BVal) acc) (l2aExp e2 kont)
     go acc ((x, e) : xes) = l2aExp e $ \v -> go ((l2aVar x, v) : acc) xes
+l2aExp (L.ETuple es) kont = go [] es
+  where
+    go :: [A.Val] -> [L.Exp] -> A.Exp
+    go acc []         = kont $ A.VTuple (reverse acc)
+    go acc (e : rest) = l2aExp e $ \v -> go (v : acc) rest
 l2aExp (L.ECase e les) kont =
     l2aExp e $ \v ->
     -- [Note] Duplication of continuation is innefficient.

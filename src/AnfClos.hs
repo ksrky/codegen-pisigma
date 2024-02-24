@@ -44,16 +44,30 @@ a2cTy = cata $ \case
     A.TIntF        -> C.TInt
     A.TNameF x     -> C.TName x
     A.TFunF ts1 t2 -> mkTEx ts1 t2
+    A.TTupleF ts   -> C.TRow $ foldr (C.:>) C.REmpty ts
 
 mkTEx :: [C.Ty] -> C.Ty -> C.Ty
 mkTEx ts t = C.TEx $ C.TRec $ C.TRow $ C.TFun (C.TVar 0 : ts) t C.:> C.RVar 1
 
+a2cTy' :: A.Ty -> C.Ty
+a2cTy' = cata $ \case
+    A.TIntF        -> C.TInt
+    A.TNameF x     -> C.TName x
+    A.TFunF ts1 t2 -> C.TFun ts1 t2
+    A.TTupleF ts   -> C.TRow $ foldr (C.:>) C.REmpty ts
+
 a2cVar :: A.Var -> C.Var
 a2cVar (x, t) = (x, a2cTy t)
+
+a2cVar' :: A.Var -> C.Var
+a2cVar' (x, t) = (x, a2cTy' t)
 
 a2cVal :: A.Val -> CCM C.Val
 a2cVal = cata $ \case
     A.VLitF l -> return $ C.VLit $ a2cLit l
+    A.VVarF x | x ^. extern -> do
+        let x' = a2cVar' x
+        return $ C.VVar x'
     A.VVarF x -> do
         let x' = a2cVar x
         findLocals x'
@@ -85,11 +99,13 @@ a2cVal = cata $ \case
                 }
         appendDef v_code
         return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs')) t_cl) t_excl
-    A.VValTyF mv t -> C.VValTy <$> mv <*> pure (a2cTy t)
+    -- [Note] due to primitives, types may not preserve
+    A.VTupleF vs -> C.VTuple <$> sequence vs
+    A.VValTyF mv _ -> C.VValTy <$> mv <*> (C.typeof <$> mv)
 
 a2cBind :: A.Bind -> CCM [C.Bind]
 a2cBind (A.BVal x v)       = List.singleton <$> (C.BVal (a2cVar x) <$> a2cVal v)
-a2cBind (A.BCall x v1@(A.VVar f) vs2) | view extern f = do
+a2cBind (A.BCall x v1@(A.VVar f) vs2) | f ^. extern = do
     v1' <- a2cVal v1
     vs2' <- mapM a2cVal vs2
     return [C.BCall (a2cVar x) v1' vs2']
@@ -106,7 +122,7 @@ a2cBind (A.BCall x v1 vs2)
 
 -- | ex. @xs = [x1, x2, x3]@ -> @rotate 1 xs = [x2, x3, x1]@
 rotate :: Int -> [a] -> [a]
-rotate n xs = zipWith const (drop n (cycle xs)) xs
+rotate n xs = take (length xs) (drop n (cycle xs))
 
 a2cExp :: A.Exp -> CCM C.Exp
 a2cExp = cata $ \case
@@ -147,7 +163,7 @@ a2cExp = cata $ \case
         flip (foldr C.ELet) ds' <$> me
     A.ECaseF v les -> C.ECase <$> a2cVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
     A.ERetF v -> C.ERet <$> a2cVal v
-    A.EExpTyF me t -> C.EExpTy <$> me <*> pure (a2cTy t)
+    A.EExpTyF me _ -> C.EExpTy <$> me <*> (C.typeof <$> me)
 
 a2cRecBind :: A.Bind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
 a2cRecBind (A.BVal f (A.VLam xs e)) = do
@@ -160,7 +176,8 @@ a2cRecBind _ = error "not implemented"
 
 a2cDec :: A.Dec -> C.Dec
 a2cDec (A.DEnum x ls) = C.DEnum x ls
-a2cDec (A.DBind x t)  = C.DBind x (a2cTy t)
+a2cDec (A.DBind x t) | x ^. extern = C.DBind x (a2cTy' t)
+a2cDec (A.DBind x t) = C.DBind x (a2cTy t)
 
 a2cProg :: A.Prog -> IO C.Prog
 a2cProg (decs, e) = do

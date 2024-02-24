@@ -66,7 +66,7 @@ scopeTests = testGroup "Scope tests"
       e1 <- parseProg "\\x -> x * x"
       e2 <- r2lProg e1
       case L.stripAnn (snd e2) of
-        L.ELam x0 (L.EApp (L.EApp _ (L.EVar x1)) (L.EVar x2)) -> do x0 @?= x1; x1 @?= x2
+        L.ELam x0 (L.EApp _ (L.ETuple [L.EVar x1, L.EVar x2])) -> do x0 @?= x1; x1 @?= x2
         e                                                     -> assertFailure $ "unexpected: " ++ show e
   ]
 
@@ -132,7 +132,6 @@ stepTests = testGroup "Step tests"
       e1 <- parseProg "2 * 3 == 6"
       step "Lambda.Tc"
       e2 <- r2lProg e1
-      print e2
       Lambda.tcProg e2
       step "Anf.Tc"
       let e3 = l2aProg e2
@@ -145,7 +144,6 @@ stepTests = testGroup "Step tests"
       e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
       step "Lambda.Tc"
       e2 <- r2lProg e1
-      print e2
       Lambda.tcProg e2
       step "Anf.Tc"
       let e3 = l2aProg e2
@@ -184,4 +182,5 @@ goldenTests = testGroup "Golden tests"
   , goldenVsString "\\x -> (\\y -> x + y)" ".golden/clos_\\x -> (\\y -> x + y).txt" $ outputClosString "\\x -> (\\y -> x + y)"
   , goldenVsString "\\x -> x" ".golden/unty_\\x -> x.txt" $ outputUntyString "\\x -> x"
   , goldenVsString "(\\x -> x) 5" ".golden/unty_(\\x -> x) 5.txt" $ outputUntyString "(\\x -> x) 5"
-  , goldenVsString "\\x -> (\\y -> x + y)" ".golden/unty_\\x -> (\\y -> x + y).txt" $ outputUntyString "\\x -> (\\y -> x + y)"]
+  , goldenVsString "\\x -> (\\y -> x + y)" ".golden/unty_\\x -> (\\y -> x + y).txt" $ outputUntyString "\\x -> (\\y -> x + y)"
+  , goldenVsString "2 * 3 == 6" ".golden/clos_2 * 3 == 6.txt" $ outputUntyString "2 * 3 == 6"]
