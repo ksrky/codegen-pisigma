@@ -28,6 +28,9 @@ library
       Anf
       Anf.Tc
       AnfClos
+      Asm
+      Asm.Builder
+      Asm.Monad
       ClosUnty
       Closure
       Closure.Tc
