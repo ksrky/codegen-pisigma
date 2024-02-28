@@ -26,15 +26,15 @@ source-repository head
 library
   exposed-modules:
       Anf
-      Anf.Tc
+      Anf.Check
       AnfClosure
       ClosUnty
       Closure
-      Closure.Tc
+      Closure.Check
       Id
       Lambda
+      Lambda.Check
       Lambda.Init
-      Lambda.Tc
       LambdaAnf
       Parser
       Prettyprinter.Prec

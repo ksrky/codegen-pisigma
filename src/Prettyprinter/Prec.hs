@@ -1,7 +1,8 @@
 module Prettyprinter.Prec (
     PrettyPrec(..),
     prettyMax,
-    parPrec) where
+    parPrec
+) where
 
 import Prettyprinter hiding (pretty)
 import Prettyprinter qualified

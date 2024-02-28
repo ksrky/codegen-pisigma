@@ -1,20 +1,21 @@
-import Anf.Tc                    qualified as Anf
+import Anf.Check                 qualified as Anf
 import AnfClosure
 import ClosUnty
-import Closure.Tc                qualified as Closure
+import Closure.Check             qualified as Closure
+import Lambda qualified
+import Lambda.Check              qualified as Lambda
+import LambdaAnf
+import Parser
+import RawLambda
+
 import Control.Lens
 import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
 import Data.Text.Encoding
-import Lambda                    qualified as L
-import Lambda.Tc                 qualified as Lambda
-import LambdaAnf
-import Parser
 import Prettyprinter             hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text
-import RawLambda
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.HUnit
@@ -65,9 +66,9 @@ scopeTests = testGroup "Scope tests"
   [ testCase "\\x -> x * x" $ do
       e1 <- parseProg "\\x -> x * x"
       e2 <- rawLambdaProgram e1
-      case L.stripAnnot (snd e2) of
-        L.ELam x0 (L.EApp _ (L.ETuple [L.EVar x1, L.EVar x2])) -> do x0 @?= x1; x1 @?= x2
-        e                                                     -> assertFailure $ "unexpected: " ++ show e
+      case Lambda.stripAnnot (snd e2) of
+        Lambda.ScopeTest1 x0 x1 x2 -> do x0 @?= x1; x1 @?= x2
+        e                          -> assertFailure $ "unexpected: " ++ show e
   ]
 
 stepTests :: TestTree
@@ -79,88 +80,88 @@ stepTests = testGroup "Step tests"
       step "RawLambda"
       e2 <- rawLambdaProgram e1
       snd e2 @?= Lambda.expMap Map.! "42"
-      step "Lambda.Tc"
+      step "Lambda.Check"
       Lambda.checkProgram e2
       step " LambdaAnf"
       let e3 = lambdaAnfProgram e2
       snd e3 @?= Anf.expMap Map.! "42"
-      step "Anf.Tc"
+      step "Anf.Check"
       Anf.checkProgram e3
       step "AnfClosure"
       e4 <- anfClosureProgram e3
       view _3 e4 @?= Closure.expMap Map.! "42"
-      step "Closure.Tc"
+      step "Closure.Check"
       Closure.checkProgram e4
       step "Done"
   , testCaseSteps "\\x -> x" $ \step -> do
       e1 <- parseProg "\\x -> x"
-      step "Lambda.Tc"
+      step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
-      step "Anf.Tc"
+      step "Anf.Check"
       let e3 = lambdaAnfProgram e2
       Anf.checkProgram e3
-      step "Closure.Tc"
+      step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
       step "Done"
   , testCaseSteps "let x = 42 in x" $ \step -> do
       e1 <- parseProg "let x = 42 in x"
-      step "Lambda.Tc"
+      step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
-      step "Anf.Tc"
+      step "Anf.Check"
       let e3 = lambdaAnfProgram e2
       Anf.checkProgram e3
-      step "Closure.Tc"
+      step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
       e1 <- parseProg "(\\x -> x) 5"
-      step "Lambda.Tc"
+      step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
-      step "Anf.Tc"
+      step "Anf.Check"
       let e3 = lambdaAnfProgram e2
       Anf.checkProgram e3
-      step "Closure.Tc"
+      step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
       step "Done"
   , testCaseSteps "2 * 3 == 6" $ \step -> do
       e1 <- parseProg "2 * 3 == 6"
-      step "Lambda.Tc"
+      step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
-      step "Anf.Tc"
+      step "Anf.Check"
       let e3 = lambdaAnfProgram e2
       Anf.checkProgram e3
-      step "Closure.Tc"
+      step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
       step "Done"
   , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
       e1 <- parseProg "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
-      step "Lambda.Tc"
+      step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
-      step "Anf.Tc"
+      step "Anf.Check"
       let e3 = lambdaAnfProgram e2
       Anf.checkProgram e3
-      step "Closure.Tc"
+      step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
       step "Done"
   {- , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
       e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
-      step "Lambda.Tc"
+      step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
-      step "Anf.Tc"
+      step "Anf.Check"
       let e3 = lambdaAnfProgram e2
       Anf.checkProgram e3
-      step "Closure.Tc"
+      step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
       step "Done" -}

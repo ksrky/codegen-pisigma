@@ -2,7 +2,8 @@ module Lambda.Init (
     tyBool,
     externEq,
     initCtx,
-    initEnv) where
+    initEnv
+) where
 
 import Control.Lens.Operators
 import Id

@@ -1,10 +1,11 @@
 module ClosUnty (c2uProg) where
 
 import Closure               qualified as C
-import Data.Functor.Foldable
 import Id
-import Prelude               hiding (exp)
 import Untyped               qualified as U
+
+import Data.Functor.Foldable
+import Prelude               hiding (exp)
 
 c2uLit :: C.Lit -> U.Lit
 c2uLit (C.LInt i) = U.LInt i

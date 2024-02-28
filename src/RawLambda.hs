@@ -1,14 +1,15 @@
 module RawLambda (rawLambdaProgram) where
 
+import Id
+import Lambda                 qualified as L
+import Lambda.Init
+import Raw                    qualified as R
+
 import Control.Lens.Operators
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Functor.Foldable
 import Data.IORef
-import Id
-import Lambda                 qualified as L
-import Lambda.Init
-import Raw                    qualified as R
 
 type Ctx = [(String, (Id, L.Ty))]
 

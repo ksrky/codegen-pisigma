@@ -1,7 +1,8 @@
 module Tests.Raw (expMap) where
 
-import Data.Map.Strict qualified as Map
 import Raw
+
+import Data.Map.Strict qualified as Map
 
 expMap :: Map.Map String Exp
 expMap = Map.fromList

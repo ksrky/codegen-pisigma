@@ -1,9 +1,10 @@
-module Lambda.Tc (checkProgram) where
+module Lambda.Check (checkProgram) where
+
+import Lambda
+import Lambda.Init
 
 import Control.Monad
 import Control.Monad.Reader
-import Lambda
-import Lambda.Init
 
 checkEqTys :: Ty -> Ty -> IO ()
 checkEqTys TInt TInt = return ()

@@ -1,6 +1,7 @@
-module Closure.Tc (checkProgram) where
+module Closure.Check (checkProgram) where
 
 import Closure
+
 import Control.Monad
 import Control.Monad.Reader
 import Prelude              hiding (exp)

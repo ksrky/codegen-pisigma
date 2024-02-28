@@ -3,7 +3,8 @@
 module Raw (
     Lit(..),
     Exp(..),
-    Program) where
+    Program
+) where
 
 import Data.Functor.Foldable.TH
 

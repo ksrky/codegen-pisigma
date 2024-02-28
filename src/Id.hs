@@ -7,7 +7,8 @@ module Id (
     name,
     uniq,
     newId,
-    newIdUnsafe) where
+    newIdUnsafe
+) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators

@@ -1,11 +1,12 @@
 module Parser (pExp, parseProg) where
 
+import Raw
+
 import Control.Monad
 import Control.Monad.Combinators.Expr
 import Data.Text                      (Text)
 import Data.Text                      qualified as Text
 import Data.Void
-import Raw
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer     qualified as L

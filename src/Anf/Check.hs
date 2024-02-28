@@ -1,6 +1,7 @@
-module Anf.Tc (checkProgram) where
+module Anf.Check (checkProgram) where
 
 import Anf
+
 import Control.Monad
 import Control.Monad.Reader
 

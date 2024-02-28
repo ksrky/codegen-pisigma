@@ -15,13 +15,15 @@ module Lambda (
     lookupBindEnv,
     extendBindEnv,
     Typeable(..),
-    stripAnnot) where
+    stripAnnot
+) where
+
+import Id
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import Data.IORef
 import GHC.Stack
-import Id
 
 newtype Lit = LInt Int
     deriving (Eq, Show)

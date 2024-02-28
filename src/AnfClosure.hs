@@ -2,6 +2,8 @@ module AnfClosure (anfClosureProgram) where
 
 import Anf                        qualified as A
 import Closure                    qualified as C
+import Id
+
 import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad
@@ -10,7 +12,6 @@ import Control.Monad.State
 import Control.Monad.Trans.Writer
 import Data.Functor.Foldable
 import Data.List                  qualified as List
-import Id
 
 type Locals = [Id]
 

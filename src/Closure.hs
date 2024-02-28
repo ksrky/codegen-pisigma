@@ -25,12 +25,15 @@ module Closure (
     StripAnn(..),
     mkClos,
     mkUClos,
-    mkTTuple) where
+    mkTTuple
+) where
+
+import Id
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import GHC.Stack
-import Id
+
 import Prettyprinter            hiding (Pretty (..))
 import Prettyprinter.Prec
 

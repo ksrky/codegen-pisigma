@@ -2,12 +2,13 @@ module Toplevel (runMain) where
 
 import AnfClosure
 import ClosUnty
-import Data.Text          (Text)
 import LambdaAnf
+import RawLambda
+
+import Data.Text          (Text)
 import Parser
 import Prettyprinter.Prec
 import Prettyprinter.Util
-import RawLambda
 
 runMain :: Text -> IO ()
 runMain inp = do

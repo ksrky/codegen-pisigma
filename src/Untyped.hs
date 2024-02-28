@@ -7,6 +7,7 @@ module Untyped (
     Program,) where
 
 import Id
+
 import Prettyprinter      hiding (pretty)
 import Prettyprinter.Prec
 

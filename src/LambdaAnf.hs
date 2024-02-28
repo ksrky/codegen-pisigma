@@ -1,9 +1,10 @@
 module LambdaAnf (lambdaAnfProgram) where
 
 import Anf                   qualified as A
-import Data.Functor.Foldable
 import Id
 import Lambda                qualified as L
+
+import Data.Functor.Foldable
 import Prelude               hiding (exp)
 
 lambdaAnfLit :: L.Lit -> A.Lit
