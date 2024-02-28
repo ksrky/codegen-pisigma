@@ -48,11 +48,8 @@ a2cClosTy :: A.Ty -> C.Ty
 a2cClosTy = cata $ \case
     A.TIntF        -> C.TInt
     A.TNameF x     -> C.TName x
-    A.TFunF ts1 t2 -> mkTEx ts1 t2
+    A.TFunF ts1 t2 -> C.mkClos ts1 t2
     A.TTupleF ts   -> C.TRow $ foldr (C.:>) C.REmpty ts
-
-mkTEx :: [C.Ty] -> C.Ty -> C.Ty
-mkTEx ts t = C.TEx $ C.TRec $ C.TRow $ C.TFun (C.TVar 0 : ts) t C.:> C.RVar 1
 
 a2cVar :: A.Var -> C.Var
 a2cVar (x, t) = (x, a2cTy t)
@@ -79,10 +76,10 @@ a2cVal = cata $ \case
         modify $ List.nub . (escs ++)
         let r_env = foldr ((C.:>) . snd) C.REmpty escs'
             t_env = C.TRow r_env
-            t_cl = C.TRec $ C.TRow $ C.TFun (C.TVar 0 : map snd xs') (C.typeof e') C.:> r_env
-            t_excl = mkTEx (map snd xs') (C.typeof e')
-            x_cl = (mkIdUnsafe "x_cl", t_cl)
-            t_code = C.TFun (t_cl : map snd xs') (C.typeof e')
+            t_ucl = C.mkUClos (map snd xs') (C.typeof e') r_env
+            t_cl = C.mkClos (map snd xs') (C.typeof e')
+            x_cl = (mkIdUnsafe "x_cl", t_ucl)
+            t_code = C.TFun (t_ucl : map snd xs') (C.typeof e')
         f_code <- (,t_code) <$> mkId "f_code"
         let v_code = C.Def {
                 C.code = f_code,
@@ -96,7 +93,7 @@ a2cVal = cata $ \case
                         foldr C.ELet e' (d : ds)
                 }
         appendDef v_code
-        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs')) t_cl) t_excl
+        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs')) t_ucl) t_cl
     A.VTupleF vs -> C.VTuple <$> sequence vs
     A.VValTyF mv t -> C.VValTy <$> mv <*> pure (a2cClosTy t)
 
@@ -129,24 +126,24 @@ a2cExp = cata $ \case
         let n = length ds
         predata <- mapM a2cRecBind ds
         modify $ List.nub . (concatMap (\(_, ls, _, es) -> es List.\\ ls) predata ++)
-        let t_excls = map (\(_, xs, e, _) -> mkTEx (map snd xs) (C.typeof e)) predata
+        let t_excls = map (\(_, xs, e, _) -> C.mkClos (map snd xs) (C.typeof e)) predata
             fs = map (view _1) predata
         ds' <- forM [1..n] $ \i -> do
             let (f, xs, e, escs) = predata !! (i - 1)
             let r_escs = foldr ((C.:>) . snd) C.REmpty escs
                 r_env = foldr (C.:>) r_escs (tail $ rotate (i-1) t_excls)
                 t_env = C.TRow r_env
-                t_cl = C.TRec $ C.TRow $ C.TFun (C.TVar 0 : map snd xs) (C.typeof e) C.:> r_env
-                t_excl = mkTEx (map snd xs) (C.typeof e)
-                x_cl = (mkIdUnsafe "x_cl", t_cl)
-                t_code = C.TFun (t_cl : map snd xs) (C.typeof e)
+                t_ucl = C.mkUClos (map snd xs) (C.typeof e) r_env
+                t_cl = C.mkClos (map snd xs) (C.typeof e)
+                x_cl = (mkIdUnsafe "x_cl", t_ucl)
+                t_code = C.TFun (t_ucl : map snd xs) (C.typeof e)
             f_code <- (,t_code) <$> mkId (fst f ^. name  ++ "_code")
             traceShowM $ tail $ rotate (i-1) fs
             let v_code = C.Def {
                     C.code = f_code,
                     C.args = x_cl : xs,
                     C.body =
-                        let di = C.BVal f $ C.VPack t_env (C.VVar x_cl) t_excl in
+                        let di = C.BVal f $ C.VPack t_env (C.VVar x_cl) t_cl in
                         if r_env == C.REmpty then C.ELet di e
                         else
                             let x_env = (mkIdUnsafe "x_env", t_env) in
@@ -156,7 +153,7 @@ a2cExp = cata $ \case
                             foldr C.ELet e (di : d_env : ds_cl ++ ds_esc)
                     }
             appendDef v_code
-            let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs)) t_cl) t_excl
+            let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs)) t_ucl) t_cl
             return $ C.BVal f v
         flip (foldr C.ELet) ds' <$> me
     A.ECaseF v les -> C.ECase <$> a2cVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les

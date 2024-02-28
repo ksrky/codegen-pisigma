@@ -50,20 +50,20 @@ tcVal (VPack t1 v t2) = do
     t <- tcVal v
     case t2 of
         TEx t2' -> do
-            lift $ check (substEx t1 t2') t
+            lift $ check (unpackClos t1 t2') t
             return t2
         _ -> fail $ "expected existential type, but got " ++ show t2
 tcVal (VRoll v t) = do
     t' <- tcVal v
     case t of
         TRec t2 -> do
-            lift $ check (substRec t t2) t'
+            lift $ check (unrollUClos t t2) t'
             return t
         _ -> fail $ "expected recursive type, but got " ++ show t
 tcVal (VUnroll v) = do
     t <- tcVal v
     case t of
-        TRec t2 -> return $ substRec t t2
+        TRec t2 -> return $ unrollUClos t t2
         _       -> fail $ "expected recursive type, but got " ++ show t
 tcVal (VValTy v t) = do
     t' <- tcVal v

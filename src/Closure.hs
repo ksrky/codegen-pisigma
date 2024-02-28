@@ -18,11 +18,13 @@ module Closure (
     lookupEnumEnv,
     lookupBindEnv,
     extendBindEnv,
-    substRec,
-    substEx,
+    unrollUClos,
+    unpackClos,
     bindVar,
     Typeable(..),
     StripAnn(..),
+    mkClos,
+    mkUClos,
     mkTTuple) where
 
 import Data.Functor.Foldable
@@ -110,13 +112,24 @@ lookupBindEnv x = \case
 extendBindEnv :: Var -> Env -> Env
 extendBindEnv (x, t) = (DBind x t:)
 
-substRec :: Ty -> Ty -> Ty
-substRec s (TRow (TFun (TVar 0: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> r
-substRec _ _                                   = error "impossible"
+-- | Make a packed closure
+mkClos :: [Ty] -> Ty -> Ty
+mkClos ts1 t2 = TEx $ TRec $ TRow $ TFun (TVar 0 : ts1) t2 :> RVar 1
 
-substEx :: Ty -> Ty -> Ty
-substEx (TRow r) (TRec (TRow (TFun ts1 t2 :> RVar 1))) = TRec $ TRow $ TFun ts1 t2 :> r
-substEx  _ _                                 = error "impossible"
+-- | Make an unpacked closure
+mkUClos :: [Ty] -> Ty -> Row -> Ty
+mkUClos ts1 t2 r = TRec $ TRow (TFun (TVar 0 : ts1) t2 :> r)
+
+mkTTuple :: [Ty] -> Ty
+mkTTuple ts = TRow $ foldr (:>) REmpty ts
+
+unrollUClos :: Ty -> Ty -> Ty
+unrollUClos s (TRow (TFun (TVar 0: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> r
+unrollUClos _ _                                   = error "impossible"
+
+unpackClos :: Ty -> Ty -> Ty
+unpackClos (TRow r) (TRec (TRow (TFun ts1 t2 :> RVar 1))) = TRec $ TRow $ TFun ts1 t2 :> r
+unpackClos  _ _                                           = error "impossible"
 
 bindVar :: Bind -> Var
 bindVar (BVal x _)    = x
@@ -147,7 +160,7 @@ instance Typeable Val where
         VRollF _ t -> t
         VUnrollF v ->
             case typeof v of
-                TRec t -> substRec (TRec t) t
+                TRec t -> unrollUClos (TRec t) t
                 _      -> error "required recursive type"
         VValTyF _ t -> t
 
@@ -236,6 +249,3 @@ instance StripAnn Def where
 
 instance StripAnn Prog where
     stripAnn (decs, defs, e) = (decs, map stripAnn defs, stripAnn e)
-
-mkTTuple :: [Ty] -> Ty
-mkTTuple ts = TRow $ foldr (:>) REmpty ts
