@@ -67,7 +67,7 @@ r2lExp :: R.Exp -> TcM L.Exp
 r2lExp e = do
     exp_ty <- newTyVar
     e' <- checkExp e exp_ty
-    return $ L.EExpTy e' exp_ty
+    return $ L.EAnnot e' exp_ty
 
 checkExp :: R.Exp -> L.Ty -> TcM L.Exp
 checkExp (R.ELit l) exp_ty = do
@@ -91,14 +91,14 @@ checkExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar
     e1' <- checkExp e1 (L.TFun t2 exp_ty)
     e2' <- checkExp e2 t2
-    return $ L.EExpTy (L.EApp e1' e2') exp_ty
+    return $ L.EAnnot (L.EApp e1' e2') exp_ty
 checkExp (R.ELam x e) exp_ty = do
     x' <- mkId x
     t1 <- newTyVar
     t2 <- newTyVar
     lift $ unify exp_ty (L.TFun t1 t2)
     e' <- local ((x, (x', t1)):) $ checkExp e t2
-    return $ L.EExpTy (L.ELam (x', t1) e') exp_ty
+    return $ L.EAnnot (L.ELam (x', t1) e') exp_ty
 checkExp (R.EBinOp op e1 e2) exp_ty = do
     ctx <- ask
     op' <- case lookup op ctx of
@@ -109,7 +109,7 @@ checkExp (R.EBinOp op e1 e2) exp_ty = do
             e1' <- checkExp e1 t1'
             e2' <- checkExp e2 t2'
             lift $ unify exp_ty tr
-            return $ L.EExpTy (L.EApp (L.EVar op') (L.ETuple [e1', e2'])) exp_ty
+            return $ L.EAnnot (L.EApp (L.EVar op') (L.ETuple [e1', e2'])) exp_ty
         _ -> fail "required binary function type"
 checkExp (R.ELet xes e2) exp_ty = do
     xes' <- forM xes $ \(x, e) -> do
@@ -118,7 +118,7 @@ checkExp (R.ELet xes e2) exp_ty = do
         e' <- checkExp e t
         return ((x', t), e')
     e2' <- local (map (\(x, _) -> (fst x ^. name, x)) xes' ++) $ checkExp e2 exp_ty
-    return $ L.EExpTy (foldr (uncurry L.ELet) e2' xes') exp_ty
+    return $ L.EAnnot (foldr (uncurry L.ELet) e2' xes') exp_ty
 checkExp (R.ELetrec xes e2) exp_ty = do
     env <- forM xes $ \(x, _) -> do
         x' <- mkId x
@@ -129,12 +129,12 @@ checkExp (R.ELetrec xes e2) exp_ty = do
             e' <- checkExp e (snd x)
             return (x, e')) env xes
         e2' <- local (env ++) $ checkExp e2 exp_ty
-        return $ L.EExpTy (L.ELetrec xes' e2') exp_ty
+        return $ L.EAnnot (L.ELetrec xes' e2') exp_ty
 checkExp (R.EIf e1 e2 e3) exp_ty = do
     e1' <- checkExp e1 tyBool
     e2' <- checkExp e2 exp_ty
     e3' <- checkExp e3 exp_ty
-    return $ L.EExpTy (L.ECase (L.EExpTy e1' tyBool) [("True", e2'), ("False", e3')]) exp_ty
+    return $ L.EAnnot (L.ECase (L.EAnnot e1' tyBool) [("True", e2'), ("False", e3')]) exp_ty
 
 class Zonking a where
     zonk :: a -> IO a
@@ -171,9 +171,9 @@ instance Zonking L.Exp where
         L.ELetrecF xes e2 -> L.ELetrec <$> mapM (\(x, e) -> ((,) <$> zonk x) <*> e) xes <*> e2
         L.ETupleF es -> L.ETuple <$> sequence es
         L.ECaseF e les -> L.ECase <$> e <*> mapM (\(l, ei) -> (l,) <$> ei) les
-        L.EExpTyF e t -> L.EExpTy <$> e <*> zonk t
+        L.EAnnotF e t -> L.EAnnot <$> e <*> zonk t
 
-r2lProg :: R.Prog -> IO L.Prog
+r2lProg :: R.Program -> IO L.Program
 r2lProg raw_prog = do
     e <- zonk =<< runReaderT (r2lExp raw_prog) initCtx
     return (initEnv, e)

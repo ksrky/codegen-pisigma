@@ -11,7 +11,7 @@ module Anf (
     Exp(..),
     ExpF(..),
     Dec(..),
-    Prog,
+    Program,
     Env,
     lookupEnumEnv,
     lookupBindEnv,
@@ -41,10 +41,10 @@ type Var = (Id, Ty)
 data Val
     = VLit Lit
     | VVar Var
-    | VLab Label Ty
+    | VLabel Label Ty
     | VLam [Var] Exp
     | VTuple [Val]
-    | VValTy Val Ty
+    | VAnnot Val Ty
     deriving (Eq, Show)
 
 data Bind
@@ -56,8 +56,8 @@ data Exp
     = ELet Bind Exp
     | ELetrec [Bind] Exp
     | ECase Val [(Label, Exp)]
-    | ERet Val
-    | EExpTy Exp Ty
+    | EReturn Val
+    | EAnnot Exp Ty
     deriving (Eq, Show)
 
 data Dec
@@ -65,7 +65,7 @@ data Dec
     | DBind Id Ty
     deriving (Eq, Show)
 
-type Prog = ([Dec], Exp)
+type Program = ([Dec], Exp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Val
@@ -104,10 +104,10 @@ instance Typeable Val where
     typeof = cata $ \case
         VLitF l -> typeof l
         VVarF x -> typeof x
-        VLabF _ t -> t
+        VLabelF _ t -> t
         VLamF xs e -> TFun (map typeof xs) (typeof e)
         VTupleF vs -> TTuple (map typeof vs)
-        VValTyF _ t -> t
+        VAnnotF _ t -> t
 
 instance Typeable Exp where
     typeof = cata $ \case
@@ -115,8 +115,8 @@ instance Typeable Exp where
         ELetrecF _ e -> e
         ECaseF _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
-        ERetF v -> typeof v
-        EExpTyF _ t -> t
+        EReturnF v -> typeof v
+        EAnnotF _ t -> t
 
 bindVar :: Bind -> Var
 bindVar (BVal x _)    = x

@@ -9,7 +9,7 @@ module Lambda (
     Exp(..),
     ExpF(..),
     Dec(..),
-    Prog,
+    Program,
     Env,
     lookupEnumEnv,
     lookupBindEnv,
@@ -54,7 +54,7 @@ data Exp
     | ELet Var Exp Exp
     | ELetrec [(Var, Exp)] Exp
     | ECase Exp [(Label, Exp)]
-    | EExpTy Exp Ty
+    | EAnnot Exp Ty
     deriving (Eq, Show)
 
 data Dec
@@ -62,7 +62,7 @@ data Dec
     | DBind Id Ty
     deriving (Eq, Show)
 
-type Prog = ([Dec], Exp)
+type Program = ([Dec], Exp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Exp
@@ -109,9 +109,9 @@ instance Typeable Exp where
         ETupleF ts -> TTuple ts
         ECaseF _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
-        EExpTyF _ t -> t
+        EAnnotF _ t -> t
 
 stripAnn :: Exp -> Exp
 stripAnn = cata $ \case
-    EExpTyF e _ -> e
+    EAnnotF e _ -> e
     e -> embed e

@@ -3,7 +3,7 @@
 module Raw (
     Lit(..),
     Exp(..),
-    Prog) where
+    Program) where
 
 import Data.Functor.Foldable.TH
 
@@ -24,6 +24,6 @@ data Exp
     | EIf Exp Exp Exp
     deriving (Eq, Show)
 
-type Prog = Exp
+type Program = Exp
 
 makeBaseFunctor ''Exp

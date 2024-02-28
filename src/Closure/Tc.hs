@@ -12,13 +12,13 @@ check (TName x) (TName y) | x == y = return ()
 check (TFun ts1 t2) (TFun us1 u2) = do
     zipWithM_ check ts1 us1
     check t2 u2
-check (TEx t1) (TEx t2) = check t1 t2
-check (TRec t1) (TRec t2) = check t1 t2
+check (TExists t1) (TExists t2) = check t1 t2
+check (TRecurs t1) (TRecurs t2) = check t1 t2
 check (TRow r1) (TRow r2) = checkRow r1 r2
 check t1 t2 =
     fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
-checkRow :: Row -> Row -> IO ()
+checkRow :: RowTy -> RowTy -> IO ()
 checkRow REmpty REmpty = return ()
 checkRow (RVar x) (RVar y) | x == y = return ()
 checkRow (t1 :> r1) (t2 :> r2) = do
@@ -35,37 +35,37 @@ tcVal (VVar x) = do
             lift $ check (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x
-tcVal (VGlb f) = do
+tcVal (VGlobal f) = do
     env <- ask
     case lookupBindEnv (fst f) env of
         Just t  -> do
             lift $ check (snd f) t
             return t
         Nothing -> fail $ "unbound global: " ++ show f
-tcVal (VLab _ t) = return t
+tcVal (VLabel _ t) = return t
 tcVal (VTuple vs) = do
     ts <- mapM tcVal vs
     return $ mkTTuple ts
 tcVal (VPack t1 v t2) = do
     t <- tcVal v
     case t2 of
-        TEx t2' -> do
+        TExists t2' -> do
             lift $ check (unpackClos t1 t2') t
             return t2
         _ -> fail $ "expected existential type, but got " ++ show t2
 tcVal (VRoll v t) = do
     t' <- tcVal v
     case t of
-        TRec t2 -> do
+        TRecurs t2 -> do
             lift $ check (unrollUClos t t2) t'
             return t
         _ -> fail $ "expected recursive type, but got " ++ show t
 tcVal (VUnroll v) = do
     t <- tcVal v
     case t of
-        TRec t2 -> return $ unrollUClos t t2
-        _       -> fail $ "expected recursive type, but got " ++ show t
-tcVal (VValTy v t) = do
+        TRecurs t2 -> return $ unrollUClos t t2
+        _          -> fail $ "expected recursive type, but got " ++ show t
+tcVal (VAnnot v t) = do
     t' <- tcVal v
     lift $ check t t'
     return t
@@ -95,8 +95,8 @@ tcBind (BProj x v i) = do
 tcBind (BUnpack x v2) = do
     t2 <- tcVal v2
     case t2 of
-        TEx t -> lift $ check (snd x) t
-        _     -> fail $ "required existential type, but got " ++ show t2
+        TExists t -> lift $ check (snd x) t
+        _         -> fail $ "required existential type, but got " ++ show t2
 
 tcExp :: Exp -> ReaderT Env IO Ty
 tcExp (ELet b e) = do
@@ -113,16 +113,16 @@ tcExp (ECase v les)
         lift $ mapM_ (check t1') ts
         return t1'
     | [] <- les = error "empty alternatives"
-tcExp (ERet v) = tcVal v
-tcExp (EExpTy e t) = do
+tcExp (EReturn v) = tcVal v
+tcExp (EAnnot e t) = do
     t' <- tcExp e
     lift $ check t t'
     return t
 
-tcDef :: Def -> ReaderT Env IO ()
-tcDef (Def f xs e) = do
+tcDef :: Defn -> ReaderT Env IO ()
+tcDef (Defn f xs e) = do
     t <- local (flip (foldr extendBindEnv) xs) $ tcExp e
     lift $ check (snd f) (TFun (map snd xs) t)
 
-tcProg :: Prog -> IO ()
+tcProg :: Program -> IO ()
 tcProg (decs, defs, exp) = runReaderT (mapM_ tcDef defs >> void (tcExp exp)) decs

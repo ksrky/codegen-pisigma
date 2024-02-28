@@ -23,7 +23,7 @@ l2aVar (x, t) = (x, l2aTy t)
 l2aExp :: L.Exp -> (A.Val -> A.Exp) -> A.Exp
 l2aExp (L.ELit l) kont = kont $ A.VLit (l2aLit l)
 l2aExp (L.EVar x) kont = kont $ A.VVar (l2aVar x)
-l2aExp (L.ELab l t) kont = kont $ A.VLab l (l2aTy t)
+l2aExp (L.ELab l t) kont = kont $ A.VLabel l (l2aTy t)
 l2aExp (L.EApp e1 e2) kont =
     l2aExp e1 $ \v1 ->
     l2aExp e2 $ \v2 ->
@@ -33,7 +33,7 @@ l2aExp (L.EApp e1 e2) kont =
     let x = (mkIdUnsafe "x_call", t_call) in
     let body = kont (A.VVar x) in
     A.ELet (A.BCall x v1 [v2]) body
-l2aExp (L.ELam x e) kont = kont $ A.VLam [l2aVar x] (l2aExp e A.ERet)
+l2aExp (L.ELam x e) kont = kont $ A.VLam [l2aVar x] (l2aExp e A.EReturn)
 l2aExp (L.ELet x e1 e2) kont =
     l2aExp e1 $ \v1 ->
     A.ELet (A.BVal (l2aVar x) v1) (l2aExp e2 kont)
@@ -52,11 +52,11 @@ l2aExp (L.ECase e les) kont =
     -- [Note] Duplication of continuation is innefficient.
     --        Use join point to avoid this.
     A.ECase v $ map (\(li, ei) -> (li, l2aExp ei kont)) les
-l2aExp (L.EExpTy e t) kont = l2aExp e $ \v -> kont $ A.VValTy v (l2aTy t)
+l2aExp (L.EAnnot e t) kont = l2aExp e $ \v -> kont $ A.VAnnot v (l2aTy t)
 
 l2aDec :: L.Dec -> A.Dec
 l2aDec (L.DEnum x ls) = A.DEnum x ls
 l2aDec (L.DBind x t)  = A.DBind x (l2aTy t)
 
-l2aProg :: L.Prog -> A.Prog
-l2aProg (decs, exp) = (map l2aDec decs, l2aExp exp A.ERet)
+l2aProg :: L.Program -> A.Program
+l2aProg (decs, exp) = (map l2aDec decs, l2aExp exp A.EReturn)

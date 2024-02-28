@@ -5,5 +5,5 @@ import Lambda
 
 expMap :: Map.Map String Exp
 expMap = Map.fromList
-  [ ("42", EExpTy (ELit (LInt 42)) TInt)
+  [ ("42", EAnnot (ELit (LInt 42)) TInt)
   ]

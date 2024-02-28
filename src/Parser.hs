@@ -94,10 +94,10 @@ pExp2 = makeExprParser (try pEApp <|> pExp1) table <?> "Exp2"
 pExp :: Parser Exp
 pExp = lexeme (pELam <|> try pELetrec <|> pELet <|> pEIf <|> pExp2) <?> "Exp"
 
-pProg :: Parser Prog
-pProg = pExp <* eof <?> "Prog"
+pProg :: Parser Program
+pProg = pExp <* eof <?> "Program"
 
-parseProg :: MonadFail m => Text -> m Prog
+parseProg :: MonadFail m => Text -> m Program
 parseProg inp = case runParser pProg "main" inp of
     Left err   -> fail $ errorBundlePretty err
     Right prog -> return prog

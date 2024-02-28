@@ -17,7 +17,7 @@ type Locals = [Id]
 type Escapes = [C.Var]
 
 -- | Closure Conversion Monad
-type CCM = StateT Escapes (ReaderT Locals (WriterT [C.Def] IO))
+type CCM = StateT Escapes (ReaderT Locals (WriterT [C.Defn] IO))
 
 findLocals :: C.Var -> CCM ()
 findLocals x = do
@@ -30,7 +30,7 @@ findLocals x = do
 removeLocals :: Escapes -> Locals -> Escapes
 removeLocals escs lcls = filter (\x -> fst x `notElem` lcls) escs
 
-appendDef :: C.Def -> CCM ()
+appendDef :: C.Defn -> CCM ()
 appendDef = lift . lift . tell . List.singleton
 
 a2cLit :: A.Lit -> C.Lit
@@ -66,7 +66,7 @@ a2cVal = cata $ \case
         let x' = a2cClosVar x
         findLocals x'
         return $ C.VVar x'
-    A.VLabF l t -> return $ C.VLab l (a2cTy t)
+    A.VLabelF l t -> return $ C.VLabel l (a2cTy t)
     A.VLamF xs e -> do
         let xs' = map a2cClosVar xs
             lcls = map fst xs
@@ -80,7 +80,7 @@ a2cVal = cata $ \case
             x_cl = (mkIdUnsafe "x_cl", t_ucl)
             t_code = C.TFun (t_ucl : map snd xs') (C.typeof e')
         f_code <- (,t_code) <$> mkId "f_code"
-        let v_code = C.Def {
+        let v_code = C.Defn {
                 C.code = f_code,
                 C.args = x_cl : xs',
                 C.body =
@@ -92,9 +92,9 @@ a2cVal = cata $ \case
                         foldr C.ELet e' (d : ds)
                 }
         appendDef v_code
-        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs')) t_ucl) t_cl
+        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlobal f_code : map C.VVar escs')) t_ucl) t_cl
     A.VTupleF vs -> C.VTuple <$> sequence vs
-    A.VValTyF mv t -> C.VValTy <$> mv <*> pure (a2cClosTy t)
+    A.VAnnotF mv t -> C.VAnnot <$> mv <*> pure (a2cClosTy t)
 
 a2cBind :: A.Bind -> CCM [C.Bind]
 a2cBind (A.BVal x v)       = List.singleton <$> (C.BVal (a2cClosVar x) <$> a2cVal v)
@@ -103,7 +103,7 @@ a2cBind (A.BCall x v1@(A.VVar f) vs2) | f ^. extern = do
     vs2' <- mapM a2cVal vs2
     return [C.BCall (a2cVar x) v1' vs2']
 a2cBind (A.BCall x v1 vs2)
-    | C.TEx t_cl <- a2cClosTy (A.typeof v1) = do
+    | C.TExists t_cl <- a2cClosTy (A.typeof v1) = do
     let x_cl = (mkIdUnsafe "x_cl", t_cl)
     d1 <- C.BUnpack x_cl <$> a2cVal v1
     let t_code = C.TFun (t_cl : map (a2cClosTy . A.typeof) vs2) (a2cClosTy (A.typeof x))
@@ -137,7 +137,7 @@ a2cExp = cata $ \case
                 x_cl = (mkIdUnsafe "x_cl", t_ucl)
                 t_code = C.TFun (t_ucl : map snd xs) (C.typeof e)
             f_code <- (,t_code) <$> mkId (fst f ^. name  ++ "_code")
-            let v_code = C.Def {
+            let v_code = C.Defn {
                     C.code = f_code,
                     C.args = x_cl : xs,
                     C.body =
@@ -151,12 +151,12 @@ a2cExp = cata $ \case
                             foldr C.ELet e (di : d_env : ds_cl ++ ds_esc)
                     }
             appendDef v_code
-            let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlb f_code : map C.VVar escs)) t_ucl) t_cl
+            let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlobal f_code : map C.VVar escs)) t_ucl) t_cl
             return $ C.BVal f v
         flip (foldr C.ELet) ds' <$> me
     A.ECaseF v les -> C.ECase <$> a2cVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
-    A.ERetF v -> C.ERet <$> a2cVal v
-    A.EExpTyF me _ -> C.EExpTy <$> me <*> (C.typeof <$> me)
+    A.EReturnF v -> C.EReturn <$> a2cVal v
+    A.EAnnotF me _ -> C.EAnnot <$> me <*> (C.typeof <$> me)
 
 a2cRecBind :: A.Bind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
 a2cRecBind (A.BVal f v) | A.VLam xs e <- stripAnnTop v = do
@@ -165,7 +165,7 @@ a2cRecBind (A.BVal f v) | A.VLam xs e <- stripAnnTop v = do
     return (a2cClosVar f, xs', e', escs)
   where
     stripAnnTop :: A.Val -> A.Val
-    stripAnnTop (A.VValTy v' _) = stripAnnTop v'
+    stripAnnTop (A.VAnnot v' _) = stripAnnTop v'
     stripAnnTop v'              = v'
 a2cRecBind _ = error "impossible. lambda expected"
 
@@ -174,7 +174,7 @@ a2cDec (A.DEnum x ls) = C.DEnum x ls
 a2cDec (A.DBind x t) | x ^. extern = C.DBind x (a2cTy t)
 a2cDec (A.DBind x t) = C.DBind x (a2cClosTy t)
 
-a2cProg :: A.Prog -> IO C.Prog
+a2cProg :: A.Program -> IO C.Program
 a2cProg (decs, e) = do
     (e', defs) <- runWriterT (runReaderT (evalStateT (a2cExp e) []) [])
     let decs' = foldr (C.extendBindEnv . C.code) (map a2cDec decs) defs

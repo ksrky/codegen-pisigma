@@ -23,12 +23,12 @@ tcVal (VVar x) = do
             lift $ check (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x
-tcVal (VLab _ t) = return t
+tcVal (VLabel _ t) = return t
 tcVal (VLam xs e) = do
     t <- local (flip (foldr extendBindEnv) xs) $ tcExp e
     return $ TFun (map snd xs) t
 tcVal (VTuple vs) = TTuple <$> mapM tcVal vs
-tcVal (VValTy v t) = do
+tcVal (VAnnot v t) = do
     t' <- tcVal v
     lift $ check t t'
     return t
@@ -52,8 +52,8 @@ tcExp (ECase v les)
         lift $ mapM_ (check t1') ts
         return t1'
     | [] <- les = error "empty alternatives"
-tcExp (ERet v) = tcVal v
-tcExp (EExpTy e t) = do
+tcExp (EReturn v) = tcVal v
+tcExp (EAnnot e t) = do
     t' <- tcExp e
     lift $ check t t'
     return t
@@ -71,5 +71,5 @@ tcBind (BCall x v vs) = do
             check (snd x) t2
         _ -> fail $ "required function type, but got " ++ show t
 
-tcProg :: Prog -> IO ()
+tcProg :: Program -> IO ()
 tcProg (decs, e) = void $ runReaderT (tcExp e) decs

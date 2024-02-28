@@ -3,8 +3,8 @@ module Untyped (
     Val(..),
     Bind(..),
     Exp(..),
-    Def(..),
-    Prog,) where
+    Defn(..),
+    Program,) where
 
 import Id
 import Prettyprinter      hiding (pretty)
@@ -18,15 +18,15 @@ type Label = String
 data Val
     = VLit Lit
     | VVar Id
-    | VGlb Id
-    | VLab Label
+    | VFunc Id
+    | VLabel Label
     | VTuple [Val]
     deriving (Eq, Show)
 
 data Exp
     = ELet Bind Exp
     | ECase Val [(Label, Exp)]
-    | ERet Val
+    | EReturn Val
     deriving (Eq, Show)
 
 data Bind
@@ -35,9 +35,9 @@ data Bind
     | BProj Id Val Int
     deriving (Eq, Show)
 
-data Def = Def {name :: Id, args :: [Id], body :: Exp}
+data Defn = Defn {name :: Id, args :: [Id], body :: Exp}
 
-type Prog = ([Def], Exp)
+type Program = ([Defn], Exp)
 
 instance PrettyPrec Lit where
     pretty (LInt n) = pretty n
@@ -45,8 +45,8 @@ instance PrettyPrec Lit where
 instance PrettyPrec Val where
     prettyPrec _ (VLit l)    = pretty l
     prettyPrec _ (VVar x)    = pretty x
-    prettyPrec _ (VGlb f)    = pretty f
-    prettyPrec _ (VLab l)    = pretty l
+    prettyPrec _ (VFunc f)   = pretty f
+    prettyPrec _ (VLabel l)  = pretty l
     prettyPrec _ (VTuple vs) = brackets $ hsep $ punctuate ";" $ map pretty vs
 
 instance PrettyPrec Bind where
@@ -59,10 +59,10 @@ instance PrettyPrec Exp where
     pretty (ELet d e) = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
     pretty (ECase v les) = vsep [ "case" <+> pretty v <+> "of"
                                 , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
-    pretty (ERet v)   = "ret" <+> prettyMax v
+    pretty (EReturn v)   = "ret" <+> prettyMax v
 
-instance PrettyPrec Def where
-    pretty (Def f xs e) = pretty f <+> hsep (map pretty xs) <+> "=" <+> align (pretty e)
+instance PrettyPrec Defn where
+    pretty (Defn f xs e) = pretty f <+> hsep (map pretty xs) <+> "=" <+> align (pretty e)
 
-instance PrettyPrec Prog where
+instance PrettyPrec Program where
     pretty (ds, e) = vsep (map pretty ds) <> line <> pretty e

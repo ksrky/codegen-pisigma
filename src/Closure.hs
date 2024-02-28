@@ -4,7 +4,7 @@ module Closure (
     Lit(..),
     Ty(..),
     TyF(..),
-    Row(..),
+    RowTy(..),
     Var,
     Val(..),
     ValF(..),
@@ -12,8 +12,8 @@ module Closure (
     Exp(..),
     ExpF(..),
     Dec(..),
-    Def(..),
-    Prog,
+    Defn(..),
+    Program,
     Env,
     lookupEnumEnv,
     lookupBindEnv,
@@ -44,12 +44,12 @@ data Ty
     | TVar Int
     | TName Id
     | TFun [Ty] Ty
-    | TEx Ty
-    | TRec Ty
-    | TRow Row
+    | TExists Ty
+    | TRecurs Ty
+    | TRow RowTy
     deriving (Eq, Show)
 
-data Row = REmpty | RVar Int | Ty :> Row
+data RowTy = REmpty | RVar Int | Ty :> RowTy
     deriving (Eq, Show)
 
 type Var = (Id, Ty)
@@ -57,13 +57,13 @@ type Var = (Id, Ty)
 data Val
     = VLit Lit
     | VVar Var
-    | VGlb Var
-    | VLab Label Ty
+    | VGlobal Var
+    | VLabel Label Ty
     | VTuple [Val]
     | VPack Ty Val Ty
     | VRoll Val Ty
     | VUnroll Val
-    | VValTy Val Ty
+    | VAnnot Val Ty
     deriving (Eq, Show)
 
 data Bind
@@ -76,8 +76,8 @@ data Bind
 data Exp
     = ELet Bind Exp
     | ECase Val [(Label, Exp)]
-    | ERet Val
-    | EExpTy Exp Ty
+    | EReturn Val
+    | EAnnot Exp Ty
     deriving (Eq, Show)
 
 data Dec
@@ -85,13 +85,13 @@ data Dec
     | DBind Id Ty
     deriving (Eq, Show)
 
-data Def = Def {code :: Var, args :: [Var], body :: Exp}
+data Defn = Defn {code :: Var, args :: [Var], body :: Exp}
     deriving (Eq, Show)
 
-type Prog = ([Dec], [Def], Exp)
+type Program = ([Dec], [Defn], Exp)
 
 makeBaseFunctor ''Ty
-makeBaseFunctor ''Row
+makeBaseFunctor ''RowTy
 makeBaseFunctor ''Val
 makeBaseFunctor ''Exp
 
@@ -114,11 +114,11 @@ extendBindEnv (x, t) = (DBind x t:)
 
 -- | Make a packed closure
 mkClos :: [Ty] -> Ty -> Ty
-mkClos ts1 t2 = TEx $ TRec $ TRow $ TFun (TVar 0 : ts1) t2 :> RVar 1
+mkClos ts1 t2 = TExists $ TRecurs $ TRow $ TFun (TVar 0 : ts1) t2 :> RVar 1
 
 -- | Make an unpacked closure
-mkUClos :: [Ty] -> Ty -> Row -> Ty
-mkUClos ts1 t2 r = TRec $ TRow (TFun (TVar 0 : ts1) t2 :> r)
+mkUClos :: [Ty] -> Ty -> RowTy -> Ty
+mkUClos ts1 t2 r = TRecurs $ TRow (TFun (TVar 0 : ts1) t2 :> r)
 
 mkTTuple :: [Ty] -> Ty
 mkTTuple ts = TRow $ foldr (:>) REmpty ts
@@ -128,7 +128,7 @@ unrollUClos s (TRow (TFun (TVar 0: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> 
 unrollUClos _ _                                   = error "impossible"
 
 unpackClos :: Ty -> Ty -> Ty
-unpackClos (TRow r) (TRec (TRow (TFun ts1 t2 :> RVar 1))) = TRec $ TRow $ TFun ts1 t2 :> r
+unpackClos (TRow r) (TRecurs (TRow (TFun ts1 t2 :> RVar 1))) = TRecurs $ TRow $ TFun ts1 t2 :> r
 unpackClos  _ _                                           = error "impossible"
 
 bindVar :: Bind -> Var
@@ -153,24 +153,24 @@ instance Typeable Val where
     typeof = cata $ \case
         VLitF l -> typeof l
         VVarF x -> typeof x
-        VGlbF f -> typeof f
-        VLabF _ t -> t
+        VGlobalF f -> typeof f
+        VLabelF _ t -> t
         VTupleF vs -> TRow $ foldr ((:>) . typeof) REmpty vs
         VPackF _ _ t -> t
         VRollF _ t -> t
         VUnrollF v ->
             case typeof v of
-                TRec t -> unrollUClos (TRec t) t
-                _      -> error "required recursive type"
-        VValTyF _ t -> t
+                TRecurs t -> unrollUClos (TRecurs t) t
+                _         -> error "required recursive type"
+        VAnnotF _ t -> t
 
 instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ t -> t
         ECaseF _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
-        ERetF v -> typeof v
-        EExpTyF _ t -> t
+        EReturnF v -> typeof v
+        EAnnotF _ t -> t
 
 instance PrettyPrec Lit where
     pretty (LInt n) = pretty n
@@ -181,11 +181,11 @@ instance PrettyPrec Ty where
     prettyPrec _ (TName l) = pretty l
     prettyPrec p (TFun ts t) = parPrec p 2 $
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
-    prettyPrec p (TEx t) = parPrec p 0 $ "∃." <+> pretty t
-    prettyPrec p (TRec t) = parPrec p 0 $ "μ." <+> pretty t
+    prettyPrec p (TExists t) = parPrec p 0 $ "∃." <+> pretty t
+    prettyPrec p (TRecurs t) = parPrec p 0 $ "μ." <+> pretty t
     prettyPrec _ (TRow r) = brackets $ pretty r
 
-instance PrettyPrec Row where
+instance PrettyPrec RowTy where
     pretty REmpty    = "ε"
     pretty (RVar tv) = pretty tv
     pretty (t :> r)  = pretty t <> ";" <+> pretty r
@@ -196,14 +196,14 @@ instance PrettyPrec Var where
 instance PrettyPrec Val where
     prettyPrec _ (VLit l) = pretty l
     prettyPrec _ (VVar (x, _)) = pretty x
-    prettyPrec _ (VGlb (f, _)) = pretty f
-    prettyPrec _ (VLab l _) = "`" <> pretty l
+    prettyPrec _ (VGlobal (f, _)) = pretty f
+    prettyPrec _ (VLabel l _) = "`" <> pretty l
     prettyPrec _ (VTuple vs) = brackets $ hsep $ punctuate ";" $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
         parPrec p 0 $ hang 2 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v) <> softline <> "as", prettyPrec 2 t2]
     prettyPrec p (VRoll v t) = parPrec p 0 $ hang 2 $ hsep ["roll", prettyMax v <> softline <> "as", prettyPrec 2 t]
     prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
-    prettyPrec _ (VValTy v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
+    prettyPrec _ (VAnnot v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
 
 instance PrettyPrec Bind where
     pretty (BVal x v) = pretty x <+> "=" <> softline <> pretty v
@@ -216,13 +216,13 @@ instance PrettyPrec Exp where
     pretty (ELet d e)    = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
     pretty (ECase v les) = vsep [ "case" <+> pretty v <+> "of"
                                 , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
-    pretty (ERet v)      = "ret" <+> prettyMax v
-    pretty (EExpTy e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
+    pretty (EReturn v)      = "ret" <+> prettyMax v
+    pretty (EAnnot e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
-instance PrettyPrec Def where
-    pretty (Def (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <> line <> indent 2 (pretty e)
+instance PrettyPrec Defn where
+    pretty (Defn (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <> line <> indent 2 (pretty e)
 
-instance PrettyPrec Prog where
+instance PrettyPrec Program where
     pretty (_, ds, e) = vsep (map pretty ds) <> line <> pretty e
 
 class StripAnn a where
@@ -230,7 +230,7 @@ class StripAnn a where
 
 instance StripAnn Val where
     stripAnn = cata $ \case
-        VValTyF v _ -> v
+        VAnnotF v _ -> v
         v           -> embed v
 
 instance StripAnn Bind where
@@ -241,11 +241,11 @@ instance StripAnn Bind where
 
 instance StripAnn Exp where
     stripAnn = cata $ \case
-        EExpTyF e _ -> e
+        EAnnotF e _ -> e
         e           -> embed e
 
-instance StripAnn Def where
-    stripAnn (Def f xs e) = Def f xs (stripAnn e)
+instance StripAnn Defn where
+    stripAnn (Defn f xs e) = Defn f xs (stripAnn e)
 
-instance StripAnn Prog where
+instance StripAnn Program where
     stripAnn (decs, defs, e) = (decs, map stripAnn defs, stripAnn e)

@@ -28,8 +28,6 @@ library
       Anf
       Anf.Tc
       AnfClos
-      Asm
-      ClosAsm
       ClosUnty
       Closure
       Closure.Tc

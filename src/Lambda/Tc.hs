@@ -58,10 +58,10 @@ tcExp (ECase e les)
         lift $ mapM_ (check t1') ts
         return t1'
     | [] <- les = error "empty alternatives"
-tcExp (EExpTy e t) = do
+tcExp (EAnnot e t) = do
     t' <- tcExp e
     lift $ check t t'
     return t
 
-tcProg :: Prog -> IO ()
+tcProg :: Program -> IO ()
 tcProg (_, e) = void $ runReaderT (tcExp e) initEnv
