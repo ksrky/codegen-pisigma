@@ -15,8 +15,8 @@ type Ctx = [(String, (Id, L.Ty))]
 
 type TcM = ReaderT Ctx IO
 
-r2lLit :: R.Lit -> L.Lit
-r2lLit (R.LInt i) = L.LInt i
+rawLambdaLit :: R.Lit -> L.Lit
+rawLambdaLit (R.LInt i) = L.LInt i
 
 newTyVar :: TcM L.Ty
 newTyVar = L.TMeta . L.Meta <$> liftIO (newIORef Nothing)
@@ -64,77 +64,77 @@ occursCheck tv1 ty2 = do
     let tvs2 = getMetas ty2
     when (tv1 `elem` tvs2) $ fail "occurs checkEqTys failed"
 
-r2lExp :: R.Exp -> TcM L.Exp
-r2lExp e = do
+rawLambdaExp :: R.Exp -> TcM L.Exp
+rawLambdaExp e = do
     exp_ty <- newTyVar
-    e' <- checkExp e exp_ty
+    e' <- tcExp e exp_ty
     return $ L.EAnnot e' exp_ty
 
-checkExp :: R.Exp -> L.Ty -> TcM L.Exp
-checkExp (R.ELit l) exp_ty = do
+tcExp :: R.Exp -> L.Ty -> TcM L.Exp
+tcExp (R.ELit l) exp_ty = do
     lift $ unify exp_ty L.TInt
-    return $ L.ELit (r2lLit l)
-checkExp (R.EVar x) exp_ty = do
+    return $ L.ELit (rawLambdaLit l)
+tcExp (R.EVar x) exp_ty = do
     ctx <- ask
     case lookup x ctx of
         Just (x', t) -> do
             lift $ unify exp_ty t
             return $ L.EVar (x', t)
         Nothing -> fail "unbound variable"
-checkExp (R.ELabel l) exp_ty = do
+tcExp (R.ELabel l) exp_ty = do
     ctx <- ask
     case lookup l ctx of
         Just (_, t) -> do
             lift $ unify exp_ty t
             return $ L.ELabel l t
         Nothing      -> fail "unknown label"
-checkExp (R.EApp e1 e2) exp_ty = do
+tcExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar
-    e1' <- checkExp e1 (L.TFun t2 exp_ty)
-    e2' <- checkExp e2 t2
+    e1' <- tcExp e1 (L.TFun t2 exp_ty)
+    e2' <- tcExp e2 t2
     return $ L.EAnnot (L.EApp e1' e2') exp_ty
-checkExp (R.ELam x e) exp_ty = do
+tcExp (R.ELam x e) exp_ty = do
     x' <- newId x
     t1 <- newTyVar
     t2 <- newTyVar
     lift $ unify exp_ty (L.TFun t1 t2)
-    e' <- local ((x, (x', t1)):) $ checkExp e t2
+    e' <- local ((x, (x', t1)):) $ tcExp e t2
     return $ L.EAnnot (L.ELam (x', t1) e') exp_ty
-checkExp (R.EBinOp op e1 e2) exp_ty = do
+tcExp (R.EBinOp op e1 e2) exp_ty = do
     ctx <- ask
     op' <- case lookup op ctx of
         Just op' -> return op'
         Nothing  -> fail "unknown binop"
     case snd op' of
         L.TFun (L.TTuple [t1', t2']) tr -> do
-            e1' <- checkExp e1 t1'
-            e2' <- checkExp e2 t2'
+            e1' <- tcExp e1 t1'
+            e2' <- tcExp e2 t2'
             lift $ unify exp_ty tr
             return $ L.EAnnot (L.EApp (L.EVar op') (L.ETuple [e1', e2'])) exp_ty
         _ -> fail "required binary function type"
-checkExp (R.ELet xes e2) exp_ty = do
+tcExp (R.ELet xes e2) exp_ty = do
     xes' <- forM xes $ \(x, e) -> do
         x' <- newId x
         t <- newTyVar
-        e' <- checkExp e t
+        e' <- tcExp e t
         return ((x', t), e')
-    e2' <- local (map (\(x, _) -> (fst x ^. name, x)) xes' ++) $ checkExp e2 exp_ty
+    e2' <- local (map (\(x, _) -> (fst x ^. name, x)) xes' ++) $ tcExp e2 exp_ty
     return $ L.EAnnot (foldr (uncurry L.ELet) e2' xes') exp_ty
-checkExp (R.ELetrec xes e2) exp_ty = do
+tcExp (R.ELetrec xes e2) exp_ty = do
     env <- forM xes $ \(x, _) -> do
         x' <- newId x
         tv <- newTyVar
         return (x, (x', tv))
     local (env ++) $ do
         xes' <- zipWithM (\(_, x) (_, e) -> do
-            e' <- checkExp e (snd x)
+            e' <- tcExp e (snd x)
             return (x, e')) env xes
-        e2' <- local (env ++) $ checkExp e2 exp_ty
+        e2' <- local (env ++) $ tcExp e2 exp_ty
         return $ L.EAnnot (L.ELetrec xes' e2') exp_ty
-checkExp (R.EIf e1 e2 e3) exp_ty = do
-    e1' <- checkExp e1 tyBool
-    e2' <- checkExp e2 exp_ty
-    e3' <- checkExp e3 exp_ty
+tcExp (R.EIf e1 e2 e3) exp_ty = do
+    e1' <- tcExp e1 tyBool
+    e2' <- tcExp e2 exp_ty
+    e3' <- tcExp e3 exp_ty
     return $ L.EAnnot (L.ECase (L.EAnnot e1' tyBool) [("True", e2'), ("False", e3')]) exp_ty
 
 class Zonking a where
@@ -176,5 +176,5 @@ instance Zonking L.Exp where
 
 rawLambdaProgram :: R.Program -> IO L.Program
 rawLambdaProgram raw_prog = do
-    e <- zonk =<< runReaderT (r2lExp raw_prog) initCtx
+    e <- zonk =<< runReaderT (rawLambdaExp raw_prog) initCtx
     return (initEnv, e)
