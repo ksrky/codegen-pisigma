@@ -10,7 +10,6 @@ import Control.Monad.State
 import Control.Monad.Trans.Writer
 import Data.Functor.Foldable
 import Data.List                  qualified as List
-import Debug.Trace
 import Id
 
 type Locals = [Id]
@@ -138,7 +137,6 @@ a2cExp = cata $ \case
                 x_cl = (mkIdUnsafe "x_cl", t_ucl)
                 t_code = C.TFun (t_ucl : map snd xs) (C.typeof e)
             f_code <- (,t_code) <$> mkId (fst f ^. name  ++ "_code")
-            traceShowM $ tail $ rotate (i-1) fs
             let v_code = C.Def {
                     C.code = f_code,
                     C.args = x_cl : xs,

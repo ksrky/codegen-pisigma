@@ -5,25 +5,30 @@ import Data.Word
 newtype Name = Name String
     deriving (Eq, Show)
 
-data Type
-    = TArray  Type Word32
-    | TFunc   Type [Type]
+data Ty
+    = TArray  Ty Word32
+    | TFun   Ty [Ty]
     | TInt    Word32
-    | TPtr    Type
-    | TStruct [Type]
+    | TPtr    (Maybe Ty)
+    | TStruct (Maybe Name) [Ty]
     | TVoid
     deriving (Eq, Show)
 
 data Const
-    = GlobalRef Type Name
+    = GlobalRef Ty Name
     | Integer Word32 Integer
-    | Array Type [Const]
+    | Array Ty [Const]
     | Struct (Maybe Name) [Const]
     deriving (Eq, Show)
 
+data Lit
+    = LInt Word32 Integer
+    deriving (Eq, Show)
+
 data Val
-    = Reg Type Name
-    | Const Const
+    = VLit Lit
+    | VReg Ty Int
+    | VGlb Ty Name
     deriving (Eq, Show)
 
 data ArithOp = ADD | SUB | MUL | DIV
@@ -38,8 +43,8 @@ data Exp
     = EArith ArithOp Val Val
     | ECall Val [Val]
     | ECmp CmpOp Val Val
-    | EGep Type Val [Val]
-    | EMalloc Type
+    | EProj Ty Val Int
+    | EMalloc Ty
     | EStore Val Val
     deriving (Eq, Show)
 
@@ -49,7 +54,7 @@ data Stm
     | SCondBranch Val Name Name
     | SJump Name
     | SReturn Val
-    | SSwitch Val Name [(Const, Name)]
+    | SSwitch Val Name [(Int, Name)]
     deriving (Eq, Show)
 
 data Named a = Name := a | Do a
