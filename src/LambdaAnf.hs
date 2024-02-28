@@ -23,14 +23,14 @@ lambdaAnfVar (x, t) = (x, lambdaAnfTy t)
 lambdaAnfExp :: L.Exp -> (A.Val -> A.Exp) -> A.Exp
 lambdaAnfExp (L.ELit l) kont = kont $ A.VLit (lambdaAnfLit l)
 lambdaAnfExp (L.EVar x) kont = kont $ A.VVar (lambdaAnfVar x)
-lambdaAnfExp (L.ELab l t) kont = kont $ A.VLabel l (lambdaAnfTy t)
+lambdaAnfExp (L.ELabel l t) kont = kont $ A.VLabel l (lambdaAnfTy t)
 lambdaAnfExp (L.EApp e1 e2) kont =
     lambdaAnfExp e1 $ \v1 ->
     lambdaAnfExp e2 $ \v2 ->
     let t_call = case A.typeof v1 of
             A.TFun _ t2 -> t2
             _           -> error "impossible" in
-    let x = (mkIdUnsafe "x_call", t_call) in
+    let x = (newIdUnsafe "x_call", t_call) in
     let body = kont (A.VVar x) in
     A.ELet (A.BCall x v1 [v2]) body
 lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)

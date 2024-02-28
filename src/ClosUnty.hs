@@ -16,7 +16,7 @@ c2uVal :: C.Val -> U.Val
 c2uVal = cata $ \case
     C.VLitF l -> U.VLit $ c2uLit l
     C.VVarF x -> U.VVar $ c2uVar x
-    C.VGlobalF f -> U.VFunc $ c2uVar f
+    C.VFunF f -> U.VFunc $ c2uVar f
     C.VLabelF l _ -> U.VLabel l
     C.VTupleF vs -> U.VTuple vs
     C.VPackF _ v _ -> v

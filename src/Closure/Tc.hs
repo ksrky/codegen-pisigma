@@ -1,128 +1,128 @@
-module Closure.Tc (tcProg) where
+module Closure.Tc (checkProgram) where
 
 import Closure
 import Control.Monad
 import Control.Monad.Reader
 import Prelude              hiding (exp)
 
-check :: Ty -> Ty -> IO ()
-check TInt TInt = return ()
-check (TVar x) (TVar y) | x == y = return ()
-check (TName x) (TName y) | x == y = return ()
-check (TFun ts1 t2) (TFun us1 u2) = do
-    zipWithM_ check ts1 us1
-    check t2 u2
-check (TExists t1) (TExists t2) = check t1 t2
-check (TRecurs t1) (TRecurs t2) = check t1 t2
-check (TRow r1) (TRow r2) = checkRow r1 r2
-check t1 t2 =
+checkEqTys :: Ty -> Ty -> IO ()
+checkEqTys TInt TInt = return ()
+checkEqTys (TVar x) (TVar y) | x == y = return ()
+checkEqTys (TName x) (TName y) | x == y = return ()
+checkEqTys (TFun ts1 t2) (TFun us1 u2) = do
+    zipWithM_ checkEqTys ts1 us1
+    checkEqTys t2 u2
+checkEqTys (TExists t1) (TExists t2) = checkEqTys t1 t2
+checkEqTys (TRecurs t1) (TRecurs t2) = checkEqTys t1 t2
+checkEqTys (TRow r1) (TRow r2) = checkEqRowTys r1 r2
+checkEqTys t1 t2 =
     fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
-checkRow :: RowTy -> RowTy -> IO ()
-checkRow REmpty REmpty = return ()
-checkRow (RVar x) (RVar y) | x == y = return ()
-checkRow (t1 :> r1) (t2 :> r2) = do
-    check t1 t2
-    checkRow r1 r2
-checkRow r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
+checkEqRowTys :: RowTy -> RowTy -> IO ()
+checkEqRowTys REmpty REmpty = return ()
+checkEqRowTys (RVar x) (RVar y) | x == y = return ()
+checkEqRowTys (t1 :> r1) (t2 :> r2) = do
+    checkEqTys t1 t2
+    checkEqRowTys r1 r2
+checkEqRowTys r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
 
-tcVal :: Val -> ReaderT Env IO Ty
-tcVal (VLit (LInt _)) = return TInt
-tcVal (VVar x) = do
+checkVal :: Val -> ReaderT Env IO Ty
+checkVal (VLit (LInt _)) = return TInt
+checkVal (VVar x) = do
     env <- ask
     case lookupBindEnv (fst x) env of
         Just t  -> do
-            lift $ check (snd x) t
+            lift $ checkEqTys (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x
-tcVal (VGlobal f) = do
+checkVal (VFun f) = do
     env <- ask
     case lookupBindEnv (fst f) env of
         Just t  -> do
-            lift $ check (snd f) t
+            lift $ checkEqTys (snd f) t
             return t
         Nothing -> fail $ "unbound global: " ++ show f
-tcVal (VLabel _ t) = return t
-tcVal (VTuple vs) = do
-    ts <- mapM tcVal vs
+checkVal (VLabel _ t) = return t
+checkVal (VTuple vs) = do
+    ts <- mapM checkVal vs
     return $ mkTTuple ts
-tcVal (VPack t1 v t2) = do
-    t <- tcVal v
+checkVal (VPack t1 v t2) = do
+    t <- checkVal v
     case t2 of
         TExists t2' -> do
-            lift $ check (unpackClos t1 t2') t
+            lift $ checkEqTys (unpackClos t1 t2') t
             return t2
         _ -> fail $ "expected existential type, but got " ++ show t2
-tcVal (VRoll v t) = do
-    t' <- tcVal v
+checkVal (VRoll v t) = do
+    t' <- checkVal v
     case t of
         TRecurs t2 -> do
-            lift $ check (unrollUClos t t2) t'
+            lift $ checkEqTys (unrollUClos t t2) t'
             return t
         _ -> fail $ "expected recursive type, but got " ++ show t
-tcVal (VUnroll v) = do
-    t <- tcVal v
+checkVal (VUnroll v) = do
+    t <- checkVal v
     case t of
         TRecurs t2 -> return $ unrollUClos t t2
         _          -> fail $ "expected recursive type, but got " ++ show t
-tcVal (VAnnot v t) = do
-    t' <- tcVal v
-    lift $ check t t'
+checkVal (VAnnot v t) = do
+    t' <- checkVal v
+    lift $ checkEqTys t t'
     return t
 
-tcBind :: Bind -> ReaderT Env IO ()
-tcBind (BVal x v) = do
-    t <- tcVal v
-    lift $ check (snd x) t
-tcBind (BCall x v vs) = do
-    t <- tcVal v
-    ts <- mapM tcVal vs
+checkBind :: Bind -> ReaderT Env IO ()
+checkBind (BVal x v) = do
+    t <- checkVal v
+    lift $ checkEqTys (snd x) t
+checkBind (BCall x v vs) = do
+    t <- checkVal v
+    ts <- mapM checkVal vs
     case t of
         TFun ts1 t2 -> lift $ do
-            zipWithM_ check ts1 ts
-            check (snd x) t2
+            zipWithM_ checkEqTys ts1 ts
+            checkEqTys (snd x) t2
         _ -> fail $ "required function type, but got " ++ show t
-tcBind (BProj x v i) = do
-    t <- tcVal v
+checkBind (BProj x v i) = do
+    t <- checkVal v
     case t of
         TRow row -> do
-            lift $ check (snd x) (go i row)
+            lift $ checkEqTys (snd x) (go i row)
           where
             go 1 (t1 :> _) = t1
             go n (_  :> r) = go (n - 1) r
             go _ _         = error "impossible"
         _ -> fail $ "required row type, but got " ++ show t
-tcBind (BUnpack x v2) = do
-    t2 <- tcVal v2
+checkBind (BUnpack x v2) = do
+    t2 <- checkVal v2
     case t2 of
-        TExists t -> lift $ check (snd x) t
+        TExists t -> lift $ checkEqTys (snd x) t
         _         -> fail $ "required existential type, but got " ++ show t2
 
-tcExp :: Exp -> ReaderT Env IO Ty
-tcExp (ELet b e) = do
-    tcBind b
-    local (extendBindEnv (bindVar b)) $ tcExp e
-tcExp (ECase v les)
+checkExp :: Exp -> ReaderT Env IO Ty
+checkExp (ELet b e) = do
+    checkBind b
+    local (extendBindEnv (bindVar b)) $ checkExp e
+checkExp (ECase v les)
     | (_, t1) : _ <- les = do
-        ls <- tcVal v >>= \case
+        ls <- checkVal v >>= \case
             TName x -> lookupEnumEnv x =<< ask
             _       -> fail "TName required"
         guard $ all (\(l, _) -> l `elem` ls) les -- mapbe non-exhaustive
-        ts <- mapM (tcExp . snd) les
-        t1' <- tcExp t1
-        lift $ mapM_ (check t1') ts
+        ts <- mapM (checkExp . snd) les
+        t1' <- checkExp t1
+        lift $ mapM_ (checkEqTys t1') ts
         return t1'
     | [] <- les = error "empty alternatives"
-tcExp (EReturn v) = tcVal v
-tcExp (EAnnot e t) = do
-    t' <- tcExp e
-    lift $ check t t'
+checkExp (EReturn v) = checkVal v
+checkExp (EAnnot e t) = do
+    t' <- checkExp e
+    lift $ checkEqTys t t'
     return t
 
 tcDef :: Defn -> ReaderT Env IO ()
 tcDef (Defn f xs e) = do
-    t <- local (flip (foldr extendBindEnv) xs) $ tcExp e
-    lift $ check (snd f) (TFun (map snd xs) t)
+    t <- local (flip (foldr extendBindEnv) xs) $ checkExp e
+    lift $ checkEqTys (snd f) (TFun (map snd xs) t)
 
-tcProg :: Program -> IO ()
-tcProg (decs, defs, exp) = runReaderT (mapM_ tcDef defs >> void (tcExp exp)) decs
+checkProgram :: Program -> IO ()
+checkProgram (decs, defs, exp) = runReaderT (mapM_ tcDef defs >> void (checkExp exp)) decs

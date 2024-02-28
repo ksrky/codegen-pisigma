@@ -57,7 +57,7 @@ type Var = (Id, Ty)
 data Val
     = VLit Lit
     | VVar Var
-    | VGlobal Var
+    | VFun Var
     | VLabel Label Ty
     | VTuple [Val]
     | VPack Ty Val Ty
@@ -153,7 +153,7 @@ instance Typeable Val where
     typeof = cata $ \case
         VLitF l -> typeof l
         VVarF x -> typeof x
-        VGlobalF f -> typeof f
+        VFunF f -> typeof f
         VLabelF _ t -> t
         VTupleF vs -> TRow $ foldr ((:>) . typeof) REmpty vs
         VPackF _ _ t -> t
@@ -196,7 +196,7 @@ instance PrettyPrec Var where
 instance PrettyPrec Val where
     prettyPrec _ (VLit l) = pretty l
     prettyPrec _ (VVar (x, _)) = pretty x
-    prettyPrec _ (VGlobal (f, _)) = pretty f
+    prettyPrec _ (VFun (f, _)) = pretty f
     prettyPrec _ (VLabel l _) = "`" <> pretty l
     prettyPrec _ (VTuple vs) = brackets $ hsep $ punctuate ";" $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
@@ -226,26 +226,26 @@ instance PrettyPrec Program where
     pretty (_, ds, e) = vsep (map pretty ds) <> line <> pretty e
 
 class StripAnn a where
-    stripAnn :: a -> a
+    stripAnnot :: a -> a
 
 instance StripAnn Val where
-    stripAnn = cata $ \case
+    stripAnnot = cata $ \case
         VAnnotF v _ -> v
         v           -> embed v
 
 instance StripAnn Bind where
-    stripAnn (BVal x v)     = BVal x (stripAnn v)
-    stripAnn (BCall x v vs) = BCall x (stripAnn v) (map stripAnn vs)
-    stripAnn (BProj x v i)  = BProj x (stripAnn v) i
-    stripAnn (BUnpack x v)  = BUnpack x (stripAnn v)
+    stripAnnot (BVal x v)     = BVal x (stripAnnot v)
+    stripAnnot (BCall x v vs) = BCall x (stripAnnot v) (map stripAnnot vs)
+    stripAnnot (BProj x v i)  = BProj x (stripAnnot v) i
+    stripAnnot (BUnpack x v)  = BUnpack x (stripAnnot v)
 
 instance StripAnn Exp where
-    stripAnn = cata $ \case
+    stripAnnot = cata $ \case
         EAnnotF e _ -> e
         e           -> embed e
 
 instance StripAnn Defn where
-    stripAnn (Defn f xs e) = Defn f xs (stripAnn e)
+    stripAnnot (Defn f xs e) = Defn f xs (stripAnnot e)
 
 instance StripAnn Program where
-    stripAnn (decs, defs, e) = (decs, map stripAnn defs, stripAnn e)
+    stripAnnot (decs, defs, e) = (decs, map stripAnnot defs, stripAnnot e)

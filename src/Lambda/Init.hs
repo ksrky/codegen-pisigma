@@ -9,31 +9,31 @@ import Id
 import Lambda
 
 idBool :: Id
-idBool = mkIdUnsafe "Bool"
+idBool = newIdUnsafe "Bool"
 
 tyBool :: Ty
 tyBool = TName idBool
 
 idTrue :: Id
-idTrue = mkIdUnsafe "True"
+idTrue = newIdUnsafe "True"
 
 idFalse :: Id
-idFalse = mkIdUnsafe "False"
+idFalse = newIdUnsafe "False"
 
 idPlus :: Id
-idPlus = mkIdUnsafe "#add" & extern .~ True
+idPlus = newIdUnsafe "#add" & extern .~ True
 
 idMinus :: Id
-idMinus = mkIdUnsafe "#sub" & extern .~ True
+idMinus = newIdUnsafe "#sub" & extern .~ True
 
 idTimes :: Id
-idTimes = mkIdUnsafe "#mul" & extern .~ True
+idTimes = newIdUnsafe "#mul" & extern .~ True
 
 idDiv :: Id
-idDiv = mkIdUnsafe "#div" & extern .~ True
+idDiv = newIdUnsafe "#div" & extern .~ True
 
 idEq :: Id
-idEq = mkIdUnsafe "#eq" & extern .~ True
+idEq = newIdUnsafe "#eq" & extern .~ True
 
 externEq :: Dec
 externEq = DBind idEq (TFun (TTuple [TInt, TInt]) tyBool)

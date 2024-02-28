@@ -15,7 +15,7 @@ module Lambda (
     lookupBindEnv,
     extendBindEnv,
     Typeable(..),
-    stripAnn) where
+    stripAnnot) where
 
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
@@ -47,7 +47,7 @@ type Var = (Id, Ty)
 data Exp
     = ELit Lit
     | EVar Var
-    | ELab Label Ty
+    | ELabel Label Ty
     | EApp Exp Exp
     | ELam Var Exp
     | ETuple [Exp]
@@ -100,7 +100,7 @@ instance Typeable Exp where
     typeof = cata $ \case
         ELitF l -> typeof l
         EVarF v -> typeof v
-        ELabF _ t -> t
+        ELabelF _ t -> t
         EAppF t1 _ | TFun _ t12 <- t1 -> t12
                    | otherwise        -> error "impossible"
         ELamF (_, t1) t2 -> TFun t1 t2
@@ -111,7 +111,7 @@ instance Typeable Exp where
                      | otherwise         -> error "impossible"
         EAnnotF _ t -> t
 
-stripAnn :: Exp -> Exp
-stripAnn = cata $ \case
+stripAnnot :: Exp -> Exp
+stripAnnot = cata $ \case
     EAnnotF e _ -> e
     e -> embed e

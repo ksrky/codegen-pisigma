@@ -15,7 +15,7 @@ expMap = Map.fromList
        ("f", ELam "x" (EApp (EVar "g") (EVar "x"))),
        ("g", ELam "x" (EApp (EVar "f") (EVar "x")))]
        (EApp (EVar "f") (ELit (LInt 0))) )
-  , ("True", ELab "True")
-  , ("if True then 1 else 0", EIf (ELab "True") (ELit (LInt 1)) (ELit (LInt 0)))
+  , ("True", ELabel "True")
+  , ("if True then 1 else 0", EIf (ELabel "True") (ELit (LInt 1)) (ELit (LInt 0)))
   , ("2 * 3 == 6", EBinOp "==" (EBinOp "*" (ELit (LInt 2)) (ELit (LInt 3))) (ELit (LInt 6)))
   ]

@@ -61,7 +61,7 @@ unifyMeta m1 t2 = do
 occursCheck :: L.Meta -> L.Ty -> IO ()
 occursCheck tv1 ty2 = do
     let tvs2 = getMetas ty2
-    when (tv1 `elem` tvs2) $ fail "occurs check failed"
+    when (tv1 `elem` tvs2) $ fail "occurs checkEqTys failed"
 
 r2lExp :: R.Exp -> TcM L.Exp
 r2lExp e = do
@@ -80,12 +80,12 @@ checkExp (R.EVar x) exp_ty = do
             lift $ unify exp_ty t
             return $ L.EVar (x', t)
         Nothing -> fail "unbound variable"
-checkExp (R.ELab l) exp_ty = do
+checkExp (R.ELabel l) exp_ty = do
     ctx <- ask
     case lookup l ctx of
         Just (_, t) -> do
             lift $ unify exp_ty t
-            return $ L.ELab l t
+            return $ L.ELabel l t
         Nothing      -> fail "unknown label"
 checkExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar
@@ -93,7 +93,7 @@ checkExp (R.EApp e1 e2) exp_ty = do
     e2' <- checkExp e2 t2
     return $ L.EAnnot (L.EApp e1' e2') exp_ty
 checkExp (R.ELam x e) exp_ty = do
-    x' <- mkId x
+    x' <- newId x
     t1 <- newTyVar
     t2 <- newTyVar
     lift $ unify exp_ty (L.TFun t1 t2)
@@ -113,7 +113,7 @@ checkExp (R.EBinOp op e1 e2) exp_ty = do
         _ -> fail "required binary function type"
 checkExp (R.ELet xes e2) exp_ty = do
     xes' <- forM xes $ \(x, e) -> do
-        x' <- mkId x
+        x' <- newId x
         t <- newTyVar
         e' <- checkExp e t
         return ((x', t), e')
@@ -121,7 +121,7 @@ checkExp (R.ELet xes e2) exp_ty = do
     return $ L.EAnnot (foldr (uncurry L.ELet) e2' xes') exp_ty
 checkExp (R.ELetrec xes e2) exp_ty = do
     env <- forM xes $ \(x, _) -> do
-        x' <- mkId x
+        x' <- newId x
         tv <- newTyVar
         return (x, (x', tv))
     local (env ++) $ do
@@ -164,7 +164,7 @@ instance Zonking L.Exp where
     zonk = cata $ \case
         L.ELitF l -> return $ L.ELit l
         L.EVarF x -> L.EVar <$> zonk x
-        L.ELabF l t -> return $ L.ELab l t
+        L.ELabelF l t -> return $ L.ELabel l t
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
         L.ELamF x e -> L.ELam <$> zonk x <*> e
         L.ELetF x e1 e2 -> L.ELet <$> zonk x <*> e1 <*> e2

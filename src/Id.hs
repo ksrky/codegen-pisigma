@@ -6,8 +6,8 @@ module Id (
     Id(..),
     name,
     uniq,
-    mkId,
-    mkIdUnsafe) where
+    newId,
+    newIdUnsafe) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
@@ -48,8 +48,8 @@ instance HasAttr Id where
 instance PrettyPrec Id where
     pretty = pretty . _name
 
-mkId :: MonadIO m => String -> m Id
-mkId s = Id s noAttr <$> newUniq
+newId :: MonadIO m => String -> m Id
+newId s = Id s noAttr <$> newUniq
 
-mkIdUnsafe :: String -> Id
-mkIdUnsafe s = unsafePerformIO $ mkId s
+newIdUnsafe :: String -> Id
+newIdUnsafe s = unsafePerformIO $ newId s

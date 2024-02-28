@@ -48,8 +48,8 @@ pELit = ELit <$> pLit <?> "ELit"
 pEVar :: Parser Exp
 pEVar = EVar <$> pName <?> "EVar"
 
-pELab :: Parser Exp
-pELab = ELab <$> pLabel <?> "ELab"
+pELabel :: Parser Exp
+pELabel = ELabel <$> pLabel <?> "ELabel"
 
 pEApp :: Parser Exp
 pEApp = do
@@ -79,7 +79,7 @@ pExp1 :: Parser Exp
 pExp1 =
     pELit
     <|> pEVar
-    <|> pELab
+    <|> pELabel
     <|> parens pExp <?> "Exp1"
 
 pExp2 :: Parser Exp

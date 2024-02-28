@@ -15,7 +15,7 @@ type Label = String
 data Exp
     = ELit Lit
     | EVar String
-    | ELab Label
+    | ELabel Label
     | EApp Exp Exp
     | ELam String Exp
     | EBinOp String Exp Exp
