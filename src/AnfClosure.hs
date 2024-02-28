@@ -1,4 +1,4 @@
-module AnfClos (a2cProg) where
+module AnfClosure (anfClosureProgram) where
 
 import Anf                        qualified as A
 import Closure                    qualified as C
@@ -30,47 +30,47 @@ findLocals x = do
 removeLocals :: Escapes -> Locals -> Escapes
 removeLocals escs lcls = filter (\x -> fst x `notElem` lcls) escs
 
-appendDef :: C.Defn -> CCM ()
-appendDef = lift . lift . tell . List.singleton
+appendDefn :: C.Defn -> CCM ()
+appendDefn = lift . lift . tell . List.singleton
 
-a2cLit :: A.Lit -> C.Lit
-a2cLit (A.LInt i) = C.LInt i
+anfClosureLit :: A.Lit -> C.Lit
+anfClosureLit (A.LInt i) = C.LInt i
 
-a2cTy :: A.Ty -> C.Ty
-a2cTy = cata $ \case
+anfClosureTy :: A.Ty -> C.Ty
+anfClosureTy = cata $ \case
     A.TIntF        -> C.TInt
     A.TNameF x     -> C.TName x
     A.TFunF ts1 t2 -> C.TFun ts1 t2
     A.TTupleF ts   -> C.TRow $ foldr (C.:>) C.REmpty ts
 
-a2cClosTy :: A.Ty -> C.Ty
-a2cClosTy = cata $ \case
+anfClosureClosTy :: A.Ty -> C.Ty
+anfClosureClosTy = cata $ \case
     A.TIntF        -> C.TInt
     A.TNameF x     -> C.TName x
     A.TFunF ts1 t2 -> C.mkClos ts1 t2
     A.TTupleF ts   -> C.TRow $ foldr (C.:>) C.REmpty ts
 
-a2cVar :: A.Var -> C.Var
-a2cVar (x, t) = (x, a2cTy t)
+anfClosureVar :: A.Var -> C.Var
+anfClosureVar (x, t) = (x, anfClosureTy t)
 
-a2cClosVar :: A.Var -> C.Var
-a2cClosVar (x, t) = (x, a2cClosTy t)
+anfClosureClosVar :: A.Var -> C.Var
+anfClosureClosVar (x, t) = (x, anfClosureClosTy t)
 
-a2cVal :: A.Val -> CCM C.Val
-a2cVal = cata $ \case
-    A.VLitF l -> return $ C.VLit $ a2cLit l
+anfClosureVal :: A.Val -> CCM C.Val
+anfClosureVal = cata $ \case
+    A.VLitF l -> return $ C.VLit $ anfClosureLit l
     A.VVarF x | x ^. extern -> do
-        let x' = a2cVar x
+        let x' = anfClosureVar x
         return $ C.VVar x'
     A.VVarF x -> do
-        let x' = a2cClosVar x
+        let x' = anfClosureClosVar x
         findLocals x'
         return $ C.VVar x'
-    A.VLabelF l t -> return $ C.VLabel l (a2cTy t)
+    A.VLabelF l t -> return $ C.VLabel l (anfClosureTy t)
     A.VLamF xs e -> do
-        let xs' = map a2cClosVar xs
+        let xs' = map anfClosureClosVar xs
             lcls = map fst xs
-        (e', escs) <- lift $ runStateT (local (const lcls) $ a2cExp e) []
+        (e', escs) <- lift $ runStateT (local (const lcls) $ anfClosureExp e) []
         let escs' = removeLocals escs lcls
         modify $ List.nub . (escs ++)
         let r_env = foldr ((C.:>) . snd) C.REmpty escs'
@@ -91,25 +91,25 @@ a2cVal = cata $ \case
                         let ds = zipWith (\x i -> C.BProj x (C.VVar x_env) i) escs' [1..] in
                         foldr C.ELet e' (d : ds)
                 }
-        appendDef v_code
+        appendDefn v_code
         return $ C.VPack t_env (C.VRoll (C.VTuple (C.VGlobal f_code : map C.VVar escs')) t_ucl) t_cl
     A.VTupleF vs -> C.VTuple <$> sequence vs
-    A.VAnnotF mv t -> C.VAnnot <$> mv <*> pure (a2cClosTy t)
+    A.VAnnotF mv t -> C.VAnnot <$> mv <*> pure (anfClosureClosTy t)
 
-a2cBind :: A.Bind -> CCM [C.Bind]
-a2cBind (A.BVal x v)       = List.singleton <$> (C.BVal (a2cClosVar x) <$> a2cVal v)
-a2cBind (A.BCall x v1@(A.VVar f) vs2) | f ^. extern = do
-    v1' <- a2cVal v1
-    vs2' <- mapM a2cVal vs2
-    return [C.BCall (a2cVar x) v1' vs2']
-a2cBind (A.BCall x v1 vs2)
-    | C.TExists t_cl <- a2cClosTy (A.typeof v1) = do
+anfClosureBind :: A.Bind -> CCM [C.Bind]
+anfClosureBind (A.BVal x v)       = List.singleton <$> (C.BVal (anfClosureClosVar x) <$> anfClosureVal v)
+anfClosureBind (A.BCall x v1@(A.VVar f) vs2) | f ^. extern = do
+    v1' <- anfClosureVal v1
+    vs2' <- mapM anfClosureVal vs2
+    return [C.BCall (anfClosureVar x) v1' vs2']
+anfClosureBind (A.BCall x v1 vs2)
+    | C.TExists t_cl <- anfClosureClosTy (A.typeof v1) = do
     let x_cl = (mkIdUnsafe "x_cl", t_cl)
-    d1 <- C.BUnpack x_cl <$> a2cVal v1
-    let t_code = C.TFun (t_cl : map (a2cClosTy . A.typeof) vs2) (a2cClosTy (A.typeof x))
+    d1 <- C.BUnpack x_cl <$> anfClosureVal v1
+    let t_code = C.TFun (t_cl : map (anfClosureClosTy . A.typeof) vs2) (anfClosureClosTy (A.typeof x))
     let x_code = (mkIdUnsafe "x_code", t_code)
     let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) 1
-    d3 <- C.BCall (a2cClosVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM a2cVal vs2)
+    d3 <- C.BCall (anfClosureClosVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
     return [d1, d2, d3]
     | otherwise = error "impossible"
 
@@ -117,13 +117,13 @@ a2cBind (A.BCall x v1 vs2)
 rotate :: Int -> [a] -> [a]
 rotate n xs = take (length xs) (drop n (cycle xs))
 
-a2cExp :: A.Exp -> CCM C.Exp
-a2cExp = cata $ \case
-    A.ELetF d me -> flip (foldr C.ELet) <$> a2cBind d <*> local (fst (A.bindVar d):) me
+anfClosureExp :: A.Exp -> CCM C.Exp
+anfClosureExp = cata $ \case
+    A.ELetF d me -> flip (foldr C.ELet) <$> anfClosureBind d <*> local (fst (A.bindVar d):) me
     -- @ds@ is not empty
     A.ELetrecF ds me -> do
         let n = length ds
-        predata <- mapM a2cRecBind ds
+        predata <- mapM anfClosureRecBind ds
         modify $ List.nub . (concatMap (\(_, ls, _, es) -> es List.\\ ls) predata ++)
         let t_excls = map (\(_, xs, e, _) -> C.mkClos (map snd xs) (C.typeof e)) predata
             fs = map (view _1) predata
@@ -150,32 +150,32 @@ a2cExp = cata $ \case
                             let ds_esc = zipWith (\x j -> C.BProj x (C.VVar x_env) j) escs [n..] in
                             foldr C.ELet e (di : d_env : ds_cl ++ ds_esc)
                     }
-            appendDef v_code
+            appendDefn v_code
             let v = C.VPack t_env (C.VRoll (C.VTuple (C.VGlobal f_code : map C.VVar escs)) t_ucl) t_cl
             return $ C.BVal f v
         flip (foldr C.ELet) ds' <$> me
-    A.ECaseF v les -> C.ECase <$> a2cVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
-    A.EReturnF v -> C.EReturn <$> a2cVal v
+    A.ECaseF v les -> C.ECase <$> anfClosureVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
+    A.EReturnF v -> C.EReturn <$> anfClosureVal v
     A.EAnnotF me _ -> C.EAnnot <$> me <*> (C.typeof <$> me)
 
-a2cRecBind :: A.Bind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
-a2cRecBind (A.BVal f v) | A.VLam xs e <- stripAnnTop v = do
-    let xs' = map a2cClosVar xs
-    (e', escs) <- lift $ runStateT (local (const $ map fst (f : xs)) $ a2cExp e) []
-    return (a2cClosVar f, xs', e', escs)
+anfClosureRecBind :: A.Bind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
+anfClosureRecBind (A.BVal f v) | A.VLam xs e <- stripAnnTop v = do
+    let xs' = map anfClosureClosVar xs
+    (e', escs) <- lift $ runStateT (local (const $ map fst (f : xs)) $ anfClosureExp e) []
+    return (anfClosureClosVar f, xs', e', escs)
   where
     stripAnnTop :: A.Val -> A.Val
     stripAnnTop (A.VAnnot v' _) = stripAnnTop v'
     stripAnnTop v'              = v'
-a2cRecBind _ = error "impossible. lambda expected"
+anfClosureRecBind _ = error "impossible. lambda expected"
 
-a2cDec :: A.Dec -> C.Dec
-a2cDec (A.DEnum x ls) = C.DEnum x ls
-a2cDec (A.DBind x t) | x ^. extern = C.DBind x (a2cTy t)
-a2cDec (A.DBind x t) = C.DBind x (a2cClosTy t)
+anfClosureDec :: A.Dec -> C.Dec
+anfClosureDec (A.DEnum x ls) = C.DEnum x ls
+anfClosureDec (A.DBind x t) | x ^. extern = C.DBind x (anfClosureTy t)
+anfClosureDec (A.DBind x t) = C.DBind x (anfClosureClosTy t)
 
-a2cProg :: A.Program -> IO C.Program
-a2cProg (decs, e) = do
-    (e', defs) <- runWriterT (runReaderT (evalStateT (a2cExp e) []) [])
-    let decs' = foldr (C.extendBindEnv . C.code) (map a2cDec decs) defs
+anfClosureProgram :: A.Program -> IO C.Program
+anfClosureProgram (decs, e) = do
+    (e', defs) <- runWriterT (runReaderT (evalStateT (anfClosureExp e) []) [])
+    let decs' = foldr (C.extendBindEnv . C.code) (map anfClosureDec decs) defs
     return (decs', defs, e')

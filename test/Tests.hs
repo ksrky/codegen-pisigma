@@ -1,5 +1,5 @@
 import Anf.Tc                    qualified as Anf
-import AnfClos
+import AnfClosure
 import ClosUnty
 import Closure.Tc                qualified as Closure
 import Control.Lens
@@ -7,14 +7,14 @@ import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
 import Data.Text.Encoding
-import LamAnf
 import Lambda                    qualified as L
 import Lambda.Tc                 qualified as Lambda
+import LambdaAnf
 import Parser
 import Prettyprinter             hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text
-import RawLam
+import RawLambda
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.HUnit
@@ -64,7 +64,7 @@ scopeTests :: TestTree
 scopeTests = testGroup "Scope tests"
   [ testCase "\\x -> x * x" $ do
       e1 <- parseProg "\\x -> x * x"
-      e2 <- r2lProg e1
+      e2 <- rawLambdaProgram e1
       case L.stripAnn (snd e2) of
         L.ELam x0 (L.EApp _ (L.ETuple [L.EVar x1, L.EVar x2])) -> do x0 @?= x1; x1 @?= x2
         e                                                     -> assertFailure $ "unexpected: " ++ show e
@@ -76,18 +76,18 @@ stepTests = testGroup "Step tests"
       step "Parser"
       e1 <- parseProg "42"
       e1 @?= Raw.expMap Map.! "42"
-      step "RawLam"
-      e2 <- r2lProg e1
+      step "RawLambda"
+      e2 <- rawLambdaProgram e1
       snd e2 @?= Lambda.expMap Map.! "42"
       step "Lambda.Tc"
       Lambda.tcProg e2
-      step " LamAnf"
-      let e3 = l2aProg e2
+      step " LambdaAnf"
+      let e3 = lambdaAnfProgram e2
       snd e3 @?= Anf.expMap Map.! "42"
       step "Anf.Tc"
       Anf.tcProg e3
-      step "AnfClos"
-      e4 <- a2cProg e3
+      step "AnfClosure"
+      e4 <- anfClosureProgram e3
       view _3 e4 @?= Closure.expMap Map.! "42"
       step "Closure.Tc"
       Closure.tcProg e4
@@ -95,73 +95,73 @@ stepTests = testGroup "Step tests"
   , testCaseSteps "\\x -> x" $ \step -> do
       e1 <- parseProg "\\x -> x"
       step "Lambda.Tc"
-      e2 <- r2lProg e1
+      e2 <- rawLambdaProgram e1
       Lambda.tcProg e2
       step "Anf.Tc"
-      let e3 = l2aProg e2
+      let e3 = lambdaAnfProgram e2
       Anf.tcProg e3
       step "Closure.Tc"
-      e4 <- a2cProg e3
+      e4 <- anfClosureProgram e3
       Closure.tcProg e4
       step "Done"
   , testCaseSteps "let x = 42 in x" $ \step -> do
       e1 <- parseProg "let x = 42 in x"
       step "Lambda.Tc"
-      e2 <- r2lProg e1
+      e2 <- rawLambdaProgram e1
       Lambda.tcProg e2
       step "Anf.Tc"
-      let e3 = l2aProg e2
+      let e3 = lambdaAnfProgram e2
       Anf.tcProg e3
       step "Closure.Tc"
-      e4 <- a2cProg e3
+      e4 <- anfClosureProgram e3
       Closure.tcProg e4
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
       e1 <- parseProg "(\\x -> x) 5"
       step "Lambda.Tc"
-      e2 <- r2lProg e1
+      e2 <- rawLambdaProgram e1
       Lambda.tcProg e2
       step "Anf.Tc"
-      let e3 = l2aProg e2
+      let e3 = lambdaAnfProgram e2
       Anf.tcProg e3
       step "Closure.Tc"
-      e4 <- a2cProg e3
+      e4 <- anfClosureProgram e3
       Closure.tcProg e4
       step "Done"
   , testCaseSteps "2 * 3 == 6" $ \step -> do
       e1 <- parseProg "2 * 3 == 6"
       step "Lambda.Tc"
-      e2 <- r2lProg e1
+      e2 <- rawLambdaProgram e1
       Lambda.tcProg e2
       step "Anf.Tc"
-      let e3 = l2aProg e2
+      let e3 = lambdaAnfProgram e2
       Anf.tcProg e3
       step "Closure.Tc"
-      e4 <- a2cProg e3
+      e4 <- anfClosureProgram e3
       Closure.tcProg e4
       step "Done"
   , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
       e1 <- parseProg "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
       step "Lambda.Tc"
-      e2 <- r2lProg e1
+      e2 <- rawLambdaProgram e1
       Lambda.tcProg e2
       step "Anf.Tc"
-      let e3 = l2aProg e2
+      let e3 = lambdaAnfProgram e2
       Anf.tcProg e3
       step "Closure.Tc"
-      e4 <- a2cProg e3
+      e4 <- anfClosureProgram e3
       Closure.tcProg e4
       step "Done"
   {- , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
       e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
       step "Lambda.Tc"
-      e2 <- r2lProg e1
+      e2 <- rawLambdaProgram e1
       Lambda.tcProg e2
       step "Anf.Tc"
-      let e3 = l2aProg e2
+      let e3 = lambdaAnfProgram e2
       Anf.tcProg e3
       step "Closure.Tc"
-      e4 <- a2cProg e3
+      e4 <- anfClosureProgram e3
       Closure.tcProg e4
       step "Done" -}
   ]
@@ -169,9 +169,9 @@ stepTests = testGroup "Step tests"
 outputClosString :: Text -> IO BL.ByteString
 outputClosString  inp = do
   raw_prog <- parseProg inp
-  lam_prog <- r2lProg raw_prog
-  let anf_prog = l2aProg lam_prog
-  clos_prog <- a2cProg anf_prog
+  lam_prog <- rawLambdaProgram raw_prog
+  let anf_prog = lambdaAnfProgram lam_prog
+  clos_prog <- anfClosureProgram anf_prog
   let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
   let out = renderStrict $ layoutPretty layoutOptions $ pretty clos_prog
   return $ BL.fromStrict $ encodeUtf8 out
@@ -179,9 +179,9 @@ outputClosString  inp = do
 outputUntyString :: Text -> IO BL.ByteString
 outputUntyString  inp = do
   raw_prog <- parseProg inp
-  lam_prog <- r2lProg raw_prog
-  let anf_prog = l2aProg lam_prog
-  clos_prog <- a2cProg anf_prog
+  lam_prog <- rawLambdaProgram raw_prog
+  let anf_prog = lambdaAnfProgram lam_prog
+  clos_prog <- anfClosureProgram anf_prog
   let unty_prog = c2uProg clos_prog
   let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
   let out = renderStrict $ layoutPretty layoutOptions $ pretty unty_prog

@@ -27,19 +27,19 @@ library
   exposed-modules:
       Anf
       Anf.Tc
-      AnfClos
+      AnfClosure
       ClosUnty
       Closure
       Closure.Tc
       Id
-      LamAnf
       Lambda
       Lambda.Init
       Lambda.Tc
+      LambdaAnf
       Parser
       Prettyprinter.Prec
       Raw
-      RawLam
+      RawLambda
       Toplevel
       Untyped
   other-modules:

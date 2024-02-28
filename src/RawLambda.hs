@@ -1,4 +1,4 @@
-module RawLam (r2lProg) where
+module RawLambda (rawLambdaProgram) where
 
 import Control.Lens.Operators
 import Control.Monad.Except
@@ -173,7 +173,7 @@ instance Zonking L.Exp where
         L.ECaseF e les -> L.ECase <$> e <*> mapM (\(l, ei) -> (l,) <$> ei) les
         L.EAnnotF e t -> L.EAnnot <$> e <*> zonk t
 
-r2lProg :: R.Program -> IO L.Program
-r2lProg raw_prog = do
+rawLambdaProgram :: R.Program -> IO L.Program
+rawLambdaProgram raw_prog = do
     e <- zonk =<< runReaderT (r2lExp raw_prog) initCtx
     return (initEnv, e)

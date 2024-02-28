@@ -1,20 +1,20 @@
 module Toplevel (runMain) where
 
-import AnfClos
+import AnfClosure
 import ClosUnty
 import Data.Text          (Text)
-import LamAnf
+import LambdaAnf
 import Parser
 import Prettyprinter.Prec
 import Prettyprinter.Util
-import RawLam
+import RawLambda
 
 runMain :: Text -> IO ()
 runMain inp = do
     raw_prog <- parseProg inp
-    lam_prog <- r2lProg raw_prog
-    let anf_prog = l2aProg lam_prog
-    clos_prog <- a2cProg anf_prog
+    lam_prog <- rawLambdaProgram raw_prog
+    let anf_prog = lambdaAnfProgram lam_prog
+    clos_prog <- anfClosureProgram anf_prog
     let unty_prog = c2uProg clos_prog
     putDocW 60 $ pretty clos_prog
     putStrLn ""

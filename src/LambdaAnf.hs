@@ -1,4 +1,4 @@
-module  LamAnf (l2aProg) where
+module LambdaAnf (lambdaAnfProgram) where
 
 import Anf                   qualified as A
 import Data.Functor.Foldable
@@ -6,57 +6,57 @@ import Id
 import Lambda                qualified as L
 import Prelude               hiding (exp)
 
-l2aLit :: L.Lit -> A.Lit
-l2aLit (L.LInt i) = A.LInt i
+lambdaAnfLit :: L.Lit -> A.Lit
+lambdaAnfLit (L.LInt i) = A.LInt i
 
-l2aTy :: L.Ty -> A.Ty
-l2aTy = cata $ \case
+lambdaAnfTy :: L.Ty -> A.Ty
+lambdaAnfTy = cata $ \case
     L.TIntF       -> A.TInt
     L.TNameF x    -> A.TName x
     L.TFunF t1 t2 -> A.TFun [t1] t2
     L.TTupleF ts  -> A.TTuple ts
     L.TMetaF _    -> error "unsolved meta"
 
-l2aVar :: L.Var -> A.Var
-l2aVar (x, t) = (x, l2aTy t)
+lambdaAnfVar :: L.Var -> A.Var
+lambdaAnfVar (x, t) = (x, lambdaAnfTy t)
 
-l2aExp :: L.Exp -> (A.Val -> A.Exp) -> A.Exp
-l2aExp (L.ELit l) kont = kont $ A.VLit (l2aLit l)
-l2aExp (L.EVar x) kont = kont $ A.VVar (l2aVar x)
-l2aExp (L.ELab l t) kont = kont $ A.VLabel l (l2aTy t)
-l2aExp (L.EApp e1 e2) kont =
-    l2aExp e1 $ \v1 ->
-    l2aExp e2 $ \v2 ->
+lambdaAnfExp :: L.Exp -> (A.Val -> A.Exp) -> A.Exp
+lambdaAnfExp (L.ELit l) kont = kont $ A.VLit (lambdaAnfLit l)
+lambdaAnfExp (L.EVar x) kont = kont $ A.VVar (lambdaAnfVar x)
+lambdaAnfExp (L.ELab l t) kont = kont $ A.VLabel l (lambdaAnfTy t)
+lambdaAnfExp (L.EApp e1 e2) kont =
+    lambdaAnfExp e1 $ \v1 ->
+    lambdaAnfExp e2 $ \v2 ->
     let t_call = case A.typeof v1 of
             A.TFun _ t2 -> t2
             _           -> error "impossible" in
     let x = (mkIdUnsafe "x_call", t_call) in
     let body = kont (A.VVar x) in
     A.ELet (A.BCall x v1 [v2]) body
-l2aExp (L.ELam x e) kont = kont $ A.VLam [l2aVar x] (l2aExp e A.EReturn)
-l2aExp (L.ELet x e1 e2) kont =
-    l2aExp e1 $ \v1 ->
-    A.ELet (A.BVal (l2aVar x) v1) (l2aExp e2 kont)
-l2aExp (L.ELetrec xes1 e2) kont = go [] xes1
+lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)
+lambdaAnfExp (L.ELet x e1 e2) kont =
+    lambdaAnfExp e1 $ \v1 ->
+    A.ELet (A.BVal (lambdaAnfVar x) v1) (lambdaAnfExp e2 kont)
+lambdaAnfExp (L.ELetrec xes1 e2) kont = go [] xes1
   where
     go :: [(A.Var, A.Val)] -> [(L.Var, L.Exp)] -> A.Exp
-    go acc [] = A.ELetrec (map (uncurry A.BVal) acc) (l2aExp e2 kont)
-    go acc ((x, e) : xes) = l2aExp e $ \v -> go ((l2aVar x, v) : acc) xes
-l2aExp (L.ETuple es) kont = go [] es
+    go acc [] = A.ELetrec (map (uncurry A.BVal) acc) (lambdaAnfExp e2 kont)
+    go acc ((x, e) : xes) = lambdaAnfExp e $ \v -> go ((lambdaAnfVar x, v) : acc) xes
+lambdaAnfExp (L.ETuple es) kont = go [] es
   where
     go :: [A.Val] -> [L.Exp] -> A.Exp
     go acc []         = kont $ A.VTuple (reverse acc)
-    go acc (e : rest) = l2aExp e $ \v -> go (v : acc) rest
-l2aExp (L.ECase e les) kont =
-    l2aExp e $ \v ->
+    go acc (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) rest
+lambdaAnfExp (L.ECase e les) kont =
+    lambdaAnfExp e $ \v ->
     -- [Note] Duplication of continuation is innefficient.
     --        Use join point to avoid this.
-    A.ECase v $ map (\(li, ei) -> (li, l2aExp ei kont)) les
-l2aExp (L.EAnnot e t) kont = l2aExp e $ \v -> kont $ A.VAnnot v (l2aTy t)
+    A.ECase v $ map (\(li, ei) -> (li, lambdaAnfExp ei kont)) les
+lambdaAnfExp (L.EAnnot e t) kont = lambdaAnfExp e $ \v -> kont $ A.VAnnot v (lambdaAnfTy t)
 
-l2aDec :: L.Dec -> A.Dec
-l2aDec (L.DEnum x ls) = A.DEnum x ls
-l2aDec (L.DBind x t)  = A.DBind x (l2aTy t)
+lambdaAnfDec :: L.Dec -> A.Dec
+lambdaAnfDec (L.DEnum x ls) = A.DEnum x ls
+lambdaAnfDec (L.DBind x t)  = A.DBind x (lambdaAnfTy t)
 
-l2aProg :: L.Program -> A.Program
-l2aProg (decs, exp) = (map l2aDec decs, l2aExp exp A.EReturn)
+lambdaAnfProgram :: L.Program -> A.Program
+lambdaAnfProgram (decs, exp) = (map lambdaAnfDec decs, lambdaAnfExp exp A.EReturn)
