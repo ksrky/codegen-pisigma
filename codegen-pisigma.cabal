@@ -31,6 +31,7 @@ library
       ClosUnty
       Closure
       Closure.Check
+      ClosureTal
       Id
       Lambda
       Lambda.Check

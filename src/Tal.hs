@@ -1,14 +1,18 @@
 module Tal (
     Reg(..),
+    retReg,
     Name(..),
-    Label(..),
+    Label,
     TyVar,
     Ty(..),
     Row(..),
     HeapsTy,
     RegFileTy,
-    WordVal(..),
+    mkRegFileTy,
+    Telescopes,
     Val(..),
+    WordVal,
+    SmallVal,
     Heap(..),
     Heaps,
     RegFile,
@@ -16,15 +20,18 @@ module Tal (
     Instrs(..),
     Program
 ) where
+import Data.Map.Strict qualified as M
 
-newtype Reg = Reg Int
-    deriving (Eq, Show)
+newtype Reg = Reg {unReg :: Int}
+    deriving (Eq, Ord, Show)
+
+retReg :: Reg
+retReg = Reg 0
 
 newtype Name = Name String
     deriving (Eq, Show)
 
-newtype Label = Label String
-    deriving (Eq, Show)
+type Label = Name
 
 type TyVar = Int
 
@@ -37,51 +44,71 @@ data Ty
     | TRow Row
     deriving (Eq, Show)
 
-data Row = REmpty | RVar Int | Ty :> Row
+data Row = REmpty | RVar Int | (Ty, InitFlag) :> Row
     deriving (Eq, Show)
+
+type InitFlag = Bool
 
 type HeapsTy = [(Label, Ty)]
 
-type RegFileTy = [(Reg, Int)]
+type RegFileTy = M.Map Reg Ty
 
-data WordVal
-    = WLabel Label
-    | WInt Int
-    | WJunk Ty
-    | WPack Ty WordVal Ty
-    deriving (Eq, Show)
+mkRegFileTy :: [Ty] -> RegFileTy
+mkRegFileTy = M.fromList . zip (map Reg [0..])
 
-data Val
-    = VReg Reg
-    | VWord WordVal
-    | VPack Ty Val Ty
-    deriving (Eq, Show)
+type Telescopes = [TyVar]
+
+data NonReg
+
+data Val a where
+    VReg   :: Reg -> Val Reg
+    VWord  :: Val NonReg -> Val Reg
+    VLabel :: Label -> Val NonReg
+    VInt   :: Int -> Val NonReg
+    VJunk  :: Ty -> Val NonReg
+    VPack  :: Ty -> Val a -> Ty -> Val a
+    VRoll  :: Val a -> Ty -> Val a
+    VUnroll :: Val a -> Val a
+
+deriving instance Eq (Val a)
+deriving instance Show (Val a)
+
+type WordVal = Val NonReg
+
+type SmallVal = Val Reg
 
 data Heap
     = HRow [WordVal]
-    | WCode RegFile Instrs
+    | HCode RegFileTy Instrs
     deriving (Eq, Show)
 
 type Heaps = [(Name, Heap)]
 
-type RegFile = [(Reg, WordVal)]
+type RegFile = M.Map Reg WordVal
+
+data Aop = Add | Sub | Mul
+    deriving (Eq, Show)
+
+data Bop = Bnz
+    deriving (Eq, Show)
 
 data Instr
-    = IAdd Reg Reg Val
-    | IBnz Reg Val
+    = IAop Aop Reg Reg SmallVal
+    | IBop Bop Reg SmallVal
+    | ICall Reg SmallVal [Reg]
     | ILoad Reg Reg Int
     | IMalloc Reg [Ty]
-    | IMove Reg Val
-    | IMul Reg Reg Val
+    | IMove Reg SmallVal
     | IStore Reg Int Reg
-    | ISub Reg Reg Val
-    | IUnpack TyVar Reg Val
+    | IUnpack TyVar Reg SmallVal
     deriving (Eq, Show)
 
 data Instrs
     = ISeq Instr Instrs
-    | IJmp Val
-    | IRet Val
+    | IJump SmallVal
+    | IReturn SmallVal
     deriving (Eq, Show)
+
+infixr 5 `ISeq`
 
 type Program = (Heaps, RegFile, Instrs)
