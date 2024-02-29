@@ -2,6 +2,7 @@
 
 module Closure (
     Lit(..),
+    TyVar,
     Ty(..),
     TyF(..),
     RowTy(..),
@@ -37,25 +38,27 @@ import GHC.Stack
 import Prettyprinter            hiding (Pretty (..))
 import Prettyprinter.Prec
 
-newtype Lit = LInt Int
-    deriving (Eq, Show)
-
-type Label = String
+type TyVar = Id
 
 data Ty
     = TInt
-    | TVar Int
+    | TVar TyVar
     | TName Id
     | TFun [Ty] Ty
-    | TExists Ty
-    | TRecurs Ty
+    | TExists TyVar Ty
+    | TRecurs TyVar Ty
     | TRow RowTy
     deriving (Eq, Show)
 
-data RowTy = REmpty | RVar Int | Ty :> RowTy
+data RowTy = REmpty | RVar TyVar | Ty :> RowTy
+    deriving (Eq, Show)
+
+newtype Lit = LInt Int
     deriving (Eq, Show)
 
 type Var = (Id, Ty)
+
+type Label = String
 
 data Val
     = VLit Lit
@@ -73,7 +76,7 @@ data Bind
     = BVal Var Val
     | BCall Var Val [Val]
     | BProj Var Val Int
-    | BUnpack Var Val -- ignoring the type variable
+    | BUnpack TyVar Var Val
     deriving (Eq, Show)
 
 data Exp
@@ -117,28 +120,33 @@ extendBindEnv (x, t) = (DBind x t:)
 
 -- | Make a packed closure
 mkClos :: [Ty] -> Ty -> Ty
-mkClos ts1 t2 = TExists $ TRecurs $ TRow $ TFun (TVar 0 : ts1) t2 :> RVar 1
+mkClos ts1 t2 =
+    let t_env = newIdUnsafe "t_env"
+        t_cl = newIdUnsafe "t_cl" in
+    TExists t_env $ TRecurs t_cl $ TRow $ TFun (TVar t_cl : ts1) t2 :> RVar t_env
 
 -- | Make an unpacked closure
 mkUClos :: [Ty] -> Ty -> RowTy -> Ty
-mkUClos ts1 t2 r = TRecurs $ TRow (TFun (TVar 0 : ts1) t2 :> r)
+mkUClos ts1 t2 r =
+    let t_cl = newIdUnsafe "t_cl" in
+    TRecurs t_cl $ TRow (TFun (TVar t_cl : ts1) t2 :> r)
 
 mkTTuple :: [Ty] -> Ty
 mkTTuple ts = TRow $ foldr (:>) REmpty ts
 
 unrollUClos :: Ty -> Ty -> Ty
-unrollUClos s (TRow (TFun (TVar 0: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> r
+unrollUClos s (TRow (TFun (TVar _: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> r
 unrollUClos _ _                                   = error "impossible"
 
 unpackClos :: Ty -> Ty -> Ty
-unpackClos (TRow r) (TRecurs (TRow (TFun ts1 t2 :> RVar 1))) = TRecurs $ TRow $ TFun ts1 t2 :> r
+unpackClos (TRow r) (TRecurs tv (TRow (TFun ts1 t2 :> RVar _))) = TRecurs tv $ TRow $ TFun ts1 t2 :> r
 unpackClos  _ _                                           = error "impossible"
 
 bindVar :: Bind -> Var
-bindVar (BVal x _)    = x
-bindVar (BCall x _ _) = x
-bindVar (BProj x _ _) = x
-bindVar (BUnpack x _) = x
+bindVar (BVal x _)      = x
+bindVar (BCall x _ _)   = x
+bindVar (BProj x _ _)   = x
+bindVar (BUnpack _ x _) = x
 
 class Typeable a where
     typeof :: HasCallStack => a -> Ty
@@ -163,8 +171,8 @@ instance Typeable Val where
         VRollF _ t -> t
         VUnrollF v ->
             case typeof v of
-                TRecurs t -> unrollUClos (TRecurs t) t
-                _         -> error "required recursive type"
+                TRecurs tv t -> unrollUClos (TRecurs tv t) t
+                _            -> error "required recursive type"
         VAnnotF _ t -> t
 
 instance Typeable Exp where
@@ -184,8 +192,8 @@ instance PrettyPrec Ty where
     prettyPrec _ (TName l) = pretty l
     prettyPrec p (TFun ts t) = parPrec p 2 $
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
-    prettyPrec p (TExists t) = parPrec p 0 $ "∃." <+> pretty t
-    prettyPrec p (TRecurs t) = parPrec p 0 $ "μ." <+> pretty t
+    prettyPrec p (TExists tv t) = parPrec p 0 $ "∃" <> pretty tv <> dot <+> pretty t
+    prettyPrec p (TRecurs tv t) = parPrec p 0 $ "μ" <> pretty tv <> dot <+> pretty t
     prettyPrec _ (TRow r) = brackets $ pretty r
 
 instance PrettyPrec RowTy where
@@ -213,7 +221,7 @@ instance PrettyPrec Bind where
     pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
         <> parens (hsep (punctuate "," (map prettyMax vs2)))
     pretty (BProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
-    pretty (BUnpack x v) = brackets ("_," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
+    pretty (BUnpack tv x v) = brackets (pretty tv <> "," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
 
 instance PrettyPrec Exp where
     pretty (ELet d e)    = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
@@ -237,10 +245,10 @@ instance StripAnn Val where
         v           -> embed v
 
 instance StripAnn Bind where
-    stripAnnot (BVal x v)     = BVal x (stripAnnot v)
-    stripAnnot (BCall x v vs) = BCall x (stripAnnot v) (map stripAnnot vs)
-    stripAnnot (BProj x v i)  = BProj x (stripAnnot v) i
-    stripAnnot (BUnpack x v)  = BUnpack x (stripAnnot v)
+    stripAnnot (BVal x v)       = BVal x (stripAnnot v)
+    stripAnnot (BCall x v vs)   = BCall x (stripAnnot v) (map stripAnnot vs)
+    stripAnnot (BProj x v i)    = BProj x (stripAnnot v) i
+    stripAnnot (BUnpack tv x v) = BUnpack tv x (stripAnnot v)
 
 instance StripAnn Exp where
     stripAnnot = cata $ \case

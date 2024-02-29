@@ -104,9 +104,9 @@ anfClosureBind (A.BCall x v1@(A.VVar f) vs2) | f ^. extern = do
     vs2' <- mapM anfClosureVal vs2
     return [C.BCall (anfClosureVar x) v1' vs2']
 anfClosureBind (A.BCall x v1 vs2)
-    | C.TExists t_cl <- anfClosureClosTy (A.typeof v1) = do
+    | C.TExists tv t_cl <- anfClosureClosTy (A.typeof v1) = do
     let x_cl = (newIdUnsafe "x_cl", t_cl)
-    d1 <- C.BUnpack x_cl <$> anfClosureVal v1
+    d1 <- C.BUnpack tv x_cl <$> anfClosureVal v1
     let t_code = C.TFun (t_cl : map (anfClosureClosTy . A.typeof) vs2) (anfClosureClosTy (A.typeof x))
     let x_code = (newIdUnsafe "x_code", t_code)
     let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) 1

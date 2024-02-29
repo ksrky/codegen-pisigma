@@ -27,11 +27,11 @@ type CtxM = ReaderT Ctx IO
 closureTalTy :: C.Ty -> CtxM T.Ty
 closureTalTy = cata $ \case
     C.TIntF -> return T.TInt
-    C.TVarF i -> return $ T.TVar i
+    C.TVarF i -> undefined
     C.TNameF x -> undefined
     C.TFunF ts1 _ -> T.TRegFile . T.mkRegFileTy <$> sequence ts1
-    C.TExistsF t -> T.TExists <$> t
-    C.TRecursF t -> T.TRecurs <$> t
+    C.TExistsF _ t -> T.TExists <$> t
+    C.TRecursF _ t -> T.TRecurs <$> t
     C.TRowF r -> undefined
 
 closureTalLit :: C.Lit -> T.WordVal
@@ -108,7 +108,7 @@ closureTalExp (C.ELet (C.BProj x v i) e) = do
         locally regFileTy (M.insert r t) $ closureTalExp e
     v' <- lift $ closureTalVal v
     instrs %= T.ISeq (T.IMove r v') . T.ISeq (T.ILoad r r (i - 1))
-closureTalExp (C.ELet (C.BUnpack x v) e) = do
+closureTalExp (C.ELet (C.BUnpack _ x v) e) = do
     r <- freshReg
     t <- lift $ closureTalTy (snd x)
     locally idReg ((fst x, r) :) $ locally telescopes (0 :) $

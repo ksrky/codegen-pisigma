@@ -1,6 +1,5 @@
 import Anf.Check                 qualified as Anf
-import AnfClosure
-import ClosUnty
+import AnfClosure 
 import Closure.Check             qualified as Closure
 import Lambda qualified
 import Lambda.Check              qualified as Lambda
@@ -177,25 +176,10 @@ outputClosString  inp = do
   let out = renderStrict $ layoutPretty layoutOptions $ pretty clos_prog
   return $ BL.fromStrict $ encodeUtf8 out
 
-outputUntyString :: Text -> IO BL.ByteString
-outputUntyString  inp = do
-  raw_prog <- parseProg inp
-  lam_prog <- rawLambdaProgram raw_prog
-  let anf_prog = lambdaAnfProgram lam_prog
-  clos_prog <- anfClosureProgram anf_prog
-  let unty_prog = c2uProg clos_prog
-  let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
-  let out = renderStrict $ layoutPretty layoutOptions $ pretty unty_prog
-  return $ BL.fromStrict $ encodeUtf8 out
-
 goldenTests :: TestTree
 goldenTests = testGroup "Golden tests"
   [ goldenVsString "\\x -> x" ".golden/clos_\\x -> x.txt" $ outputClosString "\\x -> x"
   , goldenVsString "(\\x -> x) 5" ".golden/clos_(\\x -> x) 5.txt" $ outputClosString "(\\x -> x) 5"
   , goldenVsString "\\x -> (\\y -> x + y)" ".golden/clos_\\x -> (\\y -> x + y).txt" $ outputClosString "\\x -> (\\y -> x + y)"
   , goldenVsString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5" ".golden/clos_let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5.txt" $ outputClosString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5"
-  , goldenVsString "\\x -> x" ".golden/unty_\\x -> x.txt" $ outputUntyString "\\x -> x"
-  , goldenVsString "(\\x -> x) 5" ".golden/unty_(\\x -> x) 5.txt" $ outputUntyString "(\\x -> x) 5"
-  , goldenVsString "\\x -> (\\y -> x + y)" ".golden/unty_\\x -> (\\y -> x + y).txt" $ outputUntyString "\\x -> (\\y -> x + y)"
-  , goldenVsString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5" ".golden/unty_let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5.txt" $ outputUntyString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5"
   ]
