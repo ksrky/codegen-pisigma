@@ -6,6 +6,7 @@ module Closure (
     Ty(..),
     TyF(..),
     RowTy(..),
+    RowTyF(..),
     Var,
     Val(..),
     ValF(..),
@@ -34,7 +35,6 @@ import Id
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import GHC.Stack
-
 import Prettyprinter            hiding (Pretty (..))
 import Prettyprinter.Prec
 

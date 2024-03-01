@@ -84,9 +84,9 @@ tcExp (R.EVar x) exp_ty = do
 tcExp (R.ELabel l) exp_ty = do
     ctx <- ask
     case lookup l ctx of
-        Just (_, t) -> do
+        Just (x, t) -> do
             lift $ unify exp_ty t
-            return $ L.ELabel l t
+            return $ L.EVar (x, t)
         Nothing      -> fail "unknown label"
 tcExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar

@@ -41,7 +41,7 @@ externEq = DBind idEq (TFun (TTuple [TInt, TInt]) tyBool)
 
 initCtx :: [(String, (Id, Ty))]
 initCtx =
-    [ ("True", (idTrue, TName idBool)) -- tmp: idTrue is redundant
+    [ ("True", (idTrue, TName idBool))
     , ("False", (idFalse, TName idBool))
     , ("+", (idPlus, TFun (TTuple [TInt, TInt]) TInt))
     , ("-", (idMinus, TFun (TTuple [TInt, TInt]) TInt))

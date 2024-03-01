@@ -26,7 +26,7 @@ data Ty
 
 data Const
     = CInt Int
-    | CGlobal Global
+    | CGlobal Global Ty
     deriving (Eq, Show)
 
 data Val
@@ -42,14 +42,14 @@ data Bind
     = BVal Val
     | BCall Val [Val]
     | BProj Val Int
-    | BUnpack Ty Val
+    | BUnpack Val
     | BMalloc [Ty]
     | BUpdate Val Int Val
     deriving (Eq, Show)
 
 data Exp
     = ELet Bind Exp
-    | ECase Val [(Int, Exp)]
+    | ECase Val [Exp]
     | EReturn Val
     | EAnnot Exp Ty
     deriving (Eq, Show)
@@ -57,7 +57,6 @@ data Exp
 data Heap
     = HVal Ty Val
     | HCode [Ty] Ty Exp
-    | HStruct [Val]
     | HExtern Ty
     | HTypeAlias Ty
     deriving (Eq, Show)
