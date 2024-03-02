@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+module ClosureTal where
+{-{-# LANGUAGE TemplateHaskell #-}
 
 module ClosureTal where
 
@@ -142,3 +143,4 @@ closureTalProgram (decs, defns, exp) = do
 -- ReaderT (RegFileTy, Telescopes, idReg)
 
 -- ReaderT (idFuncName, idStruct, labelStruct)
+-}

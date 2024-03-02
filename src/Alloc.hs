@@ -1,4 +1,4 @@
-module Nameless (
+module Alloc (
     Global (..),
     Ty (..),
     Const (..),

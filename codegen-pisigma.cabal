@@ -25,19 +25,20 @@ source-repository head
 
 library
   exposed-modules:
+      Alloc
+      AllocTal
       Anf
       Anf.Check
       AnfClosure
       Closure
       Closure.Check
-      ClosureNameless
+      ClosureAlloc
       ClosureTal
       Id
       Lambda
       Lambda.Check
       Lambda.Init
       LambdaAnf
-      Nameless
       Parser
       Prettyprinter.Prec
       Raw

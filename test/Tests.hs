@@ -7,7 +7,6 @@ import LambdaAnf
 import Parser
 import RawLambda
 
-import Control.Lens
 import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
@@ -88,7 +87,7 @@ stepTests = testGroup "Step tests"
       Anf.checkProgram e3
       step "AnfClosure"
       e4 <- anfClosureProgram e3
-      view _3 e4 @?= Closure.expMap Map.! "42"
+      snd (snd e4) @?= Closure.expMap Map.! "42"
       step "Closure.Check"
       Closure.checkProgram e4
       step "Done"
@@ -172,8 +171,9 @@ outputClosString  inp = do
   lam_prog <- rawLambdaProgram raw_prog
   let anf_prog = lambdaAnfProgram lam_prog
   clos_prog <- anfClosureProgram anf_prog
+  let clos_texp = snd clos_prog
   let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
-  let out = renderStrict $ layoutPretty layoutOptions $ pretty clos_prog
+  let out = renderStrict $ layoutPretty layoutOptions $ pretty clos_texp
   return $ BL.fromStrict $ encodeUtf8 out
 
 goldenTests :: TestTree

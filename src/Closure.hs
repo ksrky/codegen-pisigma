@@ -13,8 +13,10 @@ module Closure (
     Bind(..),
     Exp(..),
     ExpF(..),
+    Code(..),
+    Defn,
+    TopExp,
     Dec(..),
-    Defn(..),
     Program,
     Env,
     lookupEnumEnv,
@@ -24,7 +26,7 @@ module Closure (
     unpackClos,
     bindVar,
     Typeable(..),
-    StripAnn(..),
+    StripAnnot(..),
     mkClos,
     mkUClos,
     mkTTuple
@@ -86,15 +88,19 @@ data Exp
     | EAnnot Exp Ty
     deriving (Eq, Show)
 
+data Code = Code {args :: [Var], body :: Exp}
+    deriving (Eq, Show)
+
+type Defn = (Var, Code)
+
 data Dec
     = DEnum Id [Label]
     | DBind Id Ty
     deriving (Eq, Show)
 
-data Defn = Defn {code :: Var, args :: [Var], body :: Exp}
-    deriving (Eq, Show)
+type TopExp = ([Defn], Exp)
 
-type Program = ([Dec], [Defn], Exp)
+type Program = ([Dec], TopExp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''RowTy
@@ -194,12 +200,12 @@ instance PrettyPrec Ty where
         parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
     prettyPrec p (TExists tv t) = parPrec p 0 $ "∃" <> pretty tv <> dot <+> pretty t
     prettyPrec p (TRecurs tv t) = parPrec p 0 $ "μ" <> pretty tv <> dot <+> pretty t
-    prettyPrec _ (TRow r) = brackets $ pretty r
+    prettyPrec _ (TRow r) = braces $ pretty r
 
 instance PrettyPrec RowTy where
     pretty REmpty    = "ε"
     pretty (RVar tv) = pretty tv
-    pretty (t :> r)  = pretty t <> ";" <+> pretty r
+    pretty (t :> r)  = pretty t <> "," <+> pretty r
 
 instance PrettyPrec Var where
     pretty (x, t) = pretty x <+> ":" <+> pretty t
@@ -209,7 +215,7 @@ instance PrettyPrec Val where
     prettyPrec _ (VVar (x, _)) = pretty x
     prettyPrec _ (VFun (f, _)) = pretty f
     prettyPrec _ (VLabel l _) = "`" <> pretty l
-    prettyPrec _ (VTuple vs) = brackets $ hsep $ punctuate ";" $ map pretty vs
+    prettyPrec _ (VTuple vs) = braces $ hsep $ punctuate "," $ map pretty vs
     prettyPrec p (VPack t1 v t2) =
         parPrec p 0 $ hang 2 $ hsep ["pack", brackets (pretty t1 <> "," <+> pretty v) <> softline <> "as", prettyPrec 2 t2]
     prettyPrec p (VRoll v t) = parPrec p 0 $ hang 2 $ hsep ["roll", prettyMax v <> softline <> "as", prettyPrec 2 t]
@@ -230,33 +236,47 @@ instance PrettyPrec Exp where
     pretty (EReturn v)      = "ret" <+> prettyMax v
     pretty (EAnnot e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
-instance PrettyPrec Defn where
-    pretty (Defn (f, _) xs e) = pretty f <+> hsep (map (parens . pretty) xs) <+> "=" <> line <> indent 2 (pretty e)
+instance PrettyPrec Code where
+    pretty (Code{args, body}) = "code" <> parens (hsep (punctuate "," (map prettyMax args)))
+        <> "." <> line <> indent 2 (pretty body)
+
+instance PrettyPrec Dec where
+    pretty (DEnum x ls) = "enum" <+> pretty x <+> "=" <+> brackets (hsep $ punctuate "," $ map pretty ls)
+    pretty (DBind x t)  = pretty x <+> ":" <+> pretty t
+
+instance PrettyPrec TopExp where
+    pretty (defns, e) = vsep (map (\((f, _), c) -> pretty f <+> "=" <+> pretty c) defns) <> line
+        <> "main" <+> "=" <> line <> indent 2 (pretty e)
 
 instance PrettyPrec Program where
-    pretty (_, ds, e) = vsep (map pretty ds) <> line <> pretty e
+    pretty (ds, e) = vsep (map pretty ds) <> line <> pretty e
 
-class StripAnn a where
+class StripAnnot a where
     stripAnnot :: a -> a
 
-instance StripAnn Val where
+instance StripAnnot Val where
     stripAnnot = cata $ \case
         VAnnotF v _ -> v
         v           -> embed v
 
-instance StripAnn Bind where
+instance StripAnnot Bind where
     stripAnnot (BVal x v)       = BVal x (stripAnnot v)
     stripAnnot (BCall x v vs)   = BCall x (stripAnnot v) (map stripAnnot vs)
     stripAnnot (BProj x v i)    = BProj x (stripAnnot v) i
     stripAnnot (BUnpack tv x v) = BUnpack tv x (stripAnnot v)
 
-instance StripAnn Exp where
+instance StripAnnot Exp where
     stripAnnot = cata $ \case
         EAnnotF e _ -> e
         e           -> embed e
 
-instance StripAnn Defn where
-    stripAnnot (Defn f xs e) = Defn f xs (stripAnnot e)
+instance StripAnnot Code where
+    stripAnnot (Code xs e) = Code xs (stripAnnot e)
 
-instance StripAnn Program where
-    stripAnnot (decs, defs, e) = (decs, map stripAnnot defs, stripAnnot e)
+-- DDefns defns -> DDefns $ map (\(f, c) -> (f, stripAnnot c)) defns
+
+instance StripAnnot TopExp where
+    stripAnnot (defns, e) = (map (\(f, c) -> (f, stripAnnot c)) defns, stripAnnot e)
+
+instance StripAnnot Program where
+    stripAnnot (decs, e) = (decs, stripAnnot e)

@@ -12,6 +12,7 @@ import Control.Monad.State
 import Control.Monad.Trans.Writer
 import Data.Functor.Foldable
 import Data.List                  qualified as List
+import Prelude                    hiding (exp)
 
 type Locals = [Id]
 
@@ -81,8 +82,7 @@ anfClosureVal = cata $ \case
             x_cl = (newIdUnsafe "x_cl", t_ucl)
             t_code = C.TFun (t_ucl : map snd xs') (C.typeof e')
         f_code <- (,t_code) <$> newId "f_code"
-        let v_code = C.Defn {
-                C.code = f_code,
+        let v_code = C.Code {
                 C.args = x_cl : xs',
                 C.body =
                     let x_env = (newIdUnsafe "x_env", t_env) in
@@ -92,7 +92,7 @@ anfClosureVal = cata $ \case
                         let ds = zipWith (\x i -> C.BProj x (C.VVar x_env) i) escs' [1..] in
                         foldr C.ELet e' (d : ds)
                 }
-        appendDefn v_code
+        appendDefn (f_code, v_code)
         return $ C.VPack t_env (C.VRoll (C.VTuple (C.VFun f_code : map C.VVar escs')) t_ucl) t_cl
     A.VTupleF vs -> C.VTuple <$> sequence vs
     A.VAnnotF mv t -> C.VAnnot <$> mv <*> pure (anfClosureClosTy t)
@@ -138,8 +138,7 @@ anfClosureExp = cata $ \case
                 x_cl = (newIdUnsafe "x_cl", t_ucl)
                 t_code = C.TFun (t_ucl : map snd xs) (C.typeof e)
             f_code <- (,t_code) <$> newId (fst f ^. name  ++ "_code")
-            let v_code = C.Defn {
-                    C.code = f_code,
+            let v_code = C.Code {
                     C.args = x_cl : xs,
                     C.body =
                         let di = C.BVal f $ C.VPack t_env (C.VVar x_cl) t_cl in
@@ -151,7 +150,7 @@ anfClosureExp = cata $ \case
                             let ds_esc = zipWith (\x j -> C.BProj x (C.VVar x_env) j) escs [n..] in
                             foldr C.ELet e (di : d_env : ds_cl ++ ds_esc)
                     }
-            appendDefn v_code
+            appendDefn (f_code, v_code)
             let v = C.VPack t_env (C.VRoll (C.VTuple (C.VFun f_code : map C.VVar escs)) t_ucl) t_cl
             return $ C.BVal f v
         flip (foldr C.ELet) ds' <$> me
@@ -176,7 +175,7 @@ anfClosureDec (A.DBind x t) | x ^. extern = C.DBind x (anfClosureTy t)
 anfClosureDec (A.DBind x t) = C.DBind x (anfClosureClosTy t)
 
 anfClosureProgram :: A.Program -> IO C.Program
-anfClosureProgram (decs, e) = do
-    (e', defs) <- runWriterT (runReaderT (evalStateT (anfClosureExp e) []) [])
-    let decs' = foldr (C.extendBindEnv . C.code) (map anfClosureDec decs) defs
-    return (decs', defs, e')
+anfClosureProgram (decs, exp) = do
+    (exp', defns) <- runWriterT (runReaderT (evalStateT (anfClosureExp exp) []) [])
+    let decs' = map anfClosureDec decs
+    return (decs', (defns, exp'))
