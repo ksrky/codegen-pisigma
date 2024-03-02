@@ -1,15 +1,22 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Alloc (
-    Global (..),
+    Name (..),
     Ty (..),
+    TyF(..),
     Const (..),
     Val (..),
+    ValF (..),
     Bind (..),
     Exp (..),
+    ExpF (..),
     Heap (..),
     Program
 ) where
 
-newtype Global = Global String
+import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
+
+newtype Name = Name String
     deriving (Eq, Show)
 
 type InitFlag = Bool
@@ -21,12 +28,12 @@ data Ty
     | TExists Ty
     | TRecurs Ty
     | TStruct [(Ty, InitFlag)]
-    | TAlias Global
+    | TAlias Name
     deriving (Eq, Show)
 
 data Const
     = CInt Int
-    | CGlobal Global Ty
+    | CGlobal Name Ty
     deriving (Eq, Show)
 
 data Val
@@ -61,4 +68,8 @@ data Heap
     | HTypeAlias Ty
     deriving (Eq, Show)
 
-type Program = ([(Global, Heap)], Exp)
+type Program = ([(Name, Heap)], Exp)
+
+makeBaseFunctor ''Ty
+makeBaseFunctor ''Val
+makeBaseFunctor ''Exp

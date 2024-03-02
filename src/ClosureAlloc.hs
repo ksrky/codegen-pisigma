@@ -15,7 +15,7 @@ import Prelude                  hiding (exp)
 
 data Ctx = Ctx {
     _varScope   :: [Id],
-    _funScope   :: [(Id, A.Global)],
+    _funScope   :: [(Id, A.Name)],
     _labelIndex :: [(String, Int)]}
 
 makeLenses ''Ctx
@@ -33,7 +33,7 @@ closureAllocTy = cata $ \case
         case List.elemIndex x vsc of
             Just i  -> return $ A.TVar i
             Nothing -> fail "unbound type variable"
-    C.TNameF x -> return $ A.TAlias (A.Global (x ^. name)) -- tmp: TInt
+    C.TNameF x -> return $ A.TAlias (A.Name (x ^. name)) -- tmp: TInt
     C.TFunF ts1 t2 -> A.TFun <$> sequence ts1 <*> t2
     C.TExistsF x t -> A.TExists <$> locally varScope (x :) t
     C.TRecursF x t -> A.TRecurs <$> locally varScope (x :) t
@@ -122,25 +122,25 @@ closureAllocExp (C.EReturn v) = do
     return $ foldr A.ELet (A.EReturn v') bs
 closureAllocExp (C.EAnnot e t) = A.EAnnot <$> closureAllocExp e <*> closureAllocTy t
 
-closureAllocDecs :: [C.Dec] -> WriterT [(A.Global, A.Heap)] CtxM a -> WriterT [(A.Global, A.Heap)] CtxM a
+closureAllocDecs :: [C.Dec] -> WriterT [(A.Name, A.Heap)] CtxM a -> WriterT [(A.Name, A.Heap)] CtxM a
 closureAllocDecs [] cont = cont
 closureAllocDecs (C.DEnum x ls : decs) cont = do
-    let g = A.Global (x ^. name)
+    let g = A.Name (x ^. name)
     tell [(g, A.HTypeAlias A.TInt)]
-    tell $ zipWith (\l i -> (A.Global l, A.HVal (A.TAlias g) (A.VConst (A.CInt i)))) ls [1..]
+    tell $ zipWith (\l i -> (A.Name l, A.HVal (A.TAlias g) (A.VConst (A.CInt i)))) ls [1..]
     locally labelIndex (zip ls [1..] ++) $ closureAllocDecs decs cont
 closureAllocDecs (C.DBind x t : decs) cont = do
-    let g = A.Global (x ^. name)
+    let g = A.Name (x ^. name)
     t' <- lift $ closureAllocTy t
     tell [(g, A.HExtern t')]
     closureAllocDecs decs cont
 
-closureAllocTopExp :: C.TopExp -> WriterT [(A.Global, A.Heap)] CtxM A.Exp
+closureAllocTopExp :: C.TopExp -> WriterT [(A.Name, A.Heap)] CtxM A.Exp
 closureAllocTopExp (defns, exp) = do
-    let fsc = map (\((f, _), _) -> (f, A.Global (f ^. name))) defns
+    let fsc = map (\((f, _), _) -> (f, A.Name (f ^. name))) defns
     locally funScope (fsc ++) $ do
         forM_ defns $ \(f, C.Code xs e) -> do
-            let g = A.Global (fst f ^. name)
+            let g = A.Name (fst f ^. name)
             arg_tys <- lift $ mapM (closureAllocTy . snd) xs
             ret_ty <- lift $ closureAllocTy (C.typeof e)
             e' <- lift $ closureAllocExp e
