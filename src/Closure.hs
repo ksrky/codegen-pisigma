@@ -52,6 +52,8 @@ data Ty
     | TRow RowTy
     deriving (Eq, Show)
 
+infixr 5 :>
+
 data RowTy = REmpty | RVar TyVar | Ty :> RowTy
     deriving (Eq, Show)
 

@@ -4,6 +4,8 @@ module Alloc (
     Name (..),
     Ty (..),
     TyF(..),
+    RowTy(..),
+    RowTyF(..),
     Const (..),
     Val (..),
     ValF (..),
@@ -11,7 +13,8 @@ module Alloc (
     Exp (..),
     ExpF (..),
     Heap (..),
-    Program
+    Program,
+    Typeable(..)
 ) where
 
 import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
@@ -27,8 +30,13 @@ data Ty
     | TFun [Ty] Ty
     | TExists Ty
     | TRecurs Ty
-    | TStruct [(Ty, InitFlag)]
+    | TRow RowTy
     | TAlias Name
+    deriving (Eq, Show)
+
+infixr 5 :>
+
+data RowTy = REmpty | RVar Int | (Ty, InitFlag) :> RowTy
     deriving (Eq, Show)
 
 data Const
@@ -46,12 +54,12 @@ data Val
     deriving (Eq, Show)
 
 data Bind
-    = BVal Val
-    | BCall Val [Val]
-    | BProj Val Int
-    | BUnpack Val
-    | BMalloc [Ty]
-    | BUpdate Val Int Val
+    = BVal Ty Val
+    | BCall Ty Val [Val]
+    | BProj Ty Val Int
+    | BUnpack Ty Val
+    | BMalloc Ty [Ty]
+    | BUpdate Ty Val Int Val
     deriving (Eq, Show)
 
 data Exp
@@ -62,7 +70,7 @@ data Exp
     deriving (Eq, Show)
 
 data Heap
-    = HVal Ty Val
+    = HGlobal Ty Val
     | HCode [Ty] Ty Exp
     | HExtern Ty
     | HTypeAlias Ty
@@ -71,5 +79,18 @@ data Heap
 type Program = ([(Name, Heap)], Exp)
 
 makeBaseFunctor ''Ty
+makeBaseFunctor ''RowTy
 makeBaseFunctor ''Val
 makeBaseFunctor ''Exp
+
+class Typeable a where
+    typeof :: a -> Ty
+
+instance Typeable Ty where
+    typeof = id
+
+instance Typeable Val where
+    typeof = undefined
+
+instance Typeable Exp where
+    typeof = undefined

@@ -37,19 +37,19 @@ closureAllocTy = cata $ \case
     C.TFunF ts1 t2 -> A.TFun <$> sequence ts1 <*> t2
     C.TExistsF x t -> A.TExists <$> locally varScope (x :) t
     C.TRecursF x t -> A.TRecurs <$> locally varScope (x :) t
-    C.TRowF r -> do
-        ts <- closureAllocRow r
-        return $ A.TStruct (map (,True) ts)
+    C.TRowF row -> A.TRow <$> closureAllocRowTy row
 
-closureAllocRow :: C.RowTy -> CtxM [A.Ty]
-closureAllocRow = cata $ \case
-    t C.:>$ r -> (:) <$> closureAllocTy t <*> r
+closureAllocRowTy :: C.RowTy -> CtxM A.RowTy
+closureAllocRowTy = cata $ \case
+    ty C.:>$ row -> do
+        ty' <- closureAllocTy ty
+        ((ty' ,True) A.:>) <$> row
     C.RVarF x -> do
         vsc <- view varScope
         case List.elemIndex x vsc of
-            Just i  -> return [A.TVar i]
-            Nothing -> fail "unbound type variable"
-    C.REmptyF -> return []
+            Just idx -> return $ A.RVar idx
+            Nothing  -> fail "unbound type variable"
+    C.REmptyF -> return A.REmpty
 
 closureAllocLit :: C.Lit -> A.Const
 closureAllocLit (C.LInt i) = A.CInt i
@@ -71,12 +71,14 @@ closureAllocVal (C.VLabel l _) = do
     case lookup l labix of
         Just i  -> return $ A.VConst (A.CInt i)
         Nothing -> fail "label not found"
-closureAllocVal (C.VTuple vs) = do
-    ts <- lift $ mapM (closureAllocTy . C.typeof) vs
-    let bind0 = A.BMalloc ts
-        mallocty = A.TStruct (map (,False) ts)
-        structtys = map (\i -> A.TStruct (zipWith (\j -> (,j <= i)) [1..] ts)) [(1 :: Int)..]
-    binds <- zipWithM (\i -> fmap (A.BUpdate (A.VVar 0 (structtys !! i)) i) . closureAllocVal) [1..] vs
+closureAllocVal (C.VTuple vals) = do
+    tys <- lift $ mapM (closureAllocTy . C.typeof) vals
+    let mallocty = A.TRow $ foldr (\ty -> ((ty, False) A.:>)) A.REmpty tys
+        bind0 = A.BMalloc mallocty tys
+        structtys = mallocty :
+            map (\i -> A.TRow (foldr (\j -> ((tys !! j, j < i) A.:>)) A.REmpty [0..])) [(1 :: Int)..]
+    binds <- zipWithM (\i -> fmap (A.BUpdate (structtys !! (i + 1))
+        (A.VVar 0 (structtys !! i)) i) . closureAllocVal) [0..] vals
     tell (bind0 : binds)
     return $ A.VVar 0 (last (mallocty : structtys))
 closureAllocVal (C.VPack t1 v t2) =
@@ -90,22 +92,26 @@ closureAllocVal (C.VAnnot v t) =
 
 closureAllocExp :: C.Exp -> CtxM A.Exp
 closureAllocExp (C.ELet (C.BVal x v) e) = do
+    ty <- closureAllocTy (snd x)
     (v', bs) <- runWriterT $ closureAllocVal v
     e' <- locally varScope (fst x:) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ [A.BVal v'])
+    return $ foldr A.ELet e' (bs ++ [A.BVal ty v'])
 closureAllocExp (C.ELet (C.BCall x v vs) e) = do
+    ty <- closureAllocTy (snd x)
     (v', bs) <- runWriterT $ closureAllocVal v
     (vs', bss) <- mapAndUnzipM (runWriterT . closureAllocVal) vs
     e' <- locally varScope (fst x:) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ concat bss ++ [A.BCall v' vs'])
+    return $ foldr A.ELet e' (bs ++ concat bss ++ [A.BCall ty v' vs'])
 closureAllocExp (C.ELet (C.BProj x v i) e) = do
+    ty <- closureAllocTy (snd x)
     (v', bs) <- runWriterT $ closureAllocVal v
     e' <- locally varScope (fst x:) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ [A.BProj v' i])
+    return $ foldr A.ELet e' (bs ++ [A.BProj ty v' i])
 closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
+    ty <- closureAllocTy (snd x)
     (v', bs) <- runWriterT $ closureAllocVal v
     e' <- locally varScope ([tv, fst x] ++) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ [A.BUnpack v'])
+    return $ foldr A.ELet e' (bs ++ [A.BUnpack ty v'])
 closureAllocExp (C.ECase v les) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     ies' <- forM les $ \(l, e) -> do
@@ -127,7 +133,7 @@ closureAllocDecs [] cont = cont
 closureAllocDecs (C.DEnum x ls : decs) cont = do
     let g = A.Name (x ^. name)
     tell [(g, A.HTypeAlias A.TInt)]
-    tell $ zipWith (\l i -> (A.Name l, A.HVal (A.TAlias g) (A.VConst (A.CInt i)))) ls [1..]
+    tell $ zipWith (\l i -> (A.Name l, A.HGlobal (A.TAlias g) (A.VConst (A.CInt i)))) ls [1..]
     locally labelIndex (zip ls [1..] ++) $ closureAllocDecs decs cont
 closureAllocDecs (C.DBind x t : decs) cont = do
     let g = A.Name (x ^. name)

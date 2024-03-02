@@ -54,7 +54,7 @@ type HeapsTy = [(Label, Ty)]
 type RegFileTy = M.Map Reg Ty
 
 mkRegFileTy :: [Ty] -> RegFileTy
-mkRegFileTy = M.fromList . zip (map Reg [0..])
+mkRegFileTy = M.fromList . zip (map Reg [1..])
 
 type Telescopes = [TyVar]
 
@@ -78,7 +78,7 @@ type WordVal = Val NonReg
 type SmallVal = Val Reg
 
 data Heap
-    = HRow [WordVal]
+    = HGlobal WordVal
     | HCode RegFileTy Instrs
     deriving (Eq, Show)
 
@@ -100,13 +100,13 @@ data Instr
     | IMalloc Reg [Ty]
     | IMove Reg SmallVal
     | IStore Reg Int Reg
-    | IUnpack TyVar Reg SmallVal
+    | IUnpack Reg SmallVal
     deriving (Eq, Show)
 
 data Instrs
     = ISeq Instr Instrs
     | IJump SmallVal
-    | IReturn SmallVal
+    | IHalt Ty
     deriving (Eq, Show)
 
 infixr 5 `ISeq`
