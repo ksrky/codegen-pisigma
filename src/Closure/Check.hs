@@ -17,9 +17,7 @@ checkEqTys cts (TFun ts1 t2) (TFun us1 u2) = do
 checkEqTys cts (TExists tv1 t1) (TExists tv2 t2) = checkEqTys ((tv1, tv2) : cts) t1 t2
 checkEqTys cts (TRecurs tv1 t1) (TRecurs tv2 t2) = checkEqTys ((tv1, tv2) : cts) t1 t2
 checkEqTys cts (TRow r1) (TRow r2) = checkEqRowTys cts r1 r2
-checkEqTys cts t1 t2 =
-    fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2 ++ "\n"
-        ++ "under the scope:  " ++ show cts
+checkEqTys _ t1 t2 = fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
 checkEqRowTys :: [(TyVar, TyVar)] -> RowTy -> RowTy -> IO ()
 checkEqRowTys _ REmpty REmpty = return ()
@@ -28,9 +26,7 @@ checkEqRowTys cts (RVar x) (RVar y) | Just y' <- lookup x cts, y == y' = return 
 checkEqRowTys cts (t1 :> r1) (t2 :> r2) = do
     checkEqTys cts t1 t2
     checkEqRowTys cts r1 r2
-checkEqRowTys cts r1 r2 =
-    fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2 ++ "\n"
-        ++ "under the scope:  " ++ show cts
+checkEqRowTys _ r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
 
 checkVal :: [(TyVar, TyVar)] -> Val -> ReaderT Env IO Ty
 checkVal _ (VLit (LInt _)) = return TInt

@@ -173,7 +173,6 @@ stepTests = testGroup "Step tests"
       Anf.checkProgram e3
       step "Closure.Check"
       e4 <- anfClosureProgram e3
-      print $ pretty e4
       Closure.checkProgram e4
       step "Done"
   ]
