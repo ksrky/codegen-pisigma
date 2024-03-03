@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Closure (
@@ -142,13 +143,19 @@ mkUClos ts1 t2 r =
 mkTTuple :: [Ty] -> Ty
 mkTTuple ts = TRow $ foldr (:>) REmpty ts
 
-unrollUClos :: Ty -> Ty -> Ty
-unrollUClos s (TRow (TFun (TVar _: ts1) t2 :> r)) = TRow $ TFun (s : ts1) t2 :> r
-unrollUClos _ _                                   = error "impossible"
+pattern Clos :: TyVar -> [Ty] -> Ty -> Ty
+pattern Clos tv ts1 t2 <- TExists _ (TRecurs tv (TRow (TFun ts1 t2 :> RVar _)))
+
+pattern UClos :: [Ty] -> Ty -> RowTy -> Ty
+pattern UClos ts1 t2 r <- TRecurs _ (TRow (TFun ts1 t2 :> r))
 
 unpackClos :: Ty -> Ty -> Ty
-unpackClos (TRow r) (TRecurs tv (TRow (TFun ts1 t2 :> RVar _))) = TRecurs tv $ TRow $ TFun ts1 t2 :> r
-unpackClos  _ _                                           = error "impossible"
+unpackClos (TRow r) (Clos tv ts1 t2) = TRecurs tv $ TRow $ TFun ts1 t2 :> r
+unpackClos  _ _                      = error "existential type required"
+
+unrollUClos :: Ty -> Ty
+unrollUClos s@(UClos (_ : ts1) t2 r) = TRow $ TFun (s : ts1) t2 :> r
+unrollUClos _                        = error "recursive type required"
 
 bindVar :: Bind -> Var
 bindVar (BVal x _)      = x
@@ -179,7 +186,7 @@ instance Typeable Val where
         VRollF _ t -> t
         VUnrollF v ->
             case typeof v of
-                TRecurs tv t -> unrollUClos (TRecurs tv t) t
+                TRecurs tv t -> unrollUClos (TRecurs tv t)
                 _            -> error "required recursive type"
         VAnnotF _ t -> t
 
@@ -269,8 +276,10 @@ instance StripAnnot Bind where
 
 instance StripAnnot Exp where
     stripAnnot = cata $ \case
+        ELetF b e -> ELet (stripAnnot b) e
+        ECaseF v lts -> ECase (stripAnnot v) lts
+        EReturnF v -> EReturn (stripAnnot v)
         EAnnotF e _ -> e
-        e           -> embed e
 
 instance StripAnnot Code where
     stripAnnot (Code xs e) = Code xs (stripAnnot e)

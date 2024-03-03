@@ -167,7 +167,7 @@ anfClosureRecBind (A.BVal f v) | A.VLam xs e <- stripAnnotTop v = do
     stripAnnotTop :: A.Val -> A.Val
     stripAnnotTop (A.VAnnot v' _) = stripAnnotTop v'
     stripAnnotTop v'              = v'
-anfClosureRecBind _ = error "impossible. lambda expected"
+anfClosureRecBind _ = fail "lambda expected in recursive bindings"
 
 anfClosureDec :: A.Dec -> C.Dec
 anfClosureDec (A.DEnum x ls) = C.DEnum x ls

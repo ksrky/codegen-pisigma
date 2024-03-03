@@ -1,5 +1,5 @@
 import Anf.Check                 qualified as Anf
-import AnfClosure 
+import AnfClosure
 import Closure.Check             qualified as Closure
 import Lambda qualified
 import Lambda.Check              qualified as Lambda
@@ -151,7 +151,7 @@ stepTests = testGroup "Step tests"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
       step "Done"
-  {- , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
+  , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
       e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
@@ -162,7 +162,20 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Done" -}
+      step "Done"
+  , testCaseSteps "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5" $ \step -> do
+      e1 <- parseProg "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
+      step "Lambda.Check"
+      e2 <- rawLambdaProgram e1
+      Lambda.checkProgram e2
+      step "Anf.Check"
+      let e3 = lambdaAnfProgram e2
+      Anf.checkProgram e3
+      step "Closure.Check"
+      e4 <- anfClosureProgram e3
+      print $ pretty e4
+      Closure.checkProgram e4
+      step "Done"
   ]
 
 outputClosString :: Text -> IO BL.ByteString
@@ -181,5 +194,13 @@ goldenTests = testGroup "Golden tests"
   [ goldenVsString "\\x -> x" ".golden/clos_\\x -> x.txt" $ outputClosString "\\x -> x"
   , goldenVsString "(\\x -> x) 5" ".golden/clos_(\\x -> x) 5.txt" $ outputClosString "(\\x -> x) 5"
   , goldenVsString "\\x -> (\\y -> x + y)" ".golden/clos_\\x -> (\\y -> x + y).txt" $ outputClosString "\\x -> (\\y -> x + y)"
-  , goldenVsString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5" ".golden/clos_let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5.txt" $ outputClosString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5"
+  , goldenVsString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5"
+    ".golden/clos_let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5.txt"
+    $ outputClosString "let rec fact = \\n -> if n == 0 then 1 else n * fact (n - 1) in fact 5"
+  , goldenVsString "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
+    ".golden/clos_let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1.txt"
+    $ outputClosString "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
+  , goldenVsString "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
+    ".golden/clos_let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5.txt"
+    $ outputClosString "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
   ]

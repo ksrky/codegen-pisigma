@@ -52,25 +52,23 @@ checkVal _ (VLabel _ t) = return t
 checkVal cts (VTuple vs) = do
     ts <- mapM (checkVal cts) vs
     return $ mkTTuple ts
-checkVal cts (VPack t1 v t2) = do
-    t <- checkVal cts v
-    case t2 of
-        TExists _ t2' -> do
-            lift $ checkEqTys cts (unpackClos t1 t2') t
-            return t2
-        _ -> fail $ "expected existential type, but got " ++ show t2
-checkVal cts (VRoll v t) = do
-    t' <- checkVal cts v
-    case t of
-        TRecurs _ t2 -> do
-            lift $ checkEqTys cts (unrollUClos t t2) t'
-            return t
-        _ -> fail $ "expected recursive type, but got " ++ show t
+checkVal cts (VPack t1 v t2)
+    | TExists{} <- t2 = do
+        t <- checkVal cts v
+        lift $ checkEqTys cts (unpackClos t1 t2) t
+        return t2
+    | otherwise = fail $ "expected existential type, but got " ++ show t2
+checkVal cts (VRoll v t)
+    | TRecurs{} <- t = do
+        t' <- checkVal cts v
+        lift $ checkEqTys cts (unrollUClos t) t'
+        return t
+    | otherwise = fail $ "expected recursive type, but got " ++ show t
 checkVal cts (VUnroll v) = do
     t <- checkVal cts v
     case t of
-        TRecurs _ t2 -> return $ unrollUClos t t2
-        _            -> fail $ "expected recursive type, but got " ++ show t
+        TRecurs{} -> return $ unrollUClos t
+        _         -> fail $ "expected recursive type, but got " ++ show t
 checkVal cts (VAnnot v t) = do
     t' <- checkVal cts v
     lift $ checkEqTys cts t t'
