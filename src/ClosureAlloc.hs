@@ -56,6 +56,11 @@ closureAllocLit (C.LInt i) = A.CInt i
 
 closureAllocVal :: C.Val -> WriterT [A.Bind] CtxM A.Val
 closureAllocVal (C.VLit l)      = return $ A.VConst (closureAllocLit l)
+closureAllocVal (C.VVar (f, t)) | f ^. extern = do
+    fsc <- view funScope -- TODO: extern scope
+    case lookup f fsc of
+        Just g  -> lift $ A.VConst <$> (A.CGlobal g <$> closureAllocTy t)
+        Nothing -> fail "unbound variable"
 closureAllocVal (C.VVar (x, t)) = do
     vsc <- view varScope
     case List.elemIndex x vsc of

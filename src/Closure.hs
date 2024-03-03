@@ -270,7 +270,7 @@ instance StripAnnot Val where
 
 instance StripAnnot Bind where
     stripAnnot (BVal x v)       = BVal x (stripAnnot v)
-    stripAnnot (BCall x v vs)   = BCall x (stripAnnot v) (map stripAnnot vs)
+    stripAnnot (BCall x f vs)   = BCall x f (map stripAnnot vs)
     stripAnnot (BProj x v i)    = BProj x (stripAnnot v) i
     stripAnnot (BUnpack tv x v) = BUnpack tv x (stripAnnot v)
 

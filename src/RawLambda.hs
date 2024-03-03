@@ -153,7 +153,7 @@ instance Zonking L.Ty where
                 t' <- zonk t
                 writeMeta m t'
                 -- return t'
-                -- tmp: unsolved meta is coerced to TInt
+                -- tmp: unsolved meta is coerced to TInt. support polymorphism
                 case t' of
                     L.TMeta _ -> return L.TInt
                     _         -> return t'

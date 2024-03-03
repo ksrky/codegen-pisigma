@@ -1,11 +1,12 @@
 module LambdaAnf (lambdaAnfProgram) where
 
-import Anf                   qualified as A
+import Anf                    qualified as A
 import Id
-import Lambda                qualified as L
+import Lambda                 qualified as L
 
+import Control.Lens.Operators
 import Data.Functor.Foldable
-import Prelude               hiding (exp)
+import Prelude                hiding (exp)
 
 -- TODO: optimization
 -- curried functions may create unnecessary closures
@@ -36,7 +37,11 @@ lambdaAnfExp (L.EApp e1 e2) kont =
             _           -> error "impossible" in
     let x = (newIdUnsafe "x_call", t_call) in
     let body = kont (A.VVar x) in
-    A.ELet (A.BCall x v1 [v2]) body
+    -- [Note] functions which doesn't have free variables are directly called by name
+    -- and will not be closure-converted. This simplifies typing presavation of closure conversion.
+    case v1 of
+        A.VVar f | f ^. extern -> A.ELet (A.BCall x (A.CallerName f) [v2]) body
+        _                      -> A.ELet (A.BCall x (A.CallerVal v1) [v2]) body
 lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)
 lambdaAnfExp (L.ELet x e1 e2) kont =
     lambdaAnfExp e1 $ \v1 ->

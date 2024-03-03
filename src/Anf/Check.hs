@@ -59,18 +59,26 @@ checkExp (EAnnot e t) = do
     lift $ checkEqTys t t'
     return t
 
+checkCaller :: Caller -> ReaderT Env IO Ty
+checkCaller (CallerName var) = do
+    env <- ask
+    case lookupBindEnv (fst var) env of
+        Just ty -> return ty
+        Nothing -> fail $ "unbound function: " ++ show var
+checkCaller (CallerVal val) = checkVal val
+
 checkBind :: Bind -> ReaderT Env IO ()
-checkBind (BVal x v) = do
-    t <- checkVal v
-    lift $ checkEqTys (snd x) t
-checkBind (BCall x v vs) = do
-    t <- checkVal v
-    ts <- mapM checkVal vs
-    case t of
-        TFun ts1 t2 -> lift $ do
-            zipWithM_ checkEqTys ts1 ts
-            checkEqTys (snd x) t2
-        _ -> fail $ "required function type, but got " ++ show t
+checkBind (BVal var val) = do
+    ty <- checkVal val
+    lift $ checkEqTys (snd var) ty
+checkBind (BCall var caller args) = do
+    ty <- checkCaller caller
+    arg_tys <- mapM checkVal args
+    case ty of
+        TFun arg_tys' res_ty -> lift $ do
+            zipWithM_ checkEqTys arg_tys' arg_tys
+            checkEqTys (snd var) res_ty
+        _ -> fail $ "required function type, but got " ++ show ty
 
 checkProgram :: Program -> IO ()
 checkProgram (decs, e) = void $ runReaderT (checkExp e) decs
