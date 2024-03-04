@@ -1,6 +1,6 @@
-name: codegen-pisigma
+name: pisigma-tal
 version: 0.1.0.0
-github: "ksrky/codegen-pisigma"
+github: "ksrky/pisigma-tal"
 license: BSD-3-Clause
 author: "ksrk"
 maintainer: "kswgrky@gmail.com"
@@ -17,7 +17,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description: Please see the README on GitHub at <https://github.com/ksrky/codegen-pisigma#readme>
+description: Please see the README on GitHub at <https://github.com/ksrky/pisigma-tal#readme>
 
 language: GHC2021
 
@@ -54,7 +54,7 @@ library:
   source-dirs: src
 
 tests:
-  codegen-pisigma-test:
+  pisigma-tal-test:
     main: Tests.hs
     source-dirs: test
     ghc-options:
@@ -62,7 +62,7 @@ tests:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - codegen-pisigma
+      - pisigma-tal
       - bytestring
       - tasty
       - tasty-hunit

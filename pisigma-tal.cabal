@@ -4,11 +4,11 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 
-name:           codegen-pisigma
+name:           pisigma-tal
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/ksrky/codegen-pisigma#readme>
-homepage:       https://github.com/ksrky/codegen-pisigma#readme
-bug-reports:    https://github.com/ksrky/codegen-pisigma/issues
+description:    Please see the README on GitHub at <https://github.com/ksrky/pisigma-tal#readme>
+homepage:       https://github.com/ksrky/pisigma-tal#readme
+bug-reports:    https://github.com/ksrky/pisigma-tal/issues
 author:         ksrk
 maintainer:     kswgrky@gmail.com
 copyright:      2023 ksrk
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/ksrky/codegen-pisigma
+  location: https://github.com/ksrky/pisigma-tal
 
 library
   exposed-modules:
@@ -49,9 +49,9 @@ library
       Toplevel
       Untyped
   other-modules:
-      Paths_codegen_pisigma
+      Paths_pisigma_tal
   autogen-modules:
-      Paths_codegen_pisigma
+      Paths_pisigma_tal
   hs-source-dirs:
       src
   default-extensions:
@@ -73,7 +73,7 @@ library
     , transformers
   default-language: GHC2021
 
-test-suite codegen-pisigma-test
+test-suite pisigma-tal-test
   type: exitcode-stdio-1.0
   main-is: Tests.hs
   other-modules:
@@ -81,9 +81,9 @@ test-suite codegen-pisigma-test
       Tests.Closure
       Tests.Lambda
       Tests.Raw
-      Paths_codegen_pisigma
+      Paths_pisigma_tal
   autogen-modules:
-      Paths_codegen_pisigma
+      Paths_pisigma_tal
   hs-source-dirs:
       test
   default-extensions:
@@ -95,12 +95,12 @@ test-suite codegen-pisigma-test
   build-depends:
       base >=4.7 && <5
     , bytestring
-    , codegen-pisigma
     , containers
     , lens
     , megaparsec
     , mtl
     , parser-combinators
+    , pisigma-tal
     , prettyprinter
     , recursion-schemes
     , tasty

@@ -26,7 +26,7 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "codegen-pisigma" [parserTests, scopeTests, stepTests, goldenTests]
+tests = testGroup "pisigma-tal" [parserTests, scopeTests, stepTests, goldenTests]
 
 parserTests :: TestTree
 parserTests = testGroup "Parser tests"

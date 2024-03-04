@@ -1,4 +1,4 @@
-# Changelog for `codegen-pisigma`
+# Changelog for `pisigma-tal`
 
 All notable changes to this project will be documented in this file.
 
