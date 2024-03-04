@@ -59,20 +59,20 @@ checkExp (EAnnot e t) = do
     lift $ checkEqTys t t'
     return t
 
-checkCaller :: Caller -> ReaderT Env IO Ty
-checkCaller (CallerName var) = do
+checkFunVal :: FunVal -> ReaderT Env IO Ty
+checkFunVal (LocalFun val) = checkVal val
+checkFunVal (ExternalFun var) = do
     env <- ask
     case lookupBindEnv (fst var) env of
         Just ty -> return ty
         Nothing -> fail $ "unbound function: " ++ show var
-checkCaller (CallerVal val) = checkVal val
 
 checkBind :: Bind -> ReaderT Env IO ()
 checkBind (BVal var val) = do
     ty <- checkVal val
     lift $ checkEqTys (snd var) ty
-checkBind (BCall var caller args) = do
-    ty <- checkCaller caller
+checkBind (BCall var fval args) = do
+    ty <- checkFunVal fval
     arg_tys <- mapM checkVal args
     case ty of
         TFun arg_tys' res_ty -> lift $ do

@@ -95,10 +95,10 @@ anfClosureVal = cata $ \case
 
 anfClosureBind :: A.Bind -> CCM [C.Bind]
 anfClosureBind (A.BVal x v) = List.singleton <$> (C.BVal (anfClosureVar x) <$> anfClosureVal v)
-anfClosureBind (A.BCall x (A.CallerName f) vs2) = do
+anfClosureBind (A.BCall x (A.ExternalFun f) vs2) = do
     vs2' <- mapM anfClosureVal vs2
     return [C.BCall (anfClosureVar x) (C.VVar (anfClosureKnownVar f)) vs2']
-anfClosureBind (A.BCall x (A.CallerVal v1) vs2)
+anfClosureBind (A.BCall x (A.LocalFun v1) vs2)
     | C.TExists tv t_cl <- anfClosureTy (A.typeof v1) = do
     let x_cl = (newIdUnsafe "x_cl", t_cl)
     d1 <- C.BUnpack tv x_cl <$> anfClosureVal v1

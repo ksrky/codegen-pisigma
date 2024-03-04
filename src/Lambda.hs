@@ -14,6 +14,7 @@ module Lambda (
     lookupEnumEnv,
     lookupBindEnv,
     extendBindEnv,
+    splitTFun,
     Typeable(..),
     stripAnnot
 ) where
@@ -52,6 +53,7 @@ data Exp
     | ELabel Label Ty
     | EApp Exp Exp
     | ELam Var Exp
+    | EExtern Var [Exp]
     | ETuple [Exp]
     | ELet Var Exp Exp
     | ELetrec [(Var, Exp)] Exp
@@ -86,6 +88,13 @@ lookupBindEnv x = \case
 extendBindEnv :: Var -> Env -> Env
 extendBindEnv (x, t) = (DBind x t:)
 
+splitTFun :: HasCallStack => Int -> Ty -> ([Ty], Ty)
+splitTFun = go []
+  where
+    go acc 0 ty             = (reverse acc, ty)
+    go acc i (TFun ty1 ty2) = go (ty1 : acc) (i - 1) ty2
+    go _ _ _                = error "expected TFun"
+
 class Typeable a where
     typeof :: HasCallStack => a -> Ty
 
@@ -106,6 +115,7 @@ instance Typeable Exp where
         EAppF t1 _ | TFun _ t12 <- t1 -> t12
                    | otherwise        -> error "impossible"
         ELamF (_, t1) t2 -> TFun t1 t2
+        EExternF (_, t) es -> snd $ splitTFun (length es) t
         ELetF _ _ t -> t
         ELetrecF _ t -> t
         ETupleF ts -> TTuple ts

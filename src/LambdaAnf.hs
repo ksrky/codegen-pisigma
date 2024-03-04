@@ -1,12 +1,11 @@
 module LambdaAnf (lambdaAnfProgram) where
 
-import Anf                    qualified as A
+import Anf                   qualified as A
 import Id
-import Lambda                 qualified as L
+import Lambda                qualified as L
 
-import Control.Lens.Operators
 import Data.Functor.Foldable
-import Prelude                hiding (exp)
+import Prelude               hiding (exp)
 
 -- TODO: optimization
 -- curried functions may create unnecessary closures
@@ -35,14 +34,19 @@ lambdaAnfExp (L.EApp e1 e2) kont =
     let t_call = case A.typeof v1 of
             A.TFun _ t2 -> t2
             _           -> error "impossible" in
-    let x = (newIdUnsafe "x_call", t_call) in
-    let body = kont (A.VVar x) in
-    -- [Note] functions which doesn't have free variables are directly called by name
-    -- and will not be closure-converted. This simplifies typing presavation of closure conversion.
-    case v1 of
-        A.VVar f | f ^. extern -> A.ELet (A.BCall x (A.CallerName f) [v2]) body
-        _                      -> A.ELet (A.BCall x (A.CallerVal v1) [v2]) body
+    let var = (newIdUnsafe "x_call", t_call) in
+    let body = kont (A.VVar var) in
+    A.ELet (A.BCall var (A.LocalFun v1) [v2]) body
 lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)
+lambdaAnfExp (L.EExtern f es) kont =
+    let go :: [A.Val] -> L.Ty -> [L.Exp] -> A.Exp
+        go acc ty [] =
+            let var = (newIdUnsafe "x_ext", lambdaAnfTy ty) in
+            let body = kont (A.VVar var) in
+            A.ELet (A.BCall var (A.ExternalFun (lambdaAnfVar f)) acc) body
+        go acc (L.TFun _ ty) (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) ty rest
+        go _ _ _ = error "expected function type"
+    in go [] (snd f) es
 lambdaAnfExp (L.ELet x e1 e2) kont =
     lambdaAnfExp e1 $ \v1 ->
     A.ELet (A.BVal (lambdaAnfVar x) v1) (lambdaAnfExp e2 kont)

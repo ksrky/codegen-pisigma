@@ -106,11 +106,11 @@ tcExp (R.EBinOp op e1 e2) exp_ty = do
         Just op' -> return op'
         Nothing  -> fail "unknown binop"
     case snd op' of
-        L.TFun (L.TTuple [t1', t2']) tr -> do
+        L.TFun t1' (L.TFun t2' tr) -> do
             e1' <- tcExp e1 t1'
             e2' <- tcExp e2 t2'
             lift $ unify exp_ty tr
-            return $ L.EAnnot (L.EApp (L.EVar op') (L.ETuple [e1', e2'])) exp_ty
+            return $ L.EAnnot (L.EExtern op' [e1', e2']) exp_ty
         _ -> fail "required binary function type"
 tcExp (R.ELet xes e2) exp_ty = do
     xes' <- forM xes $ \(x, e) -> do
@@ -165,9 +165,10 @@ instance Zonking L.Exp where
     zonk = cata $ \case
         L.ELitF l -> return $ L.ELit l
         L.EVarF x -> L.EVar <$> zonk x
-        L.ELabelF l t -> return $ L.ELabel l t
+        L.ELabelF l t -> L.ELabel l <$> zonk t
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
         L.ELamF x e -> L.ELam <$> zonk x <*> e
+        L.EExternF f es -> L.EExtern <$> zonk f <*> sequence es
         L.ELetF x e1 e2 -> L.ELet <$> zonk x <*> e1 <*> e2
         L.ELetrecF xes e2 -> L.ELetrec <$> mapM (\(x, e) -> ((,) <$> zonk x) <*> e) xes <*> e2
         L.ETupleF es -> L.ETuple <$> sequence es

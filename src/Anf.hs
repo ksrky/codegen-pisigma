@@ -7,7 +7,7 @@ module Anf (
     Var,
     ValF(..),
     Val(..),
-    Caller(..),
+    FunVal(..),
     Bind(..),
     Exp(..),
     ExpF(..),
@@ -50,12 +50,12 @@ data Val
     | VAnnot Val Ty
     deriving (Eq, Show)
 
-data Caller = CallerName Var | CallerVal Val
+data FunVal = LocalFun Val | ExternalFun Var
     deriving (Eq, Show)
 
 data Bind
     = BVal Var Val
-    | BCall Var Caller [Val]
+    | BCall Var FunVal [Val]
     deriving (Eq, Show)
 
 data Exp
