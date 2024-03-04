@@ -42,7 +42,7 @@ checkExp (EExtern fvar args) = do
     arg_tys <- mapM checkExp args
     mb_fun_ty <- asks $ lookupBindEnv (fst fvar)
     case mb_fun_ty of
-        Just fun_ty | (arg_tys', ret_ty) <- splitTFun (length args) fun_ty -> do
+        Just fun_ty | (arg_tys', ret_ty) <- splitTFun fun_ty -> do
             lift $ zipWithM_ checkEqTys arg_tys' arg_tys
             return ret_ty
         _ -> fail "unknown external function"

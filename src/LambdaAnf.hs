@@ -38,15 +38,16 @@ lambdaAnfExp (L.EApp e1 e2) kont =
     let body = kont (A.VVar var) in
     A.ELet (A.BCall var (A.LocalFun v1) [v2]) body
 lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)
-lambdaAnfExp (L.EExtern f es) kont =
-    let go :: [A.Val] -> L.Ty -> [L.Exp] -> A.Exp
-        go acc ty [] =
-            let var = (newIdUnsafe "x_ext", lambdaAnfTy ty) in
-            let body = kont (A.VVar var) in
-            A.ELet (A.BCall var (A.ExternalFun (lambdaAnfVar f)) acc) body
-        go acc (L.TFun _ ty) (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) ty rest
-        go _ _ _ = error "expected function type"
-    in go [] (snd f) es
+lambdaAnfExp (L.EExtern fvar exps) kont =
+    let go :: [A.Val] -> [L.Exp] -> A.Exp
+        go acc [] =
+            let (arg_tys, ret_ty) = L.splitTFun (snd fvar)
+                var = (newIdUnsafe "x_ext", lambdaAnfTy ret_ty)
+                body = kont (A.VVar var)
+                fvar' = (fst fvar, A.TFun (map lambdaAnfTy arg_tys) (lambdaAnfTy ret_ty))
+            in A.ELet (A.BCall var (A.ExternalFun fvar') (reverse acc)) body
+        go acc (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) rest
+    in go [] exps
 lambdaAnfExp (L.ELet x e1 e2) kont =
     lambdaAnfExp e1 $ \v1 ->
     A.ELet (A.BVal (lambdaAnfVar x) v1) (lambdaAnfExp e2 kont)
@@ -69,7 +70,9 @@ lambdaAnfExp (L.EAnnot e t) kont = lambdaAnfExp e $ \v -> kont $ A.VAnnot v (lam
 
 lambdaAnfDec :: L.Dec -> A.Dec
 lambdaAnfDec (L.DEnum x ls) = A.DEnum x ls
-lambdaAnfDec (L.DBind x t)  = A.DBind x (lambdaAnfTy t)
+lambdaAnfDec (L.DBind x ty)  =
+    let (arg_tys, ret_ty) = L.splitTFun ty
+    in A.DBind x (A.TFun (map lambdaAnfTy arg_tys) (lambdaAnfTy ret_ty))
 
 lambdaAnfProgram :: L.Program -> A.Program
 lambdaAnfProgram (decs, exp) = (map lambdaAnfDec decs, lambdaAnfExp exp A.EReturn)
