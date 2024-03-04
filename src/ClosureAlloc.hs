@@ -11,11 +11,13 @@ import Control.Monad.Writer
 import Data.Functor.Foldable
 import Data.List                qualified as List
 import Id
+import Idx
 import Prelude                  hiding (exp)
 
 data Ctx = Ctx {
     _varScope   :: [Id],
     _funScope   :: [(Id, A.Name)],
+    _tyScope    :: [(Id, A.Name)],
     _labelIndex :: [(String, Int)]}
 
 makeLenses ''Ctx
@@ -23,17 +25,21 @@ makeLenses ''Ctx
 type CtxM = ReaderT Ctx IO
 
 runCtxM :: CtxM a -> IO a
-runCtxM m = runReaderT m (Ctx [] [] [])
+runCtxM m = runReaderT m (Ctx [] [] [] [])
 
 closureAllocTy :: C.Ty -> CtxM A.Ty
 closureAllocTy = cata $ \case
-    C.TIntF        -> return A.TInt
-    C.TVarF x      -> do
+    C.TIntF -> return A.TInt
+    C.TVarF x -> do
         vsc <- view varScope
         case List.elemIndex x vsc of
             Just i  -> return $ A.TVar i
             Nothing -> fail "unbound type variable"
-    C.TNameF x -> return $ A.TAlias (A.Name (x ^. name)) -- tmp: TInt
+    C.TNameF x -> do
+        tsc <- view tyScope
+        case lookup x tsc of
+            Just g  -> return $ A.TAlias g
+            Nothing -> fail "unbound type name"
     C.TFunF ts1 t2 -> A.TFun <$> sequence ts1 <*> t2
     C.TExistsF x t -> A.TExists <$> locally varScope (x :) t
     C.TRecursF x t -> A.TRecurs <$> locally varScope (x :) t
@@ -83,7 +89,7 @@ closureAllocVal (C.VTuple vals) = do
         structtys = mallocty :
             map (\i -> A.TRow (foldr (\j -> ((tys !! j, j < i) A.:>)) A.REmpty [0..])) [(1 :: Int)..]
     binds <- zipWithM (\i -> fmap (A.BUpdate (structtys !! (i + 1))
-        (A.VVar 0 (structtys !! i)) i) . closureAllocVal) [0..] vals
+        (A.VVar 0 (structtys !! i)) (intToIdx i)) . closureAllocVal) [0..] vals
     tell (bind0 : binds)
     return $ A.VVar 0 (last (mallocty : structtys))
 closureAllocVal (C.VPack t1 v t2) =
@@ -139,12 +145,13 @@ closureAllocDecs (C.DEnum x ls : decs) cont = do
     let g = A.Name (x ^. name)
     tell [(g, A.HTypeAlias A.TInt)]
     tell $ zipWith (\l i -> (A.Name l, A.HGlobal (A.TAlias g) (A.VConst (A.CInt i)))) ls [1..]
-    locally labelIndex (zip ls [1..] ++) $ closureAllocDecs decs cont
+    locally tyScope ((x, g) :) $
+        locally labelIndex (zip ls [1..] ++) $ closureAllocDecs decs cont
 closureAllocDecs (C.DBind x t : decs) cont = do
     let g = A.Name (x ^. name)
     t' <- lift $ closureAllocTy t
     tell [(g, A.HExtern t')]
-    closureAllocDecs decs cont
+    locally funScope ((x, g) :) $ closureAllocDecs decs cont
 
 closureAllocTopExp :: C.TopExp -> WriterT [(A.Name, A.Heap)] CtxM A.Exp
 closureAllocTopExp (defns, exp) = do
@@ -160,7 +167,7 @@ closureAllocTopExp (defns, exp) = do
 
 closureAllocProgram :: C.Program -> IO A.Program
 closureAllocProgram (decs, texp) = runCtxM $ do
-    (exp', heaps) <-runWriterT $
+    (exp', heaps) <- runWriterT $
         closureAllocDecs decs $
         closureAllocTopExp texp
     return (heaps, exp')

@@ -11,6 +11,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.Functor.Foldable
 import Data.Map.Strict          qualified as M
+import Idx
 import Prelude                  hiding (exp)
 
 data Ctx = Ctx {
@@ -101,7 +102,7 @@ allocTalExp (A.ELet (A.BProj ty val idx) exp) = do
     locally idReg (reg :) $
         locally regFileTy (M.insert reg ty') $ allocTalExp exp
     val' <- lift $ allocTalVal val
-    instrs %= T.ISeq (T.IMove reg val') . T.ISeq (T.ILoad reg reg (idx - 1))
+    instrs %= T.ISeq (T.IMove reg val') . T.ISeq (T.ILoad reg reg (idxToInt idx - 1))
 allocTalExp (A.ELet (A.BUnpack exty val) exp) | A.TExists ty <- exty = do
     reg <- freshReg
     ty' <- lift $ allocTalTy ty
@@ -125,7 +126,7 @@ allocTalExp (A.ELet (A.BUpdate ty var idx val) exp) = do
         locally regFileTy (M.insert reg ty') $ allocTalExp exp
     var' <- lift $ allocTalVal var
     val' <- lift $ allocTalVal val
-    instrs %= T.ISeq (T.IMove reg var') . T.ISeq (T.IMove reg' val') . T.ISeq (T.IStore reg idx reg')
+    instrs %= T.ISeq (T.IMove reg var') . T.ISeq (T.IMove reg' val') . T.ISeq (T.IStore reg (idxToInt idx) reg')
 allocTalExp (A.ECase val cases) = do
     undefined
 allocTalExp (A.EReturn val) = do

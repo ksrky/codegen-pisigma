@@ -35,9 +35,12 @@ module Closure (
 
 import Id
 
+import Control.Lens.At
+import Control.Lens.Operators
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import GHC.Stack
+import Idx
 import Prettyprinter            hiding (Pretty (..))
 import Prettyprinter.Prec
 
@@ -57,6 +60,15 @@ infixr 5 :>
 
 data RowTy = REmpty | RVar TyVar | Ty :> RowTy
     deriving (Eq, Show)
+
+type instance Index RowTy = Idx
+
+type instance IxValue RowTy = Ty
+instance Ixed RowTy where
+    ix _ _ REmpty             = pure REmpty
+    ix _ _ (RVar x)           = pure $ RVar x
+    ix Idx1 f (ty :> row)     = f ty <&> (:> row)
+    ix (IdxS k) f (ty :> row) = (ty :>) <$> ix k f row
 
 newtype Lit = LInt Int
     deriving (Eq, Show)
@@ -80,7 +92,7 @@ data Val
 data Bind
     = BVal Var Val
     | BCall Var Val [Val]
-    | BProj Var Val Int
+    | BProj Var Val Idx
     | BUnpack TyVar Var Val
     deriving (Eq, Show)
 
@@ -235,7 +247,7 @@ instance PrettyPrec Bind where
     pretty (BVal x v) = pretty x <+> "=" <> softline <> pretty v
     pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
         <> parens (hsep (punctuate "," (map prettyMax vs2)))
-    pretty (BProj x v i) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty i
+    pretty (BProj x v idx) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty idx
     pretty (BUnpack tv x v) = brackets (pretty tv <> "," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
 
 instance PrettyPrec Exp where

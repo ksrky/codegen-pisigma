@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Alloc
+      Alloc.Check
       AllocTal
       Anf
       Anf.Check
@@ -35,6 +36,7 @@ library
       ClosureAlloc
       ClosureTal
       Id
+      Idx
       Lambda
       Lambda.Check
       Lambda.Init

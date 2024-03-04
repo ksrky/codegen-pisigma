@@ -12,6 +12,7 @@ import Control.Monad.State
 import Control.Monad.Trans.Writer
 import Data.Functor.Foldable
 import Data.List                  qualified as List
+import Idx
 import Prelude                    hiding (exp)
 
 -- TODO: make primitives explicit
@@ -82,7 +83,7 @@ anfClosureVal = cata $ \case
             x_cl = (newIdUnsafe "x_cl", t_ucl)
             t_code = C.TFun (t_ucl : map snd xs') (C.typeof exp')
         f_code <- (,t_code) <$> newId "f_code"
-        let binds = zipWith (\x i -> C.BProj x (C.VUnroll (C.VVar x_cl)) i) escs' [2 ..]
+        let binds = zipWith (\x i -> C.BProj x (C.VUnroll (C.VVar x_cl)) (intToIdx i)) escs' [2 ..]
             v_code = C.Code {
                 C.args = x_cl : xs',
                 C.body = foldr C.ELet exp' binds
@@ -103,7 +104,7 @@ anfClosureBind (A.BCall x (A.CallerVal v1) vs2)
     d1 <- C.BUnpack tv x_cl <$> anfClosureVal v1
     let t_code = C.TFun (t_cl : map (anfClosureTy . A.typeof) vs2) (anfClosureTy (A.typeof x))
     let x_code = (newIdUnsafe "x_code", t_code)
-    let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) 1
+    let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) Idx1
     d3 <- C.BCall (anfClosureVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
     return [d1, d2, d3]
     | otherwise = error "impossible"
@@ -125,7 +126,7 @@ anfClosureExp = cata $ \case
                 t_code = C.TFun (t_ucl : map snd xs) (C.typeof e)
             f_code <- (,t_code) <$> newId (fst f ^. name  ++ "_code")
             let bind0 = C.BVal f $ C.VPack t_env (C.VVar x_cl) t_cl
-                binds' = zipWith (\x j -> C.BProj x (C.VUnroll (C.VVar x_cl)) j) escs [2 ..]
+                binds' = zipWith (\x j -> C.BProj x (C.VUnroll (C.VVar x_cl)) (intToIdx j)) escs [2 ..]
                 v_code = C.Code {
                     C.args = x_cl : xs,
                     C.body = foldr C.ELet e (bind0 : binds')

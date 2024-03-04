@@ -2,9 +2,11 @@ module Closure.Check (checkProgram) where
 
 import Closure
 
+import Control.Lens.At
+import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
-import Prelude              hiding (exp)
+import Prelude                hiding (exp)
 
 checkEqTys :: [(TyVar, TyVar)] -> Ty -> Ty -> IO ()
 checkEqTys _ TInt TInt = return ()
@@ -82,16 +84,11 @@ checkBind cts (BCall x v vs) = do
             zipWithM_ (checkEqTys cts) ts1 ts
             checkEqTys cts (snd x) t2
         _ -> fail $ "required function type, but got " ++ show t
-checkBind cts (BProj x v i) = do
+checkBind cts (BProj x v idx) = do
     t <- checkVal cts v
     case t of
-        TRow row -> do
-            lift $ checkEqTys cts (snd x) (go i row)
-          where
-            go 1 (t1 :> _) = t1
-            go n (_  :> r) = go (n - 1) r
-            go _ _         = error "impossible"
-        _ -> fail $ "required row type, but got " ++ show t
+        TRow row -> lift $ checkEqTys cts (snd x) (row ^?! ix idx)
+        _        -> fail $ "required row type, but got " ++ show t
 checkBind cts (BUnpack tv1 x v2) = do
     t2 <- checkVal cts v2
     case t2 of
