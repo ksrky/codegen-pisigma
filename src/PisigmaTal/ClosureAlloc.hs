@@ -1,16 +1,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module ClosureAlloc (closureAllocProgram) where
+module PisigmaTal.ClosureAlloc (closureAllocProgram) where
 
-import Alloc                    qualified as A
-import Closure                  qualified as C
 import Control.Lens.Combinators
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Data.Functor.Foldable
 import Data.List                qualified as List
-import Id
-import Idx
+import PisigmaTal.Alloc         qualified as A
+import PisigmaTal.Closure       qualified as C
+import PisigmaTal.Id
+import PisigmaTal.Idx
 import Prelude                  hiding (exp)
 
 data Ctx = Ctx {

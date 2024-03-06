@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Id (
+module PisigmaTal.Id (
     newUniq,
     Id(..),
     name,

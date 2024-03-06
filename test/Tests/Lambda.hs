@@ -2,9 +2,8 @@
 
 module Tests.Lambda (expMap, pattern ScopeTest1) where
 
-import Lambda
-
-import Data.Map.Strict qualified as Map
+import Data.Map.Strict   qualified as Map
+import PisigmaTal.Lambda
 
 
 expMap :: Map.Map String Exp

@@ -1,13 +1,12 @@
-module Toplevel (compileToTal) where
+module PisigmaTal.Toplevel (compileToTal) where
 
-import AnfClosure
-import ClosureAlloc
-import LambdaAnf
-import Parser
-import RawLambda
-
-import AllocTal
-import Data.Text    (Text)
+import Data.Text               (Text)
+import PisigmaTal.AllocTal
+import PisigmaTal.AnfClosure
+import PisigmaTal.ClosureAlloc
+import PisigmaTal.LambdaAnf
+import PisigmaTal.Parser
+import PisigmaTal.RawLambda
 
 compileToTal :: Text -> IO ()
 compileToTal inp = do

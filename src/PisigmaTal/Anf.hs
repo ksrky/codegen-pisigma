@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Anf (
+module PisigmaTal.Anf (
     Lit(..),
     Ty(..),
     TyF(..),
@@ -21,11 +21,9 @@ module Anf (
     bindVar
 ) where
 
-import Id
-
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
-import GHC.Stack
+import PisigmaTal.Id
 
 newtype Lit = LInt Int
     deriving (Eq, Show)
@@ -95,7 +93,7 @@ extendBindEnv :: Var -> Env -> Env
 extendBindEnv (x, t) = (DBind x t:)
 
 class Typeable a where
-    typeof :: HasCallStack => a -> Ty
+    typeof :: a -> Ty
 
 instance Typeable Lit where
     typeof _ = TInt

@@ -1,9 +1,8 @@
-module Anf.Check (checkProgram) where
-
-import Anf
+module PisigmaTal.Anf.Check (checkProgram) where
 
 import Control.Monad
 import Control.Monad.Reader
+import PisigmaTal.Anf
 
 checkEqTys :: Ty -> Ty -> IO ()
 checkEqTys TInt TInt = return ()

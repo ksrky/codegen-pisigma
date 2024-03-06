@@ -1,9 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module AllocTal where
-
-import Alloc                    qualified as A
-import Tal                      qualified as T
+module PisigmaTal.AllocTal where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
@@ -11,7 +8,9 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.Functor.Foldable
 import Data.Map.Strict          qualified as M
-import Idx
+import PisigmaTal.Alloc         qualified as A
+import PisigmaTal.Idx
+import PisigmaTal.Tal           qualified as T
 import Prelude                  hiding (exp)
 
 data Ctx = Ctx {

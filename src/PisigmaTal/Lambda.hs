@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Lambda (
+module PisigmaTal.Lambda (
     Lit(..),
     Meta(..),
     Ty(..),
@@ -22,13 +22,12 @@ module Lambda (
     stripAnnot
 ) where
 
-import Id
-
 import Control.Lens.Combinators
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import Data.IORef
 import GHC.Stack
+import PisigmaTal.Id
 
 newtype Lit = LInt Int
     deriving (Eq, Show)

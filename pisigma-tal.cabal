@@ -25,27 +25,27 @@ source-repository head
 
 library
   exposed-modules:
-      Alloc
-      Alloc.Check
-      AllocTal
-      Anf
-      Anf.Check
-      AnfClosure
-      Closure
-      Closure.Check
-      ClosureAlloc
-      Id
-      Idx
-      Lambda
-      Lambda.Check
-      Lambda.Init
-      LambdaAnf
-      Parser
+      PisigmaTal.Alloc
+      PisigmaTal.Alloc.Check
+      PisigmaTal.AllocTal
+      PisigmaTal.Anf
+      PisigmaTal.Anf.Check
+      PisigmaTal.AnfClosure
+      PisigmaTal.Closure
+      PisigmaTal.Closure.Check
+      PisigmaTal.ClosureAlloc
+      PisigmaTal.Id
+      PisigmaTal.Idx
+      PisigmaTal.Lambda
+      PisigmaTal.Lambda.Check
+      PisigmaTal.Lambda.Init
+      PisigmaTal.LambdaAnf
+      PisigmaTal.Parser
+      PisigmaTal.Raw
+      PisigmaTal.RawLambda
+      PisigmaTal.Tal
+      PisigmaTal.Toplevel
       Prettyprinter.Prec
-      Raw
-      RawLambda
-      Tal
-      Toplevel
   other-modules:
       Paths_pisigma_tal
   autogen-modules:

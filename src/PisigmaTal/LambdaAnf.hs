@@ -1,10 +1,9 @@
-module LambdaAnf (lambdaAnfProgram) where
-
-import Anf                   qualified as A
-import Id
-import Lambda                qualified as L
+module PisigmaTal.LambdaAnf (lambdaAnfProgram) where
 
 import Data.Functor.Foldable
+import PisigmaTal.Anf        qualified as A
+import PisigmaTal.Id
+import PisigmaTal.Lambda     qualified as L
 import Prelude               hiding (exp)
 
 -- TODO: optimization

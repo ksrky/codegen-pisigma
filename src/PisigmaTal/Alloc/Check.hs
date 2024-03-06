@@ -1,15 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Alloc.Check (checkProgram) where
+module PisigmaTal.Alloc.Check (checkProgram) where
 
-import Alloc
 import Control.Lens.At
 import Control.Lens.Combinators hiding (Const)
 import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
-import Id
-import Idx
+import PisigmaTal.Alloc
+import PisigmaTal.Id
+import PisigmaTal.Idx
 import Prelude                  hiding (exp)
 
 checkEqTys :: Ty -> Ty -> IO ()

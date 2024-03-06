@@ -1,4 +1,4 @@
-module Idx (
+module PisigmaTal.Idx (
     Idx(..),
     idxToInt,
     intToIdx,

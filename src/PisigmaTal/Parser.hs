@@ -1,12 +1,11 @@
-module Parser (pExp, parseProgram) where
-
-import Raw
+module PisigmaTal.Parser (pExp, parseProgram) where
 
 import Control.Monad
 import Control.Monad.Combinators.Expr
 import Data.Text                      (Text)
 import Data.Text                      qualified as Text
 import Data.Void
+import PisigmaTal.Raw
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer     qualified as L

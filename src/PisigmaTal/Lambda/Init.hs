@@ -1,11 +1,11 @@
-module Lambda.Init (
+module PisigmaTal.Lambda.Init (
     tyBool,
     initCtx,
     initEnv
 ) where
 
-import Id
-import Lambda
+import PisigmaTal.Id
+import PisigmaTal.Lambda
 
 idBool :: Id
 idBool = newIdUnsafe "Bool"

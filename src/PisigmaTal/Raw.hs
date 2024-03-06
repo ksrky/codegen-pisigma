@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Raw (
+module PisigmaTal.Raw (
     Lit(..),
     Exp(..),
     Program

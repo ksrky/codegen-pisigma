@@ -1,11 +1,9 @@
-module Lambda.Check (checkProgram) where
-
-import Lambda
-import Lambda.Init
+module PisigmaTal.Lambda.Check (checkProgram) where
 
 import Control.Monad
 import Control.Monad.Reader
-import GHC.Stack
+import PisigmaTal.Lambda
+import PisigmaTal.Lambda.Init
 
 checkEqTys :: Ty -> Ty -> IO ()
 checkEqTys TInt TInt = return ()
@@ -17,7 +15,7 @@ checkEqTys (TTuple ts) (TTuple us) = zipWithM_ checkEqTys ts us
 checkEqTys t1 t2 =
     fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
-checkExp :: HasCallStack =>  Exp -> ReaderT Env IO Ty
+checkExp :: Exp -> ReaderT Env IO Ty
 checkExp (ELit (LInt _)) = return TInt
 checkExp (EVar x) = do
     env <- ask

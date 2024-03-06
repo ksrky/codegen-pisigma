@@ -1,18 +1,17 @@
-import Alloc.Check               qualified as Alloc
-import Anf.Check                 qualified as Anf
-import AnfClosure
-import Closure.Check             qualified as Closure
-import ClosureAlloc
-import Lambda qualified
-import Lambda.Check              qualified as Lambda
-import LambdaAnf
-import Parser
-import RawLambda
-
 import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
 import Data.Text.Encoding
+import PisigmaTal.Alloc.Check    qualified as Alloc
+import PisigmaTal.Anf.Check      qualified as Anf
+import PisigmaTal.AnfClosure
+import PisigmaTal.Closure.Check  qualified as Closure
+import PisigmaTal.ClosureAlloc
+import PisigmaTal.Lambda         qualified as Lambda
+import PisigmaTal.Lambda.Check   qualified as Lambda
+import PisigmaTal.LambdaAnf
+import PisigmaTal.Parser
+import PisigmaTal.RawLambda
 import Prettyprinter             hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text

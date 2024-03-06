@@ -1,8 +1,4 @@
-module AnfClosure (anfClosureProgram) where
-
-import Anf                        qualified as A
-import Closure                    qualified as C
-import Id
+module PisigmaTal.AnfClosure (anfClosureProgram) where
 
 import Control.Lens.Operators
 import Control.Monad
@@ -11,7 +7,10 @@ import Control.Monad.State
 import Control.Monad.Trans.Writer
 import Data.Functor.Foldable
 import Data.List                  qualified as List
-import Idx
+import PisigmaTal.Anf             qualified as A
+import PisigmaTal.Closure         qualified as C
+import PisigmaTal.Id
+import PisigmaTal.Idx
 import Prelude                    hiding (exp)
 
 type Locals = [Id]

@@ -1,4 +1,4 @@
-module Tal (
+module PisigmaTal.Tal (
     Reg(..),
     retReg,
     Name(..),

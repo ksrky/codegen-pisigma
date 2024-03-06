@@ -1,8 +1,7 @@
 module Tests.Raw (expMap) where
 
-import Raw
-
 import Data.Map.Strict qualified as Map
+import PisigmaTal.Raw
 
 expMap :: Map.Map String Exp
 expMap = Map.fromList

@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Alloc (
+module PisigmaTal.Alloc (
     Ty (..),
     TyF(..),
     RowTy(..),
@@ -22,8 +22,8 @@ import Control.Lens.At
 import Control.Lens.Operators
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
-import Id
-import Idx
+import PisigmaTal.Id
+import PisigmaTal.Idx
 import Prettyprinter            hiding (pretty)
 import Prettyprinter.Prec
 

@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Closure (
+module PisigmaTal.Closure (
     Lit(..),
     TyVar,
     Ty(..),
@@ -35,14 +35,13 @@ module Closure (
     mkTTuple
 ) where
 
-import Id
-
 import Control.Lens.At
 import Control.Lens.Operators
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import GHC.Stack
-import Idx
+import PisigmaTal.Id
+import PisigmaTal.Idx
 import Prettyprinter            hiding (Pretty (..))
 import Prettyprinter.Prec
 

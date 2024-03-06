@@ -1,9 +1,4 @@
-module RawLambda (rawLambdaProgram) where
-
-import Id
-import Lambda                   qualified as L
-import Lambda.Init
-import Raw                      qualified as R
+module PisigmaTal.RawLambda (rawLambdaProgram) where
 
 import Control.Lens.Combinators hiding (op)
 import Control.Lens.Operators
@@ -11,6 +6,10 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Functor.Foldable
 import Data.IORef
+import PisigmaTal.Id
+import PisigmaTal.Lambda        qualified as L
+import PisigmaTal.Lambda.Init
+import PisigmaTal.Raw           qualified as R
 
 type TcM = ReaderT L.Ctx IO
 

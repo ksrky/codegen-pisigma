@@ -1,8 +1,7 @@
 module Tests.Closure (expMap) where
 
-import Closure
-
-import Data.Map.Strict qualified as Map
+import Data.Map.Strict    qualified as Map
+import PisigmaTal.Closure
 
 expMap :: Map.Map String Exp
 expMap = Map.fromList

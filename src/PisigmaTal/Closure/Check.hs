@@ -1,11 +1,10 @@
-module Closure.Check (checkProgram) where
-
-import Closure
+module PisigmaTal.Closure.Check (checkProgram) where
 
 import Control.Lens.At
 import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
+import PisigmaTal.Closure
 import Prelude                hiding (exp)
 
 checkEqTys :: [(TyVar, TyVar)] -> Ty -> Ty -> IO ()
