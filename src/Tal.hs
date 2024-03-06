@@ -20,6 +20,7 @@ module Tal (
     Instrs(..),
     Program
 ) where
+
 import Data.Map.Strict qualified as M
 
 newtype Reg = Reg {unReg :: Int}

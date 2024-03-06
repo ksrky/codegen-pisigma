@@ -14,9 +14,6 @@ import Data.List                  qualified as List
 import Idx
 import Prelude                    hiding (exp)
 
--- TODO: make primitives explicit
--- typing relation become compilicated
-
 type Locals = [Id]
 
 type Escapes = [C.Var]
@@ -68,7 +65,7 @@ anfClosureVal = cata $ \case
         let x' = anfClosureVar x
         findLocals x'
         return $ C.VVar x'
-    A.VLabelF l t -> return $ C.VLabel l (anfClosureTy t) -- TODO: label id
+    A.VLabelF l t -> return $ C.VLabel l (anfClosureTy t)
     A.VLamF xs exp -> do
         let xs' = map anfClosureVar xs
             lcls = map fst xs

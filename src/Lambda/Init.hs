@@ -13,10 +13,6 @@ idBool = newIdUnsafe "Bool"
 tyBool :: Ty
 tyBool = TName idBool
 
-idTrue, idFalse :: Id
-idTrue = newIdUnsafe "True"
-idFalse = newIdUnsafe "False"
-
 idPlus, idMinus, idTimes, idDiv :: Id
 idPlus = newIdUnsafe "#add"
 idMinus = newIdUnsafe "#sub"
@@ -26,16 +22,20 @@ idDiv = newIdUnsafe "#div"
 idEq :: Id
 idEq = newIdUnsafe "#eq"
 
-initCtx :: [(String, (Id, Ty))]
-initCtx =
-    [ ("True", (idTrue, TName idBool))
-    , ("False", (idFalse, TName idBool))
-    , ("+", (idPlus, TFun TInt (TFun TInt TInt)))
-    , ("-", (idMinus, TFun TInt (TFun TInt TInt)))
-    , ("*", (idTimes, TFun TInt (TFun TInt TInt)))
-    , ("/", (idDiv, TFun TInt (TFun TInt TInt)))
-    , ("==", (idEq, TFun TInt (TFun TInt tyBool)))
-    ]
+initCtx :: Ctx
+initCtx = Ctx
+    { _varScope =
+        [ ("+", (idPlus, TFun TInt (TFun TInt TInt)))
+        , ("-", (idMinus, TFun TInt (TFun TInt TInt)))
+        , ("*", (idTimes, TFun TInt (TFun TInt TInt)))
+        , ("/", (idDiv, TFun TInt (TFun TInt TInt)))
+        , ("==", (idEq, TFun TInt (TFun TInt tyBool)))
+        ]
+    , _labelScope =
+        [ ("True", TName idBool)
+        , ("False", TName idBool)
+        ]
+    }
 
 initEnv :: Env
 initEnv =

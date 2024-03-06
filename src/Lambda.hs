@@ -10,6 +10,9 @@ module Lambda (
     ExpF(..),
     Dec(..),
     Program,
+    Ctx(..),
+    varScope,
+    labelScope,
     Env,
     lookupEnumEnv,
     lookupBindEnv,
@@ -21,6 +24,7 @@ module Lambda (
 
 import Id
 
+import Control.Lens.Combinators
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import Data.IORef
@@ -70,6 +74,13 @@ type Program = ([Dec], Exp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''Exp
+
+data Ctx = Ctx
+    { _varScope   :: [(String, Var)]
+    , _labelScope :: [(String, Ty)]
+    }
+
+makeLenses ''Ctx
 
 type Env = [Dec]
 

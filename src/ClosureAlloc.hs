@@ -28,9 +28,6 @@ type CtxM = ReaderT Ctx IO
 runCtxM :: CtxM a -> IO a
 runCtxM m = runReaderT m (Ctx [] [] [] [])
 
-idToName :: Id -> A.Name
-idToName = A.Name . view name
-
 closureAllocTy :: C.Ty -> CtxM A.Ty
 closureAllocTy = cata $ \case
     C.TIntF -> return A.TInt
@@ -66,11 +63,6 @@ closureAllocLit (C.LInt i) = A.CInt i
 
 closureAllocVal :: C.Val -> WriterT [A.Bind] CtxM A.Val
 closureAllocVal (C.VLit l)      = return $ A.VConst (closureAllocLit l)
-{-closureAllocVal (C.VVar (f, t)) = do
-    fsc <- view funScope -- TODO: extern scope
-    case lookup f fsc of
-        Just g  -> lift $ A.VConst <$> (A.CGlobal g <$> closureAllocTy t)
-        Nothing -> fail "unbound variable"-}
 closureAllocVal (C.VVar (x, t)) = do
     vsc <- view varScope
     case List.elemIndex x vsc of
@@ -115,8 +107,10 @@ closureAllocExp (C.ELet (C.BCall x fun vs) e) = do
     ty <- closureAllocTy (snd x)
     val <- case fun of
         C.ExternalFun (f, fty) -> do
-            fty' <- closureAllocTy fty
-            return $ A.VConst (A.CGlobal (idToName f) fty')
+            fsc <- view funScope
+            case lookup f fsc of
+                Just g  -> A.VConst <$> (A.CGlobal g <$> closureAllocTy fty)
+                Nothing -> fail "unknown external function"
         C.LocalFun (f, fty) -> do
             vsc <- view varScope
             case List.elemIndex f vsc of

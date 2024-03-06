@@ -1,19 +1,18 @@
 module RawLambda (rawLambdaProgram) where
 
 import Id
-import Lambda                 qualified as L
+import Lambda                   qualified as L
 import Lambda.Init
-import Raw                    qualified as R
+import Raw                      qualified as R
 
+import Control.Lens.Combinators hiding (op)
 import Control.Lens.Operators
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Functor.Foldable
 import Data.IORef
 
-type Ctx = [(String, (Id, L.Ty))]
-
-type TcM = ReaderT Ctx IO
+type TcM = ReaderT L.Ctx IO
 
 rawLambdaLit :: R.Lit -> L.Lit
 rawLambdaLit (R.LInt i) = L.LInt i
@@ -75,18 +74,18 @@ tcExp (R.ELit l) exp_ty = do
     lift $ unify exp_ty L.TInt
     return $ L.ELit (rawLambdaLit l)
 tcExp (R.EVar x) exp_ty = do
-    ctx <- ask
+    ctx <- view L.varScope
     case lookup x ctx of
         Just (x', t) -> do
             lift $ unify exp_ty t
             return $ L.EVar (x', t)
         Nothing -> fail "unbound variable"
 tcExp (R.ELabel l) exp_ty = do
-    ctx <- ask
+    ctx <- view L.labelScope
     case lookup l ctx of
-        Just (x, t) -> do
+        Just t -> do
             lift $ unify exp_ty t
-            return $ L.EVar (x, t)
+            return $ L.ELabel l t
         Nothing      -> fail "unknown label"
 tcExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar
@@ -98,10 +97,10 @@ tcExp (R.ELam x e) exp_ty = do
     t1 <- newTyVar
     t2 <- newTyVar
     lift $ unify exp_ty (L.TFun t1 t2)
-    e' <- local ((x, (x', t1)):) $ tcExp e t2
+    e' <- locally L.varScope ((x, (x', t1)):) $ tcExp e t2
     return $ L.EAnnot (L.ELam (x', t1) e') exp_ty
 tcExp (R.EBinOp op e1 e2) exp_ty = do
-    ctx <- ask
+    ctx <- view L.varScope
     op' <- case lookup op ctx of
         Just op' -> return op'
         Nothing  -> fail "unknown binop"
@@ -118,18 +117,18 @@ tcExp (R.ELet xes e2) exp_ty = do
         t <- newTyVar
         e' <- tcExp e t
         return ((x', t), e')
-    e2' <- local (map (\(x, _) -> (fst x ^. name, x)) xes' ++) $ tcExp e2 exp_ty
+    e2' <- locally L.varScope (map (\(x, _) -> (fst x ^. name, x)) xes' ++) $ tcExp e2 exp_ty
     return $ L.EAnnot (foldr (uncurry L.ELet) e2' xes') exp_ty
 tcExp (R.ELetrec xes e2) exp_ty = do
     env <- forM xes $ \(x, _) -> do
         x' <- newId x
         tv <- newTyVar
         return (x, (x', tv))
-    local (env ++) $ do
+    locally L.varScope (env ++) $ do
         xes' <- zipWithM (\(_, x) (_, e) -> do
             e' <- tcExp e (snd x)
             return (x, e')) env xes
-        e2' <- local (env ++) $ tcExp e2 exp_ty
+        e2' <- locally L.varScope (env ++) $ tcExp e2 exp_ty
         return $ L.EAnnot (L.ELetrec xes' e2') exp_ty
 tcExp (R.EIf e1 e2 e3) exp_ty = do
     e1' <- tcExp e1 tyBool
