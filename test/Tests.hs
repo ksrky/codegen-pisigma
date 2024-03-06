@@ -106,7 +106,6 @@ stepTests = testGroup "Step tests"
       Closure.checkProgram e4
       step "Alloc.Check"
       e5 <- closureAllocProgram e4
-      print e5
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let x = 42 in x" $ \step -> do
@@ -122,7 +121,6 @@ stepTests = testGroup "Step tests"
       Closure.checkProgram e4
       step "Alloc.Check"
       e5 <- closureAllocProgram e4
-      print e5
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
@@ -136,6 +134,9 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Alloc.Check"
+      e5 <- closureAllocProgram e4
+      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "2 * 3 == 6" $ \step -> do
       e1 <- parseProg "2 * 3 == 6"
@@ -148,6 +149,9 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Alloc.Check"
+      e5 <- closureAllocProgram e4
+      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
       e1 <- parseProg "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"

@@ -50,7 +50,7 @@ checkConst (CGlobal x ty) = do
 checkVal :: Val -> ReaderT Env IO Ty
 checkVal (VVar i ty) = do
     Just ty' <- views localEnv (!! i)
-    lift $ checkEqTys ty ty'
+    lift $ checkEqTys ty (shiftTy (i + 1) ty')
     return ty
 checkVal (VConst c) = checkConst c
 checkVal (VPack ty1 val ann_ty)
@@ -68,7 +68,7 @@ checkVal (VRoll val ann_ty)
 checkVal (VUnroll val) = do
     ty <- checkVal val
     case ty of
-        TRecurs ty' -> return ty'
+        TRecurs ty' -> return $ substTop ty ty'
         _           -> fail $ "expected recursive type, but got " ++ show ty
 checkVal (VAnnot val ann_ty) = do
     ty <- checkVal val
@@ -107,7 +107,7 @@ checkExp (ELet (BUnpack ann_ty val) body) = do
     case ty of
         TExists ty' -> lift $ checkEqTys ann_ty ty'
         _           -> fail $ "expected existential type, but got " ++ show ty
-    locally localEnv ([Nothing , Just ann_ty] ++) $ checkExp body
+    locally localEnv ([Just ann_ty, Nothing] ++) $ checkExp body
 checkExp (ELet (BMalloc ann_ty tys) body) = do
     let row_ty = TRow $ foldr (\ty -> ((ty, False) :>)) REmpty tys
     lift $ checkEqTys ann_ty row_ty
@@ -138,7 +138,7 @@ checkHeap (HGlobal ty val) = do
     ty' <- checkVal val
     lift $ checkEqTys ty ty'
 checkHeap (HCode arg_tys ret_ty exp) = do
-    ty <- locally localEnv (\env -> foldl (\e ty -> Just ty : e) env arg_tys) $ checkExp exp
+    ty <- locally localEnv (reverse (map Just arg_tys) ++) $ checkExp exp
     lift $ checkEqTys ret_ty ty
 checkHeap HExtern{} = return ()
 checkHeap HTypeAlias{} = return ()

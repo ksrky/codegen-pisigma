@@ -14,6 +14,7 @@ module Alloc (
     ExpF (..),
     Heap (..),
     Program,
+    shiftTy,
     substTop,
     Typeable(..)
 ) where
@@ -110,7 +111,10 @@ mapTy onvar = flip $ cata $ \case
 mapRowTy ::  (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
 mapRowTy onvar c = cata $ \case
     REmptyF -> REmpty
-    RVarF x -> case onvar x c of TRow row -> row; _ -> error "TRow required"
+    RVarF x -> case onvar x c of
+        TRow row -> row
+        TVar y   -> RVar y
+        _        -> error "TRow or TVar required"
     (ty, flag) :>$ row -> (mapTy onvar c ty, flag) :> row
 
 shiftTy :: Int -> Ty -> Ty

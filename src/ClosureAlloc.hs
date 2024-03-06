@@ -36,7 +36,7 @@ closureAllocTy = cata $ \case
         vsc <- view varScope
         case List.elemIndex x vsc of
             Just i  -> return $ A.TVar i
-            Nothing -> fail "unbound type variable"
+            Nothing -> fail $ "unbound type variable: " ++ show x
     C.TNameF x -> do
         tsc <- view tyScope
         case lookup x tsc of
@@ -58,7 +58,7 @@ closureAllocRowTy = cata $ \case
         vsc <- view varScope
         case List.elemIndex x vsc of
             Just idx -> return $ A.RVar idx
-            Nothing  -> fail "unbound type variable"
+            Nothing  -> fail $ "unbound type variable: " ++ show x
     C.REmptyF -> return A.REmpty
 
 closureAllocLit :: C.Lit -> A.Const
@@ -131,11 +131,12 @@ closureAllocExp (C.ELet (C.BProj x v i) e) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     e' <- locally varScope (fst x:) $ closureAllocExp e
     return $ foldr A.ELet e' (bs ++ [A.BProj ty v' i])
-closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
-    ty <- closureAllocTy (snd x)
-    (v', bs) <- runWriterT $ closureAllocVal v
-    e' <- locally varScope ([tv, fst x] ++) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ [A.BUnpack ty v'])
+closureAllocExp (C.ELet (C.BUnpack tv x v) e) =
+    locally varScope (tv :) $ do
+        ty <- closureAllocTy (snd x)
+        (v', bs) <- runWriterT $ closureAllocVal v
+        e' <- locally varScope (fst x :) $ closureAllocExp e
+        return $ foldr A.ELet e' (bs ++ [A.BUnpack ty v'])
 closureAllocExp (C.ECase v les) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     ies' <- forM les $ \(l, e) -> do
