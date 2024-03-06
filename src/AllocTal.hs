@@ -15,9 +15,9 @@ import Idx
 import Prelude                  hiding (exp)
 
 data Ctx = Ctx {
-    _idReg      :: [T.Reg],
-    _idFuncName :: [(A.Name, T.Name)],
-    _regFileTy  :: T.RegFileTy
+    _idReg     :: [T.Reg],
+    -- _idFuncName :: [(A.Name, T.Name)],
+    _regFileTy :: T.RegFileTy
 }
 
 makeLenses ''Ctx
@@ -36,7 +36,7 @@ allocTalTy = cata $ \case
 
 allocConst :: A.Const -> T.WordVal
 allocConst (A.CInt i)               = T.VInt i
-allocConst (A.CGlobal (A.Name s) _) = T.VLabel (T.Name s)
+-- allocConst (A.CGlobal (A.Name s) _) = T.VLabel (T.Name s)
 
 allocTalVal :: A.Val -> CtxM T.SmallVal
 allocTalVal (A.VVar x t) = undefined

@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Alloc (
-    Name (..),
     Ty (..),
     TyF(..),
     RowTy(..),
@@ -23,12 +22,10 @@ import Control.Lens.At
 import Control.Lens.Operators
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
+import Id
 import Idx
 import Prettyprinter            hiding (pretty)
 import Prettyprinter.Prec
-
-newtype Name = Name String
-    deriving (Eq, Show)
 
 type InitFlag = Bool
 
@@ -39,7 +36,7 @@ data Ty
     | TExists Ty
     | TRecurs Ty
     | TRow RowTy
-    | TAlias Name (Maybe Ty)
+    | TAlias Id (Maybe Ty)
     deriving (Eq, Show)
 
 infixr 5 :>
@@ -58,7 +55,7 @@ instance Ixed RowTy where
 
 data Const
     = CInt Int
-    | CGlobal Name Ty
+    | CGlobal Id Ty
     deriving (Eq, Show)
 
 data Val
@@ -93,7 +90,7 @@ data Heap
     | HTypeAlias Ty
     deriving (Eq, Show)
 
-type Program = ([(Name, Heap)], Exp)
+type Program = ([(Id, Heap)], Exp)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''RowTy
@@ -108,7 +105,7 @@ mapTy onvar = flip $ cata $ \case
     TExistsF ty -> \c -> TExists (ty (c + 1))
     TRecursF ty -> \c -> TRecurs (ty (c + 1))
     TRowF row_ty -> \c -> TRow $ mapRowTy onvar c row_ty
-    TAliasF name mb_ty -> \c -> TAlias name (mb_ty <*> pure (c + 1))
+    TAliasF x mb_ty -> \c -> TAlias x (mb_ty <*> pure (c + 1))
 
 mapRowTy ::  (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
 mapRowTy onvar c = cata $ \case
@@ -140,9 +137,6 @@ instance Typeable Val where
 instance Typeable Exp where
     typeof = undefined
 
-instance PrettyPrec Name where
-    pretty (Name s) = pretty s
-
 instance PrettyPrec Const where
     pretty (CInt i)      = pretty i
     pretty (CGlobal f _) = pretty f
@@ -155,7 +149,7 @@ instance PrettyPrec Ty where
     prettyPrec p (TExists t) = parPrec p 0 $ "∃_" <> dot <+> pretty t
     prettyPrec p (TRecurs t) = parPrec p 0 $ "μ_" <> dot <+> pretty t
     prettyPrec _ (TRow r) = braces $ pretty r
-    prettyPrec _ (TAlias name _) = pretty name
+    prettyPrec _ (TAlias x _) = pretty x
 
 instance PrettyPrec RowTy where
     pretty REmpty               = "ε"
@@ -187,13 +181,13 @@ instance PrettyPrec Exp where
     pretty (EReturn v)  = "ret" <+> prettyMax v
     pretty (EAnnot e t) = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
-instance PrettyPrec (Name, Heap) where
-    pretty (name, HGlobal t v) = pretty name <+> ":" <+> pretty t <+> "=" <+> pretty v
-    pretty (name, HCode ts1 t2 e) = pretty name <+> "="
+instance PrettyPrec (Id, Heap) where
+    pretty (x, HGlobal t v) = pretty x <+> ":" <+> pretty t <+> "=" <+> pretty v
+    pretty (x, HCode ts1 t2 e) = pretty x <+> "="
         <+> parens (hsep $ punctuate ", " $ map (\t -> "_ :" <+> pretty t) ts1)
         <+> ":" <+> pretty t2 <+> "=" <+> pretty e
-    pretty (name, HExtern t) = "extern" <+> pretty name <+> "=" <+> pretty t
-    pretty (name, HTypeAlias t) = "type" <+> pretty name <+> "=" <+> pretty t
+    pretty (x, HExtern t) = "extern" <+> pretty x <+> "=" <+> pretty t
+    pretty (x, HTypeAlias t) = "type" <+> pretty x <+> "=" <+> pretty t
 
 instance PrettyPrec Program where
     pretty (hs, e) = vsep (map pretty hs) <> line <> pretty e

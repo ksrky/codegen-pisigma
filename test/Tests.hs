@@ -179,6 +179,9 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Alloc.Check"
+      e5 <- closureAllocProgram e4
+      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5" $ \step -> do
       e1 <- parseProg "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"

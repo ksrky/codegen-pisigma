@@ -8,6 +8,7 @@ import Control.Lens.Combinators hiding (Const)
 import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
+import Id
 import Idx
 import Prelude                  hiding (exp)
 
@@ -35,7 +36,7 @@ checkEqRowTys r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: "
 
 data Env = Env {
     _localEnv  :: [Maybe Ty], -- Nothing means type variable
-    _globalEnv :: [(Name, Ty)]
+    _globalEnv :: [(Id, Ty)]
 }
 
 makeLenses ''Env
@@ -143,7 +144,7 @@ checkHeap (HCode arg_tys ret_ty exp) = do
 checkHeap HExtern{} = return ()
 checkHeap HTypeAlias{} = return ()
 
-initEnv :: [(Name, Heap)] -> [(Name, Ty)]
+initEnv :: [(Id, Heap)] -> [(Id, Ty)]
 initEnv []                                 = []
 initEnv ((x, HGlobal ty _) : hs)           = (x, ty) : initEnv hs
 initEnv ((x, HCode arg_tys ret_ty _) : hs) = (x, TFun arg_tys ret_ty) : initEnv hs
