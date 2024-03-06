@@ -1,6 +1,8 @@
+import Alloc.Check               qualified as Alloc
 import Anf.Check                 qualified as Anf
 import AnfClosure
 import Closure.Check             qualified as Closure
+import ClosureAlloc
 import Lambda qualified
 import Lambda.Check              qualified as Lambda
 import LambdaAnf
@@ -102,6 +104,10 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Alloc.Check"
+      e5 <- closureAllocProgram e4
+      print e5
+      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let x = 42 in x" $ \step -> do
       e1 <- parseProg "let x = 42 in x"
@@ -114,6 +120,10 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Alloc.Check"
+      e5 <- closureAllocProgram e4
+      print e5
+      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
       e1 <- parseProg "(\\x -> x) 5"

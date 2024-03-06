@@ -15,10 +15,11 @@ import Idx
 import Prelude                  hiding (exp)
 
 data Ctx = Ctx {
-    _varScope   :: [Id],
-    _funScope   :: [(Id, A.Name)],
-    _tyScope    :: [(Id, A.Name)],
-    _labelIndex :: [(C.Label, Int)]
+    _varScope    :: [Id],
+    _funScope    :: [(Id, A.Name)],
+    _tyScope     :: [(Id, A.Name)],
+    _labelIndex  :: [(C.Label, Int)],
+    _typeAliases :: [(A.Name, A.Ty)]
 }
 
 makeLenses ''Ctx
@@ -26,7 +27,7 @@ makeLenses ''Ctx
 type CtxM = ReaderT Ctx IO
 
 runCtxM :: CtxM a -> IO a
-runCtxM m = runReaderT m (Ctx [] [] [] [])
+runCtxM m = runReaderT m (Ctx [] [] [] [] [])
 
 closureAllocTy :: C.Ty -> CtxM A.Ty
 closureAllocTy = cata $ \case
@@ -39,7 +40,9 @@ closureAllocTy = cata $ \case
     C.TNameF x -> do
         tsc <- view tyScope
         case lookup x tsc of
-            Just g  -> return $ A.TAlias g
+            Just g  -> do
+                tas <- view typeAliases
+                return $ A.TAlias g (lookup g tas)
             Nothing -> fail "unbound type name"
     C.TFunF ts1 t2 -> A.TFun <$> sequence ts1 <*> t2
     C.TExistsF x t -> A.TExists <$> locally varScope (x :) t
@@ -67,30 +70,34 @@ closureAllocVal (C.VVar (x, t)) = do
     vsc <- view varScope
     case List.elemIndex x vsc of
         Just i  -> lift $ A.VVar i <$> closureAllocTy t
-        Nothing -> fail "unbound variable"
+        Nothing -> fail $ "unbound variable: " ++ show x
 closureAllocVal (C.VFun (f, t)) = do
     fsc <- view funScope
     case lookup f fsc of
         Just g  -> lift $ A.VConst <$> (A.CGlobal g <$> closureAllocTy t)
-        Nothing -> fail "unbound variable"
+        Nothing -> fail $ "unknown function: " ++ show f
 closureAllocVal (C.VLabel l _) = do
     labix <- view labelIndex
     case lookup l labix of
         Just i  -> return $ A.VConst (A.CInt i)
-        Nothing -> fail "label not found"
+        Nothing -> fail $ "label not found: " ++ show l
 closureAllocVal (C.VTuple vals) = do
+    let n_vals = length vals
     tys <- lift $ mapM (closureAllocTy . C.typeof) vals
     let mallocty = A.TRow $ foldr (\ty -> ((ty, False) A.:>)) A.REmpty tys
         bind0 = A.BMalloc mallocty tys
         structtys = mallocty :
-            map (\i -> A.TRow (foldr (\j -> ((tys !! j, j < i) A.:>)) A.REmpty [0..])) [(1 :: Int)..]
-    binds <- zipWithM (\i -> fmap (A.BUpdate (structtys !! (i + 1))
-        (A.VVar 0 (structtys !! i)) (intToIdx i)) . closureAllocVal) [0..] vals
+            map (\i -> A.TRow (foldr (\j -> ((tys !! j, j < i) A.:>)) A.REmpty [0 .. n_vals - 1])) [1 .. n_vals]
+    binds <- forM [1 .. n_vals] $ \i -> do
+        let ty1 = structtys !! i
+        let ty2 = structtys !! (i - 1)
+        val <- closureAllocVal (vals !! (i - 1))
+        return $ A.BUpdate ty1 (A.VVar 0 ty2) (intToIdx i) val
     tell (bind0 : binds)
     return $ A.VVar 0 (last (mallocty : structtys))
-closureAllocVal (C.VPack t1 v t2) =
+closureAllocVal (C.VPack t1 v t2) = do
     A.VPack <$> lift (closureAllocTy t1) <*> closureAllocVal v <*> lift (closureAllocTy t2)
-closureAllocVal (C.VRoll v t) =
+closureAllocVal (C.VRoll v t) = do
     A.VRoll <$> closureAllocVal v <*> lift (closureAllocTy t)
 closureAllocVal (C.VUnroll v) =
     A.VUnroll <$> closureAllocVal v
@@ -98,27 +105,27 @@ closureAllocVal (C.VAnnot v t) =
     A.VAnnot <$> closureAllocVal v <*> lift (closureAllocTy t)
 
 closureAllocExp :: C.Exp -> CtxM A.Exp
-closureAllocExp (C.ELet (C.BVal x v) e) = do
+closureAllocExp (C.ELet (C.BVal x val) exp) = do
     ty <- closureAllocTy (snd x)
-    (v', bs) <- runWriterT $ closureAllocVal v
-    e' <- locally varScope (fst x:) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ [A.BVal ty v'])
-closureAllocExp (C.ELet (C.BCall x fun vs) e) = do
+    (val', binds) <- runWriterT $ closureAllocVal val
+    exp' <- locally varScope (fst x:) $ closureAllocExp exp
+    return $ foldr A.ELet exp' (binds ++ [A.BVal ty val'])
+closureAllocExp (C.ELet (C.BCall x fun args) exp) = do
     ty <- closureAllocTy (snd x)
-    val <- case fun of
+    fun' <- case fun of
         C.ExternalFun (f, fty) -> do
             fsc <- view funScope
             case lookup f fsc of
                 Just g  -> A.VConst <$> (A.CGlobal g <$> closureAllocTy fty)
-                Nothing -> fail "unknown external function"
+                Nothing -> fail $ "unknown external function: " ++ show f
         C.LocalFun (f, fty) -> do
             vsc <- view varScope
             case List.elemIndex f vsc of
                 Just i  -> A.VVar i <$> closureAllocTy fty
-                Nothing -> fail "unbound variable"
-    (vs', bss) <- mapAndUnzipM (runWriterT . closureAllocVal) vs
-    e' <- locally varScope (fst x:) $ closureAllocExp e
-    return $ foldr A.ELet e' (concat bss ++ [A.BCall ty val vs'])
+                Nothing -> fail $ "unknown function: " ++ show f
+    (args', bindss) <- mapAndUnzipM (runWriterT . closureAllocVal) args
+    exp' <- locally varScope (fst x:) $ closureAllocExp exp
+    return $ foldr A.ELet exp' (concat bindss ++ [A.BCall ty fun' args'])
 closureAllocExp (C.ELet (C.BProj x v i) e) = do
     ty <- closureAllocTy (snd x)
     (v', bs) <- runWriterT $ closureAllocVal v
@@ -135,7 +142,7 @@ closureAllocExp (C.ECase v les) = do
         labix <- view labelIndex
         case lookup l labix of
             Just i  -> (i,) <$> closureAllocExp e
-            Nothing -> fail "label not found"
+            Nothing -> fail $ "label not found: " ++ show l
     es' <- forM [1..length les] $ \i -> case lookup i ies' of
         Just e  -> return e
         Nothing -> fail "label index not found"
@@ -150,9 +157,10 @@ closureAllocDecs [] cont = cont
 closureAllocDecs (C.DEnum x ls : decs) cont = do
     let g = A.Name (x ^. name)
     tell [(g, A.HTypeAlias A.TInt)]
-    tell $ zipWith (\l i -> (A.Name l, A.HGlobal (A.TAlias g) (A.VConst (A.CInt i)))) ls [1..]
-    locally tyScope ((x, g) :) $
-        locally labelIndex (zip ls [1..] ++) $ closureAllocDecs decs cont
+    tell $ zipWith (\l i -> (A.Name l, A.HGlobal (A.TAlias g (Just A.TInt)) (A.VConst (A.CInt i)))) ls [0 ..]
+    locally typeAliases ((g, A.TInt) :)
+        $ locally tyScope ((x, g) :)
+        $ locally labelIndex (zip ls [0 ..] ++) $ closureAllocDecs decs cont
 closureAllocDecs (C.DBind x t : decs) cont = do
     let g = A.Name (x ^. name)
     t' <- lift $ closureAllocTy t
@@ -167,7 +175,7 @@ closureAllocTopExp (defns, exp) = do
             let g = A.Name (fst f ^. name)
             arg_tys <- lift $ mapM (closureAllocTy . snd) xs
             ret_ty <- lift $ closureAllocTy (C.typeof e)
-            e' <- lift $ closureAllocExp e
+            e' <- lift $ locally varScope (reverse (map fst xs) ++) $ closureAllocExp e
             tell [(g, A.HCode arg_tys ret_ty e')]
         lift $ closureAllocExp exp
 

@@ -20,7 +20,9 @@ checkEqTys (TFun ts1 t2) (TFun us1 u2) = do
 checkEqTys (TExists t1) (TExists t2) = checkEqTys t1 t2
 checkEqTys (TRecurs t1) (TRecurs t2) = checkEqTys t1 t2
 checkEqTys (TRow r1) (TRow r2) = checkEqRowTys r1 r2
-checkEqTys (TAlias x) (TAlias y) | x == y = return ()
+checkEqTys (TAlias x _) (TAlias y _) | x == y = return ()
+checkEqTys (TAlias _ (Just ty1)) ty2 = checkEqTys ty1 ty2
+checkEqTys ty1 (TAlias _ (Just ty2)) = checkEqTys ty1 ty2
 checkEqTys t1 t2 = fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
 checkEqRowTys :: RowTy -> RowTy -> IO ()
@@ -116,7 +118,8 @@ checkExp (ELet (BUpdate ann_ty val1 idx val2) body) = do
     case ty1 of
         TRow row1 -> lift $  do
             checkEqTys (fst (row1 ^?! ix idx)) ty2
-            checkEqTys ann_ty (TRow row1)
+            let row1' = row1 & ix idx %~ \(ty, _) -> (ty, True)
+            checkEqTys ann_ty (TRow row1')
         _ -> fail $ "expected row type, but got " ++ show ty1
     locally localEnv (Just ann_ty :) $ checkExp body
 checkExp (ECase val exps) = do

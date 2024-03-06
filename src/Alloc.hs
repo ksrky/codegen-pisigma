@@ -36,7 +36,7 @@ data Ty
     | TExists Ty
     | TRecurs Ty
     | TRow RowTy
-    | TAlias Name
+    | TAlias Name (Maybe Ty)
     deriving (Eq, Show)
 
 infixr 5 :>
@@ -105,7 +105,7 @@ mapTy onvar = flip $ cata $ \case
     TExistsF ty -> \c -> TExists (ty (c + 1))
     TRecursF ty -> \c -> TRecurs (ty (c + 1))
     TRowF row_ty -> \c -> TRow $ mapRowTy onvar c row_ty
-    TAliasF name -> const $ TAlias name
+    TAliasF name mb_ty -> \c -> TAlias name (mb_ty <*> pure (c + 1))
 
 mapRowTy ::  (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
 mapRowTy onvar c = cata $ \case

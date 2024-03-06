@@ -1,6 +1,7 @@
 module Toplevel (runMain) where
 
 import AnfClosure
+import ClosureAlloc
 import LambdaAnf
 import RawLambda
 
@@ -17,3 +18,5 @@ runMain inp = do
     clos_prog <- anfClosureProgram anf_prog
     putDocW 60 $ pretty clos_prog
     putStrLn ""
+    _alloc_prog <- closureAllocProgram clos_prog
+    return ()

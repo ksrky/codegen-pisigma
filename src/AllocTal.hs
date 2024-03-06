@@ -32,7 +32,7 @@ allocTalTy = cata $ \case
     A.TExistsF ty -> T.TExists <$> ty
     A.TRecursF ty -> T.TRecurs <$> ty
     A.TRowF row -> undefined
-    A.TAliasF n  -> undefined
+    A.TAliasF n _ -> undefined
 
 allocConst :: A.Const -> T.WordVal
 allocConst (A.CInt i)               = T.VInt i

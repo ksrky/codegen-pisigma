@@ -37,6 +37,7 @@ idxToInt Idx1       = 1
 idxToInt (IdxS idx) = 1 + idxToInt idx
 
 intToIdx :: Int -> Idx
+intToIdx n | n < 1 = error "non-positive index"
 intToIdx 1 = Idx1
 intToIdx n = IdxS (intToIdx (n - 1))
 
