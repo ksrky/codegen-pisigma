@@ -18,7 +18,8 @@ data Ctx = Ctx {
     _varScope   :: [Id],
     _funScope   :: [(Id, A.Name)],
     _tyScope    :: [(Id, A.Name)],
-    _labelIndex :: [(String, Int)]}
+    _labelIndex :: [(C.Label, Int)]
+}
 
 makeLenses ''Ctx
 
@@ -26,6 +27,9 @@ type CtxM = ReaderT Ctx IO
 
 runCtxM :: CtxM a -> IO a
 runCtxM m = runReaderT m (Ctx [] [] [] [])
+
+idToName :: Id -> A.Name
+idToName = A.Name . view name
 
 closureAllocTy :: C.Ty -> CtxM A.Ty
 closureAllocTy = cata $ \case
@@ -62,11 +66,11 @@ closureAllocLit (C.LInt i) = A.CInt i
 
 closureAllocVal :: C.Val -> WriterT [A.Bind] CtxM A.Val
 closureAllocVal (C.VLit l)      = return $ A.VConst (closureAllocLit l)
-closureAllocVal (C.VVar (f, t)) | f ^. extern = do
+{-closureAllocVal (C.VVar (f, t)) = do
     fsc <- view funScope -- TODO: extern scope
     case lookup f fsc of
         Just g  -> lift $ A.VConst <$> (A.CGlobal g <$> closureAllocTy t)
-        Nothing -> fail "unbound variable"
+        Nothing -> fail "unbound variable"-}
 closureAllocVal (C.VVar (x, t)) = do
     vsc <- view varScope
     case List.elemIndex x vsc of
@@ -107,12 +111,20 @@ closureAllocExp (C.ELet (C.BVal x v) e) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     e' <- locally varScope (fst x:) $ closureAllocExp e
     return $ foldr A.ELet e' (bs ++ [A.BVal ty v'])
-closureAllocExp (C.ELet (C.BCall x v vs) e) = do
+closureAllocExp (C.ELet (C.BCall x fun vs) e) = do
     ty <- closureAllocTy (snd x)
-    (v', bs) <- runWriterT $ closureAllocVal v
+    val <- case fun of
+        C.ExternalFun (f, fty) -> do
+            fty' <- closureAllocTy fty
+            return $ A.VConst (A.CGlobal (idToName f) fty')
+        C.LocalFun (f, fty) -> do
+            vsc <- view varScope
+            case List.elemIndex f vsc of
+                Just i  -> A.VVar i <$> closureAllocTy fty
+                Nothing -> fail "unbound variable"
     (vs', bss) <- mapAndUnzipM (runWriterT . closureAllocVal) vs
     e' <- locally varScope (fst x:) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ concat bss ++ [A.BCall ty v' vs'])
+    return $ foldr A.ELet e' (concat bss ++ [A.BCall ty val vs'])
 closureAllocExp (C.ELet (C.BProj x v i) e) = do
     ty <- closureAllocTy (snd x)
     (v', bs) <- runWriterT $ closureAllocVal v

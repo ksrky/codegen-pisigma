@@ -9,8 +9,10 @@ module Closure (
     RowTy(..),
     RowTyF(..),
     Var,
+    Label,
     Val(..),
     ValF(..),
+    Fun(..),
     Bind(..),
     Exp(..),
     ExpF(..),
@@ -89,9 +91,14 @@ data Val
     | VAnnot Val Ty
     deriving (Eq, Show)
 
+data Fun
+    = LocalFun {funVar :: Var}
+    | ExternalFun {funVar :: Var}
+    deriving (Eq, Show)
+
 data Bind
     = BVal Var Val
-    | BCall Var Val [Val]
+    | BCall Var Fun [Val]
     | BProj Var Val Idx
     | BUnpack TyVar Var Val
     deriving (Eq, Show)
@@ -243,9 +250,13 @@ instance PrettyPrec Val where
     prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
     prettyPrec _ (VAnnot v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
 
+instance PrettyPrec Fun where
+    pretty (LocalFun (f, _))    = pretty f
+    pretty (ExternalFun (f, _)) = pretty f
+
 instance PrettyPrec Bind where
     pretty (BVal x v) = pretty x <+> "=" <> softline <> pretty v
-    pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> prettyMax v1
+    pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> pretty v1
         <> parens (hsep (punctuate "," (map prettyMax vs2)))
     pretty (BProj x v idx) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty idx
     pretty (BUnpack tv x v) = brackets (pretty tv <> "," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v

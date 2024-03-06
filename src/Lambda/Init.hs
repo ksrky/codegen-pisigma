@@ -4,7 +4,6 @@ module Lambda.Init (
     initEnv
 ) where
 
-import Control.Lens.Operators
 import Id
 import Lambda
 
@@ -14,26 +13,18 @@ idBool = newIdUnsafe "Bool"
 tyBool :: Ty
 tyBool = TName idBool
 
-idTrue :: Id
+idTrue, idFalse :: Id
 idTrue = newIdUnsafe "True"
-
-idFalse :: Id
 idFalse = newIdUnsafe "False"
 
-idPlus :: Id
-idPlus = newIdUnsafe "#add" & extern .~ True
-
-idMinus :: Id
-idMinus = newIdUnsafe "#sub" & extern .~ True
-
-idTimes :: Id
-idTimes = newIdUnsafe "#mul" & extern .~ True
-
-idDiv :: Id
-idDiv = newIdUnsafe "#div" & extern .~ True
+idPlus, idMinus, idTimes, idDiv :: Id
+idPlus = newIdUnsafe "#add"
+idMinus = newIdUnsafe "#sub"
+idTimes = newIdUnsafe "#mul"
+idDiv = newIdUnsafe "#div"
 
 idEq :: Id
-idEq = newIdUnsafe "#eq" & extern .~ True
+idEq = newIdUnsafe "#eq"
 
 initCtx :: [(String, (Id, Ty))]
 initCtx =

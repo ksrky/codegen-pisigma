@@ -76,14 +76,14 @@ checkBind :: [(TyVar, TyVar)] -> Bind -> ReaderT Env IO ()
 checkBind cts (BVal x v) = do
     t <- checkVal cts v
     lift $ checkEqTys cts (snd x) t
-checkBind cts (BCall x v vs) = do
-    t <- checkVal cts v
+checkBind cts (BCall x fun vs) = do
+    let ty = snd (funVar fun)
     ts <- mapM (checkVal cts) vs
-    case t of
+    case ty of
         TFun ts1 t2 -> lift $ do
             zipWithM_ (checkEqTys cts) ts1 ts
             checkEqTys cts (snd x) t2
-        _ -> fail $ "required function type, but got " ++ show t
+        _ -> fail $ "required function type, but got " ++ show ty
 checkBind cts (BProj x v idx) = do
     t <- checkVal cts v
     case t of

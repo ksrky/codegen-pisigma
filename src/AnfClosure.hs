@@ -4,7 +4,6 @@ import Anf                        qualified as A
 import Closure                    qualified as C
 import Id
 
-import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
@@ -29,7 +28,7 @@ findLocals :: C.Var -> CCM ()
 findLocals x = do
     lcls <- ask
     escs <- get
-    if view extern x || fst x `elem` lcls || fst x `elem` map fst escs
+    if fst x `elem` lcls || fst x `elem` map fst escs
         then return ()
         else modify (++ [x])
 
@@ -97,7 +96,7 @@ anfClosureBind :: A.Bind -> CCM [C.Bind]
 anfClosureBind (A.BVal x v) = List.singleton <$> (C.BVal (anfClosureVar x) <$> anfClosureVal v)
 anfClosureBind (A.BCall x (A.ExternalFun f) vs2) = do
     vs2' <- mapM anfClosureVal vs2
-    return [C.BCall (anfClosureVar x) (C.VVar (anfClosureKnownVar f)) vs2']
+    return [C.BCall (anfClosureVar x) (C.ExternalFun (anfClosureKnownVar f)) vs2']
 anfClosureBind (A.BCall x (A.LocalFun v1) vs2)
     | C.TExists tv t_cl <- anfClosureTy (A.typeof v1) = do
     let x_cl = (newIdUnsafe "x_cl", t_cl)
@@ -105,7 +104,7 @@ anfClosureBind (A.BCall x (A.LocalFun v1) vs2)
     let t_code = C.TFun (t_cl : map (anfClosureTy . A.typeof) vs2) (anfClosureTy (A.typeof x))
     let x_code = (newIdUnsafe "x_code", t_code)
     let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) Idx1
-    d3 <- C.BCall (anfClosureVar x) (C.VVar x_code) <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
+    d3 <- C.BCall (anfClosureVar x) (C.LocalFun x_code) <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
     return [d1, d2, d3]
     | otherwise = error "impossible"
 

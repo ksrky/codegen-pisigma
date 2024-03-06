@@ -2,7 +2,6 @@
 
 module Id (
     newUniq,
-    HasAttr(..),
     Id(..),
     name,
     uniq,
@@ -22,18 +21,7 @@ type Uniq = IORef ()
 newUniq :: MonadIO m => m Uniq
 newUniq = liftIO $ newIORef ()
 
-newtype Attr = Attr {_extern :: Bool}
-    deriving (Eq, Show)
-
-makeClassy ''Attr
-
-instance HasAttr a => HasAttr (a, b) where
-    attr = _1 . attr
-
-noAttr :: Attr
-noAttr = Attr {_extern = False}
-
-data Id = Id {_name :: String, _attr :: Attr, _uniq :: Uniq}
+data Id = Id {_name :: String, _uniq :: Uniq}
 
 makeLensesFor [("_name", "name"), ("_uniq", "uniq")] ''Id
 
@@ -43,14 +31,11 @@ instance Eq Id where
 instance Show Id where
     show = _name
 
-instance HasAttr Id where
-    attr = lens _attr (\x y -> x {_attr = y})
-
 instance PrettyPrec Id where
     pretty = pretty . _name
 
 newId :: MonadIO m => String -> m Id
-newId s = Id s noAttr <$> newUniq
+newId s = Id s <$> newUniq
 
 newIdUnsafe :: String -> Id
 newIdUnsafe s = unsafePerformIO $ newId s
