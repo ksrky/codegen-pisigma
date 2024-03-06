@@ -148,3 +148,9 @@ allocTalHeap _                 = undefined
 allocTalProgram :: A.Program -> IO T.Program
 allocTalProgram (heaps, exp) = do
     undefined
+
+-- for each heap
+-- StateT (freeRegSet, Instrs)
+-- ReaderT (RegFileTy, Telescopes, idReg)
+
+-- ReaderT (idFuncName, idStruct, labelStruct)

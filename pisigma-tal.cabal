@@ -34,7 +34,6 @@ library
       Closure
       Closure.Check
       ClosureAlloc
-      ClosureTal
       Id
       Idx
       Lambda
@@ -47,7 +46,6 @@ library
       RawLambda
       Tal
       Toplevel
-      Untyped
   other-modules:
       Paths_pisigma_tal
   autogen-modules:

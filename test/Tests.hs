@@ -33,38 +33,38 @@ tests = testGroup "pisigma-tal" [parserTests, scopeTests, stepTests, goldenTests
 parserTests :: TestTree
 parserTests = testGroup "Parser tests"
   [ testCase "42" $ do
-      e <- parseProg "42"
+      e <- parseProgram "42"
       e @?= Raw.expMap Map.! "42"
   , testCase "x" $ do
-      e <- parseProg "x"
+      e <- parseProgram "x"
       e @?= Raw.expMap Map.! "x"
   , testCase "f x" $ do
-      e <- parseProg "f x"
+      e <- parseProgram "f x"
       e @?= Raw.expMap Map.! "f x"
   , testCase "\\x -> x" $ do
-      e <- parseProg "\\x -> x"
+      e <- parseProgram "\\x -> x"
       e @?= Raw.expMap Map.! "\\x -> x"
   , testCase "let x = 42 in x" $ do
-      e <- parseProg "let x = 42 in x"
+      e <- parseProgram "let x = 42 in x"
       e @?= Raw.expMap Map.! "let x = 42 in x"
   , testCase "let x = 42 in x" $ do
-      e <- parseProg "let rec f = \\x -> g x and g = \\x -> f x in f 0"
+      e <- parseProgram "let rec f = \\x -> g x and g = \\x -> f x in f 0"
       e @?= Raw.expMap Map.! "let rec f = \\x -> g x and g = \\x -> f x in f 0"
   , testCase "True" $ do
-      e <- parseProg "True"
+      e <- parseProgram "True"
       e @?= Raw.expMap Map.! "True"
   , testCase "if True then 1 else 0" $ do
-      e <- parseProg "if True then 1 else 0"
+      e <- parseProgram "if True then 1 else 0"
       e @?= Raw.expMap Map.! "if True then 1 else 0"
   , testCase "2 * 3 == 6" $ do
-      e <- parseProg "2 * 3 == 6"
+      e <- parseProgram "2 * 3 == 6"
       e @?= Raw.expMap Map.! "2 * 3 == 6"
   ]
 
 scopeTests :: TestTree
 scopeTests = testGroup "Scope tests"
   [ testCase "\\x -> x * x" $ do
-      e1 <- parseProg "\\x -> x * x"
+      e1 <- parseProgram "\\x -> x * x"
       e2 <- rawLambdaProgram e1
       case Lambda.stripAnnot (snd e2) of
         Lambda.ScopeTest1 x0 x1 x2 -> do x0 @?= x1; x1 @?= x2
@@ -75,7 +75,7 @@ stepTests :: TestTree
 stepTests = testGroup "Step tests"
   [ testCaseSteps "42" $ \step -> do
       step "Parser"
-      e1 <- parseProg "42"
+      e1 <- parseProgram "42"
       e1 @?= Raw.expMap Map.! "42"
       step "RawLambda"
       e2 <- rawLambdaProgram e1
@@ -94,7 +94,7 @@ stepTests = testGroup "Step tests"
       Closure.checkProgram e4
       step "Done"
   , testCaseSteps "\\x -> x" $ \step -> do
-      e1 <- parseProg "\\x -> x"
+      e1 <- parseProgram "\\x -> x"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
@@ -109,7 +109,7 @@ stepTests = testGroup "Step tests"
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let x = 42 in x" $ \step -> do
-      e1 <- parseProg "let x = 42 in x"
+      e1 <- parseProgram "let x = 42 in x"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
@@ -124,7 +124,7 @@ stepTests = testGroup "Step tests"
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
-      e1 <- parseProg "(\\x -> x) 5"
+      e1 <- parseProgram "(\\x -> x) 5"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
@@ -139,7 +139,7 @@ stepTests = testGroup "Step tests"
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "2 * 3 == 6" $ \step -> do
-      e1 <- parseProg "2 * 3 == 6"
+      e1 <- parseProgram "2 * 3 == 6"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
@@ -154,7 +154,7 @@ stepTests = testGroup "Step tests"
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
-      e1 <- parseProg "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
+      e1 <- parseProgram "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
@@ -169,7 +169,7 @@ stepTests = testGroup "Step tests"
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
-      e1 <- parseProg "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
+      e1 <- parseProgram "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
@@ -184,7 +184,7 @@ stepTests = testGroup "Step tests"
       Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5" $ \step -> do
-      e1 <- parseProg "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
+      e1 <- parseProgram "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
       Lambda.checkProgram e2
@@ -202,7 +202,7 @@ stepTests = testGroup "Step tests"
 
 outputClosString :: Text -> IO BL.ByteString
 outputClosString  inp = do
-  raw_prog <- parseProg inp
+  raw_prog <- parseProgram inp
   lam_prog <- rawLambdaProgram raw_prog
   let anf_prog = lambdaAnfProgram lam_prog
   clos_prog <- anfClosureProgram anf_prog
