@@ -265,7 +265,7 @@ instance PrettyPrec Exp where
     pretty (ELet d e)    = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
     pretty (ECase v les) = vsep [ "case" <+> pretty v <+> "of"
                                 , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
-    pretty (EReturn v)      = "ret" <+> prettyMax v
+    pretty (EReturn v)   = "ret" <+> prettyMax v
     pretty (EAnnot e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
 instance PrettyPrec Code where

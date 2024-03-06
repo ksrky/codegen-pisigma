@@ -6,7 +6,8 @@ module Id (
     name,
     uniq,
     newId,
-    newIdUnsafe
+    newIdUnsafe,
+    dummyId
 ) where
 
 import Control.Lens.Combinators
@@ -39,3 +40,6 @@ newId s = Id s <$> newUniq
 
 newIdUnsafe :: String -> Id
 newIdUnsafe s = unsafePerformIO $ newId s
+
+dummyId :: Id
+dummyId = newIdUnsafe "dummy"

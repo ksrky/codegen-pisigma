@@ -104,11 +104,14 @@ closureAllocVal (C.VUnroll v) =
 closureAllocVal (C.VAnnot v t) =
     A.VAnnot <$> closureAllocVal v <*> lift (closureAllocTy t)
 
+dummyIds :: [A.Bind] -> [Id]
+dummyIds bs = replicate (length bs) dummyId
+
 closureAllocExp :: C.Exp -> CtxM A.Exp
 closureAllocExp (C.ELet (C.BVal x val) exp) = do
     ty <- closureAllocTy (snd x)
     (val', binds) <- runWriterT $ closureAllocVal val
-    exp' <- locally varScope (fst x:) $ closureAllocExp exp
+    exp' <- locally varScope ((fst x :) . (dummyIds binds ++)) $ closureAllocExp exp
     return $ foldr A.ELet exp' (binds ++ [A.BVal ty val'])
 closureAllocExp (C.ELet (C.BCall x fun args) exp) = do
     ty <- closureAllocTy (snd x)
@@ -124,19 +127,19 @@ closureAllocExp (C.ELet (C.BCall x fun args) exp) = do
                 Just i  -> A.VVar i <$> closureAllocTy fty
                 Nothing -> fail $ "unknown function: " ++ show f
     (args', bindss) <- mapAndUnzipM (runWriterT . closureAllocVal) args
-    exp' <- locally varScope (fst x:) $ closureAllocExp exp
-    return $ foldr A.ELet exp' (concat bindss ++ [A.BCall ty fun' args'])
+    let binds = concat bindss
+    exp' <- locally varScope ((fst x :) . (dummyIds binds ++)) $ closureAllocExp exp
+    return $ foldr A.ELet exp' (binds ++ [A.BCall ty fun' args'])
 closureAllocExp (C.ELet (C.BProj x v i) e) = do
     ty <- closureAllocTy (snd x)
-    (v', bs) <- runWriterT $ closureAllocVal v
-    e' <- locally varScope (fst x:) $ closureAllocExp e
-    return $ foldr A.ELet e' (bs ++ [A.BProj ty v' i])
-closureAllocExp (C.ELet (C.BUnpack tv x v) e) =
-    locally varScope (tv :) $ do
-        ty <- closureAllocTy (snd x)
-        (v', bs) <- runWriterT $ closureAllocVal v
-        e' <- locally varScope (fst x :) $ closureAllocExp e
-        return $ foldr A.ELet e' (bs ++ [A.BUnpack ty v'])
+    (v', binds) <- runWriterT $ closureAllocVal v
+    e' <- locally varScope ((fst x :) . (dummyIds binds ++)) $ closureAllocExp e
+    return $ foldr A.ELet e' (binds ++ [A.BProj ty v' i])
+closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
+    ty <-  locally varScope (tv :) $ closureAllocTy (snd x)
+    (v', binds) <- runWriterT $ closureAllocVal v
+    e' <- locally varScope (([fst x, tv] ++) . (dummyIds binds ++)) $ closureAllocExp e
+    return $ foldr A.ELet e' (binds ++ [A.BUnpack ty v'])
 closureAllocExp (C.ECase v les) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     ies' <- forM les $ \(l, e) -> do

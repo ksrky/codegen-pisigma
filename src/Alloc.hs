@@ -24,6 +24,8 @@ import Control.Lens.Operators
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
 import Idx
+import Prettyprinter            hiding (pretty)
+import Prettyprinter.Prec
 
 newtype Name = Name String
     deriving (Eq, Show)
@@ -137,3 +139,61 @@ instance Typeable Val where
 
 instance Typeable Exp where
     typeof = undefined
+
+instance PrettyPrec Name where
+    pretty (Name s) = pretty s
+
+instance PrettyPrec Const where
+    pretty (CInt i)      = pretty i
+    pretty (CGlobal f _) = pretty f
+
+instance PrettyPrec Ty where
+    prettyPrec _ TInt = "Int"
+    prettyPrec _ (TVar i) = "`" <> pretty i
+    prettyPrec p (TFun ts t) = parPrec p 2 $
+        parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
+    prettyPrec p (TExists t) = parPrec p 0 $ "∃_" <> dot <+> pretty t
+    prettyPrec p (TRecurs t) = parPrec p 0 $ "μ_" <> dot <+> pretty t
+    prettyPrec _ (TRow r) = braces $ pretty r
+    prettyPrec _ (TAlias name _) = pretty name
+
+instance PrettyPrec RowTy where
+    pretty REmpty               = "ε"
+    pretty (RVar i)             = "`" <> pretty i
+    pretty ((ty, True) :> row)  = pretty ty <> "¹" <> "," <+> pretty row
+    pretty ((ty, False) :> row) = pretty ty <> "⁰" <> "," <+> pretty row
+
+instance PrettyPrec Val where
+    prettyPrec _ (VVar i _)    = "`" <> pretty i
+    prettyPrec _ (VConst c)    = pretty c
+    prettyPrec p (VPack t1 v t2) = parPrec p 0 $ hang 2 $
+        hsep ["pack", brackets (pretty t1 <> "," <+> pretty v) <> softline <> "as", prettyPrec 2 t2]
+    prettyPrec p (VRoll v t)   = parPrec p 0 $ hang 2 $ hsep ["roll", prettyMax v <> softline <> "as", prettyPrec 2 t]
+    prettyPrec p (VUnroll v)   = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
+    prettyPrec _ (VAnnot v t)  = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
+
+instance PrettyPrec Bind where
+    pretty (BVal _ v) = "_ =" <+> pretty v
+    pretty (BCall _ f vs) = "_ =" <+> pretty f <+> hsep (map pretty vs)
+    pretty (BProj _ v i) = "_ =" <+> pretty v <> "." <> pretty i
+    pretty (BUnpack t v) = "[_, _ :" <+> pretty t <> "] = unpack" <+> pretty v
+    pretty (BMalloc _ ts) = "_ = malloc" <+> brackets (hsep (punctuate ", " (map pretty ts)))
+    pretty (BUpdate _ v1 i v2) = "_ =" <+> pretty v1 <> brackets (pretty i) <+> "<-" <+> pretty v2
+
+instance PrettyPrec Exp where
+    pretty (ELet b e)   = vsep [hang 2 ("let" <+> pretty b) <+> "in", pretty e]
+    pretty (ECase v es) = vsep [ "case" <+> pretty v <+> "of"
+                               , "  " <> align (vsep (map (\ei -> hang 2 $ sep ["_ ->", pretty ei]) es))]
+    pretty (EReturn v)  = "ret" <+> prettyMax v
+    pretty (EAnnot e t) = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
+
+instance PrettyPrec (Name, Heap) where
+    pretty (name, HGlobal t v) = pretty name <+> ":" <+> pretty t <+> "=" <+> pretty v
+    pretty (name, HCode ts1 t2 e) = pretty name <+> "="
+        <+> parens (hsep $ punctuate ", " $ map (\t -> "_ :" <+> pretty t) ts1)
+        <+> ":" <+> pretty t2 <+> "=" <+> pretty e
+    pretty (name, HExtern t) = "extern" <+> pretty name <+> "=" <+> pretty t
+    pretty (name, HTypeAlias t) = "type" <+> pretty name <+> "=" <+> pretty t
+
+instance PrettyPrec Program where
+    pretty (hs, e) = vsep (map pretty hs) <> line <> pretty e
