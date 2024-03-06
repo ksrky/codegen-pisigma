@@ -145,6 +145,6 @@ allocTalHeap (A.HCode tys _ exp) = do
     return $ T.HCode rfilety (st ^. instrs)
 allocTalHeap _                 = undefined
 
-allocTalProgram :: A.Program -> CtxM T.Program
+allocTalProgram :: A.Program -> IO T.Program
 allocTalProgram (heaps, exp) = do
     undefined

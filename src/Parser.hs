@@ -1,4 +1,4 @@
-module Parser (pExp, parseProg) where
+module Parser (pExp, parseProgram) where
 
 import Raw
 
@@ -95,10 +95,10 @@ pExp2 = makeExprParser (try pEApp <|> pExp1) table <?> "Exp2"
 pExp :: Parser Exp
 pExp = lexeme (pELam <|> try pELetrec <|> pELet <|> pEIf <|> pExp2) <?> "Exp"
 
-pProg :: Parser Program
-pProg = pExp <* eof <?> "Program"
+pProgram :: Parser Program
+pProgram = pExp <* eof <?> "Program"
 
-parseProg :: MonadFail m => Text -> m Program
-parseProg inp = case runParser pProg "main" inp of
+parseProgram :: MonadFail m => Text -> m Program
+parseProgram inp = case runParser pProgram "main" inp of
     Left err   -> fail $ errorBundlePretty err
     Right prog -> return prog
