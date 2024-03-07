@@ -36,7 +36,7 @@ checkExp (EApp e1 e2) = do
 checkExp (ELam x e) = do
     t <- local (extendBindEnv x) $ checkExp e
     return $ TFun (snd x) t
-checkExp (EExtern fvar args) = do
+checkExp (EExternApp fvar args) = do
     arg_tys <- mapM checkExp args
     mb_fun_ty <- asks $ lookupBindEnv (fst fvar)
     case mb_fun_ty of

@@ -197,6 +197,20 @@ stepTests = testGroup "Step tests"
       e5 <- closureAllocProgram e4
       Alloc.checkProgram e5
       step "Done"
+  , testCaseSteps "let rec iseven = \\n -> if n == 0 then True else odd (n - 1)\
+                    \and isodd = \\n -> if n == 0 then False else even (n - 1) in iseven 7" $ \step -> do
+      e1 <- parseProgram "let rec even = \\n -> if n == 0 then True else odd (n - 1)\
+                            \and odd = \\n -> if n == 0 then False else even (n - 1) in even 7"
+      step "Lambda.Check"
+      e2 <- rawLambdaProgram e1
+      Lambda.checkProgram e2
+      step "Anf.Check"
+      let e3 = lambdaAnfProgram e2
+      Anf.checkProgram e3
+      step "Closure.Check"
+      e4 <- anfClosureProgram e3
+      print $ pretty e4
+      Closure.checkProgram e4
   ]
 
 outputClosString :: Text -> IO BL.ByteString

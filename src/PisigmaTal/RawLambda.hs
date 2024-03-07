@@ -78,14 +78,14 @@ tcExp (R.EVar x) exp_ty = do
         Just (x', t) -> do
             lift $ unify exp_ty t
             return $ L.EVar (x', t)
-        Nothing -> fail "unbound variable"
+        Nothing -> fail $ "unbound variable: " ++ x
 tcExp (R.ELabel l) exp_ty = do
     ctx <- view L.labelScope
     case lookup l ctx of
         Just t -> do
             lift $ unify exp_ty t
             return $ L.ELabel l t
-        Nothing      -> fail "unknown label"
+        Nothing      -> fail $ "unknown label: " ++ l
 tcExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar
     e1' <- tcExp e1 (L.TFun t2 exp_ty)
@@ -102,13 +102,13 @@ tcExp (R.EBinOp op e1 e2) exp_ty = do
     ctx <- view L.varScope
     op' <- case lookup op ctx of
         Just op' -> return op'
-        Nothing  -> fail "unknown binop"
+        Nothing  -> fail $ "unknown binop: " ++ op
     case snd op' of
         L.TFun t1' (L.TFun t2' tr) -> do
             e1' <- tcExp e1 t1'
             e2' <- tcExp e2 t2'
             lift $ unify exp_ty tr
-            return $ L.EAnnot (L.EExtern op' [e1', e2']) exp_ty
+            return $ L.EAnnot (L.EExternApp op' [e1', e2']) exp_ty
         _ -> fail "required binary function type"
 tcExp (R.ELet xes e2) exp_ty = do
     xes' <- forM xes $ \(x, e) -> do
@@ -165,8 +165,8 @@ instance Zonking L.Exp where
         L.EVarF x -> L.EVar <$> zonk x
         L.ELabelF l t -> L.ELabel l <$> zonk t
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
+        L.EExternAppF f es -> L.EExternApp <$> zonk f <*> sequence es
         L.ELamF x e -> L.ELam <$> zonk x <*> e
-        L.EExternF f es -> L.EExtern <$> zonk f <*> sequence es
         L.ELetF x e1 e2 -> L.ELet <$> zonk x <*> e1 <*> e2
         L.ELetrecF xes e2 -> L.ELetrec <$> mapM (\(x, e) -> ((,) <$> zonk x) <*> e) xes <*> e2
         L.ETupleF es -> L.ETuple <$> sequence es

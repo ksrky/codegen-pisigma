@@ -36,8 +36,7 @@ lambdaAnfExp (L.EApp e1 e2) kont =
     let var = (newIdUnsafe "x_call", t_call) in
     let body = kont (A.VVar var) in
     A.ELet (A.BCall var (A.LocalFun v1) [v2]) body
-lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)
-lambdaAnfExp (L.EExtern fvar exps) kont =
+lambdaAnfExp (L.EExternApp fvar exps) kont =
     let go :: [A.Val] -> [L.Exp] -> A.Exp
         go acc [] =
             let (arg_tys, ret_ty) = L.splitTFun (snd fvar)
@@ -47,6 +46,7 @@ lambdaAnfExp (L.EExtern fvar exps) kont =
             in A.ELet (A.BCall var (A.ExternalFun fvar') (reverse acc)) body
         go acc (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) rest
     in go [] exps
+lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)
 lambdaAnfExp (L.ELet x e1 e2) kont =
     lambdaAnfExp e1 $ \v1 ->
     A.ELet (A.BVal (lambdaAnfVar x) v1) (lambdaAnfExp e2 kont)
