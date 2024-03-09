@@ -43,9 +43,12 @@ library
       PisigmaTal.Parser
       PisigmaTal.Raw
       PisigmaTal.RawLambda
-      PisigmaTal.Tal
       PisigmaTal.Toplevel
       Prettyprinter.Prec
+      Tal.Constant
+      Tal.Constructors
+      Tal.Monad
+      Tal.Syntax
   other-modules:
       Paths_pisigma_tal
   autogen-modules:

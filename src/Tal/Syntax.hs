@@ -1,20 +1,20 @@
-module PisigmaTal.Tal (
+module Tal.Syntax (
     Reg(..),
-    retReg,
     Name(..),
     Label,
     TyVar,
     Ty(..),
-    Row(..),
+    RowTy(..),
+    StackTy(..),
     HeapsTy,
     RegFileTy,
-    mkRegFileTy,
     Telescopes,
     Val(..),
     WordVal,
     SmallVal,
     Heap(..),
     Heaps,
+    Stack,
     RegFile,
     Instr(..),
     Instrs(..),
@@ -22,12 +22,12 @@ module PisigmaTal.Tal (
 ) where
 
 import Data.Map.Strict qualified as M
+import Data.Word
 
-newtype Reg = Reg {unReg :: Int}
+data Reg
+    = GeneralReg Word8
+    | SpecialReg String
     deriving (Eq, Ord, Show)
-
-retReg :: Reg
-retReg = Reg 0
 
 newtype Name = Name String
     deriving (Eq, Show)
@@ -42,34 +42,36 @@ data Ty
     | TRegFile RegFileTy
     | TExists Ty
     | TRecurs Ty
-    | TRow Row
-    deriving (Eq, Show)
-
-data Row = REmpty | RVar Int | (Ty, InitFlag) :> Row
+    | TRow RowTy
+    | TNonsense
     deriving (Eq, Show)
 
 type InitFlag = Bool
 
-type HeapsTy = [(Label, Ty)]
+data RowTy = REmpty | RVar Int | RSeq (Ty, InitFlag) RowTy
+    deriving (Eq, Show)
+
+data StackTy = SNil | SVar Int | SCons Ty StackTy
+    deriving (Eq, Show)
+
+type HeapsTy = M.Map Label Ty
 
 type RegFileTy = M.Map Reg Ty
-
-mkRegFileTy :: [Ty] -> RegFileTy
-mkRegFileTy = M.fromList . zip (map Reg [1..])
 
 type Telescopes = [TyVar]
 
 data NonReg
 
 data Val a where
-    VReg   :: Reg -> Val Reg
-    VWord  :: Val NonReg -> Val Reg
-    VLabel :: Label -> Val NonReg
-    VInt   :: Int -> Val NonReg
-    VJunk  :: Ty -> Val NonReg
-    VPack  :: Ty -> Val a -> Ty -> Val a
-    VRoll  :: Val a -> Ty -> Val a
-    VUnroll :: Val a -> Val a
+    VReg      :: Reg -> Val Reg
+    VWord     :: Val NonReg -> Val Reg
+    VLabel    :: Label -> Val NonReg
+    VInt      :: Int -> Val NonReg
+    VJunk     :: Ty -> Val NonReg
+    VPack     :: Ty -> Val a -> Ty -> Val a
+    VRoll     :: Val a -> Ty -> Val a
+    VUnroll   :: Val a -> Val a
+    VNonsense :: Val NonReg
 
 deriving instance Eq (Val a)
 deriving instance Show (Val a)
@@ -83,14 +85,16 @@ data Heap
     | HCode RegFileTy Instrs
     deriving (Eq, Show)
 
-type Heaps = [(Name, Heap)]
+type Heaps = M.Map Name Heap
 
 type RegFile = M.Map Reg WordVal
+
+type Stack = [WordVal]
 
 data Aop = Add | Sub | Mul
     deriving (Eq, Show)
 
-data Bop = Bnz
+data Bop = Bz | Bnz | Bgt | Blt
     deriving (Eq, Show)
 
 data Instr
@@ -102,6 +106,14 @@ data Instr
     | IMove Reg SmallVal
     | IStore Reg Int Reg
     | IUnpack Reg SmallVal
+    -- | @salloc n@
+    | ISalloc Int
+    -- | @sfree n@
+    | ISfree Int
+    -- | @sload rd, sp(i)@
+    | ISload Reg Int
+    -- | @sstore sp(i), rs@
+    | ISstore Int Reg
     deriving (Eq, Show)
 
 data Instrs
