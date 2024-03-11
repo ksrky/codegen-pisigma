@@ -129,7 +129,7 @@ anfClosureExp = cata $ \case
             appendDefn (f_code, v_code)
             let v = C.VPack t_env (C.VRoll (C.VTuple (C.VFun f_code : map C.VVar escs)) t_ucl) t_cl
             return $ C.BVal f v
-        flip (foldr C.ELet) binds' <$> mexp
+        C.ELetrec binds' <$> mexp
     A.ECaseF v les -> C.ECase <$> anfClosureVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
     A.EReturnF v -> C.EReturn <$> anfClosureVal v
     A.EAnnotF mexp ty -> C.EAnnot <$> mexp <*> pure (anfClosureTy ty)

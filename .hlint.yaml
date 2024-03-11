@@ -59,3 +59,4 @@
 # $ hlint --default > .hlint.yaml
 
 - ignore: { name: Functor law }
+- ignore: { name: Use second }

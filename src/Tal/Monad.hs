@@ -5,33 +5,45 @@ module Tal.Monad where
 
 import Control.Lens.Combinators
 import Control.Monad.Reader
-import Control.Monad.State
 import Data.IORef
 import Data.Map.Strict          qualified as M
 import Data.Set                 qualified as S
 import Tal.Syntax
 
 data TalContext = TalContext
-    { _regEnv     :: [Reg]
-    , _usedRegSet :: IORef (S.Set Reg)
-    , _regFileTy  :: RegFileTy
+    { _regEnv      :: [Reg]
+    , _usedRegSet  :: IORef (S.Set Reg)
+    , _regFileTy   :: RegFileTy
+    , _usedNameMap :: IORef (M.Map String Int)
     }
 
 makeClassy ''TalContext
 
-class MonadReader TalContext m => MonadTalCodegen m
+class MonadReader TalContext m => MonadTalBuilder m
 
-instance Monad m => MonadTalCodegen (ReaderT TalContext m)
+instance Monad m => MonadTalBuilder (ReaderT TalContext m)
 
-findReg :: MonadTalCodegen m => Int -> m Reg
+runTalBuilder :: MonadIO m => ReaderT TalContext m a -> m a
+runTalBuilder builder = do
+    _usedRegSet <- liftIO $ newIORef S.empty
+    _usedNameMap <- liftIO $ newIORef M.empty
+    runReaderT builder $
+        TalContext
+            { _regEnv = []
+            , _usedRegSet
+            , _regFileTy = M.empty
+            , _usedNameMap
+            }
+
+findReg :: MonadTalBuilder m => Int -> m Reg
 findReg i = do
     regs <- view regEnv
     return $ regs !! i
 
-withExtendReg :: MonadTalCodegen m => Reg -> m a -> m a
+withExtendReg :: MonadTalBuilder m => Reg -> m a -> m a
 withExtendReg reg = locally regEnv (reg :)
 
-withExtendRegs :: MonadTalCodegen m => [Reg] -> m a -> m a
+withExtendRegs :: MonadTalBuilder m => [Reg] -> m a -> m a
 withExtendRegs regs = locally regEnv (regs ++)
 
 freshReg :: (HasTalContext r, MonadReader r m, MonadIO m) => m Reg
@@ -52,24 +64,12 @@ freeRegSet = do
     usedRegsRef <- view usedRegSet
     liftIO $ writeIORef usedRegsRef S.empty
 
-data TalState = TalState
-    { _heapsState  :: Heaps
-    , _instrsState :: Instrs
-    }
-
-makeClassy ''TalState
-
-type TalBuilderT m = StateT TalState (ReaderT TalContext m)
-
-type TalBuilder = TalBuilderT IO
-
-instance Monad m => MonadTalCodegen (TalBuilderT m)
-
-initTalState :: TalState
-initTalState = TalState
-    { _heapsState = M.empty
-    , _instrsState = IHalt TNonsense
-    }
-
-runTalBuilderT :: Monad m => TalBuilderT m a -> ReaderT TalContext m TalState
-runTalBuilderT builder = snd <$> runStateT builder initTalState
+freshName :: (HasTalContext r, MonadReader r m, MonadIO m) => String -> m Name
+freshName str = do
+    usedNamesRef <- view usedNameMap
+    usedNames <- liftIO $ readIORef usedNamesRef
+    case M.lookup str usedNames of
+        Just num -> freshName $ str ++ "." ++ show num
+        Nothing -> do
+            liftIO $ writeIORef usedNamesRef (M.insert str 1 usedNames)
+            return $ Name str

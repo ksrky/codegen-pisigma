@@ -104,6 +104,7 @@ data Bind
 
 data Exp
     = ELet Bind Exp
+    | ELetrec [Bind] Exp
     | ECase Val [(Label, Exp)]
     | EReturn Val
     | EAnnot Exp Ty
@@ -211,6 +212,7 @@ instance Typeable Val where
 instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ t -> t
+        ELetrecF _ t -> t
         ECaseF _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
         EReturnF v -> typeof v
@@ -254,14 +256,15 @@ instance PrettyPrec Fun where
     pretty (ExternalFun (f, _)) = pretty f
 
 instance PrettyPrec Bind where
-    pretty (BVal x v) = pretty x <+> "=" <> softline <> pretty v
-    pretty (BCall x v1 vs2) = pretty x <+> "=" <> softline <> pretty v1
+    pretty (BVal x v) = hang 2 $ pretty x <+> "=" <> softline <> pretty v
+    pretty (BCall x v1 vs2) = hang 2 $ pretty x <+> "=" <> softline <> pretty v1
         <> parens (hsep (punctuate "," (map prettyMax vs2)))
-    pretty (BProj x v idx) = pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty idx
-    pretty (BUnpack tv x v) = brackets (pretty tv <> "," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
+    pretty (BProj x v idx) = hang 2 $ pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty idx
+    pretty (BUnpack tv x v) = hang 2 $ brackets (pretty tv <> "," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
 
 instance PrettyPrec Exp where
-    pretty (ELet d e)    = vsep [hang 2 ("let" <+> pretty d) <+> "in", pretty e]
+    pretty (ELet b e)    = vsep [hang 2 ("let" <+> pretty b) <+> "in", pretty e]
+    pretty (ELetrec bs e) = vsep [hang 2 ("letrec" <+> align (vsep (map pretty bs))), "in", pretty e]
     pretty (ECase v les) = vsep [ "case" <+> pretty v <+> "of"
                                 , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
     pretty (EReturn v)   = "ret" <+> prettyMax v
@@ -299,6 +302,7 @@ instance StripAnnot Bind where
 instance StripAnnot Exp where
     stripAnnot = cata $ \case
         ELetF b e -> ELet (stripAnnot b) e
+        ELetrecF bs e -> ELetrec (map stripAnnot bs) e
         ECaseF v lts -> ECase (stripAnnot v) lts
         EReturnF v -> EReturn (stripAnnot v)
         EAnnotF e _ -> e

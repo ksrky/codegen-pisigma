@@ -125,6 +125,8 @@ closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
     (v', binds) <- runWriterT $ closureAllocVal v
     e' <- locally varScope (([fst x, tv] ++) . (dummyIds binds ++)) $ closureAllocExp e
     return $ foldr A.ELet e' (binds ++ [A.BUnpack ty v'])
+closureAllocExp (C.ELetrec binds exp) = do
+    undefined
 closureAllocExp (C.ECase v les) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     ies' <- forM les $ \(l, e) -> do

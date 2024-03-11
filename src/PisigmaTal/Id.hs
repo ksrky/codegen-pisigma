@@ -29,6 +29,9 @@ makeLensesFor [("_name", "name"), ("_uniq", "uniq")] ''Id
 instance Eq Id where
     x == y = x ^. uniq == y ^. uniq
 
+instance Ord Id where
+    compare x y = compare (x ^. name) (y ^. name)
+
 instance Show Id where
     show = _name
 

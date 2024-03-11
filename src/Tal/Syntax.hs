@@ -30,7 +30,7 @@ data Reg
     deriving (Eq, Ord, Show)
 
 newtype Name = Name String
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 type Label = Name
 
