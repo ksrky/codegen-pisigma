@@ -45,9 +45,11 @@ library
       PisigmaTal.RawLambda
       PisigmaTal.Toplevel
       Prettyprinter.Prec
+      Tal.Bytecode
       Tal.Constant
       Tal.Constructors
-      Tal.Monad
+      Tal.Context
+      Tal.State
       Tal.Syntax
   other-modules:
       Paths_pisigma_tal

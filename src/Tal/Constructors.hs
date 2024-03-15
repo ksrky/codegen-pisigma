@@ -12,3 +12,7 @@ mkArgumentRegs n
     | n <= numArgumentRegs = take n argumentRegs
     | otherwise = error "exceeded the number of argument registers"
 
+infixr 5 <>|
+
+(<>|) :: [Instr] -> Instrs -> Instrs
+(<>|) inslist instrs = foldr ISeq instrs inslist

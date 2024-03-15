@@ -1,7 +1,6 @@
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-module Tal.Monad where
+module Tal.Context where
 
 import Control.Lens.Combinators
 import Control.Monad.Reader
@@ -45,6 +44,9 @@ withExtendReg reg = locally regEnv (reg :)
 
 withExtendRegs :: MonadTalBuilder m => [Reg] -> m a -> m a
 withExtendRegs regs = locally regEnv (regs ++)
+
+withExtendRegTy :: MonadTalBuilder m => Reg -> Ty -> m a -> m a
+withExtendRegTy reg ty = locally regFileTy (M.insert reg ty)
 
 freshReg :: (HasTalContext r, MonadReader r m, MonadIO m) => m Reg
 freshReg = do

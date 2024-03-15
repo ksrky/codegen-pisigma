@@ -16,12 +16,16 @@ module Tal.Syntax (
     Heaps,
     Stack,
     RegFile,
+    Aop(..),
+    Bop(..),
     Instr(..),
     Instrs(..),
     Program
 ) where
 
-import Data.Map.Strict qualified as M
+import Control.Lens.Cons
+import Control.Lens.Prism
+import Data.Map.Strict    qualified as M
 import Data.Word
 
 data Reg
@@ -78,11 +82,25 @@ deriving instance Show (Val a)
 
 type WordVal = Val NonReg
 
+instance Num WordVal where
+    VInt m + VInt n = VInt (m + n)
+    _ + _           = error "Int required"
+    VInt m - VInt n = VInt (m - n)
+    _ - _           = error "Int required"
+    VInt m * VInt n = VInt (m * n)
+    _ * _           = error "Int required"
+    abs (VInt n) = VInt (abs n)
+    abs _        = error "Int required"
+    signum (VInt n) = VInt (signum n)
+    signum _        = error "Int required"
+    fromInteger = VInt . fromInteger
+
 type SmallVal = Val Reg
 
 data Heap
     = HGlobal WordVal
     | HCode RegFileTy Instrs
+    | HStruct [WordVal]
     deriving (Eq, Show)
 
 type Heaps = M.Map Name Heap
@@ -100,7 +118,7 @@ data Bop = Bz | Bnz | Bgt | Blt
 data Instr
     = IAop Aop Reg Reg SmallVal
     | IBop Bop Reg SmallVal
-    | ICall Reg SmallVal [Reg]
+    | ICall Reg SmallVal
     | ILoad Reg Reg Int
     | IMalloc Reg [Ty]
     | IMove Reg SmallVal
@@ -123,5 +141,10 @@ data Instrs
     deriving (Eq, Show)
 
 infixr 5 `ISeq`
+
+instance Cons Instrs Instrs Instr Instr where
+    _Cons = prism (uncurry ISeq) $ \case
+        ISeq i is -> Right (i, is)
+        ins       -> Left ins
 
 type Program = (Heaps, RegFile, Instrs)
