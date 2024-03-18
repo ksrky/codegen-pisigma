@@ -84,7 +84,7 @@ closureAllocVal (C.VTuple vals) = do
         return $ A.BUpdate ty1 (A.VVar 0 ty2) (intToIdx i) val
     tell (bind0 : binds)
     return $ A.VVar 0 (last (mallocty : structtys))
-closureAllocVal (C.VPack t1 v t2) = do
+closureAllocVal (C.VPack t1 v t2) =
     A.VPack <$> lift (closureAllocTy t1) <*> closureAllocVal v <*> lift (closureAllocTy t2)
 closureAllocVal (C.VRoll v t) = do
     A.VRoll <$> closureAllocVal v <*> lift (closureAllocTy t)
@@ -126,7 +126,22 @@ closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
     e' <- locally varScope (([fst x, tv] ++) . (dummyIds binds ++)) $ closureAllocExp e
     return $ foldr A.ELet e' (binds ++ [A.BUnpack ty v'])
 closureAllocExp (C.ELetrec binds exp) = do
-    undefined
+    let bindIds = map (fst . C.bindVar) binds
+    binds' <- locally varScope (reverse bindIds ++) $ do
+        (packs, binds') <- runWriterT $ forM binds $ \case
+            C.BVal _ (C.VPack ty1 val ty2) -> do
+                ty1' <- lift $ closureAllocTy ty1
+                val' <- closureAllocVal val
+                ty2' <- lift $ closureAllocTy ty2
+                return (ty1', val', ty2')
+            _ -> fail "not supported yet"
+        let pack_tys = map (view _3) packs
+            packs_ty = A.TRow $ foldr ((A.:>) . (, True)) A.REmpty pack_tys
+            binds'' = A.BVal packs_ty (A.VFixPack packs) :
+                map (\i -> A.BProj (pack_tys !! i) (A.VVar i packs_ty) (intToIdx (i + 1))) [0 .. length binds - 1]
+        return $ binds' ++ binds''
+    exp' <- locally varScope ((dummyIds binds' ++ [dummyId] ++ reverse bindIds) ++) $ closureAllocExp exp
+    return $ foldr A.ELet exp' binds'
 closureAllocExp (C.ECase v les) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     ies' <- forM les $ \(l, e) -> do

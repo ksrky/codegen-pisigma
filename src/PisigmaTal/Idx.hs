@@ -41,6 +41,8 @@ intToIdx n | n < 1 = error "non-positive index"
 intToIdx 1 = Idx1
 intToIdx n = IdxS (intToIdx (n - 1))
 
+
+
 idxPred :: Idx -> Idx
 idxPred Idx1       = Idx1
 idxPred (IdxS idx) = idx

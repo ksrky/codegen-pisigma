@@ -69,6 +69,7 @@ allocTalVal (A.VVar x _ty) = do
 allocTalVal (A.VConst c) = return $ T.VWord (allocConst c)
 allocTalVal (A.VPack t1 v t2) =
     T.VPack <$> allocTalTy t1 <*> allocTalVal v <*> allocTalTy t2
+allocTalVal (A.VFixPack packs) = undefined
 allocTalVal (A.VRoll v t) = T.VRoll <$> allocTalVal v <*> allocTalTy t
 allocTalVal (A.VUnroll v) = T.VUnroll <$> allocTalVal v
 allocTalVal (A.VAnnot v _) = allocTalVal v
@@ -78,6 +79,7 @@ allocTalNonVarVal = cata $ \case
     A.VVarF{} -> fail "unexpected variable"
     A.VConstF c -> return $ allocConst c
     A.VPackF ty1 val ty2 -> T.VPack <$> allocTalTy ty1 <*> val <*> allocTalTy ty2
+    A.VFixPackF packs -> undefined
     A.VRollF val ty -> T.VRoll <$> val <*> allocTalTy ty
     A.VUnrollF val -> T.VUnroll <$> val
     A.VAnnotF val _ -> val
