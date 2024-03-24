@@ -134,16 +134,11 @@ anfClosureExp = cata $ \case
     A.EReturnF v -> C.EReturn <$> anfClosureVal v
     A.EAnnotF mexp ty -> C.EAnnot <$> mexp <*> pure (anfClosureTy ty)
 
-anfClosureRecBind :: A.Bind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
-anfClosureRecBind (A.BVal f v) | A.VLam xs e <- stripAnnotTop v = do
+anfClosureRecBind :: A.RecBind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
+anfClosureRecBind (A.RecBind f xs e) = do
     let xs' = map anfClosureVar xs
     (e', escs) <- lift $ runStateT (local (const $ map fst (f : xs)) $ anfClosureExp e) []
     return (anfClosureVar f, xs', e', escs)
-  where
-    stripAnnotTop :: A.Val -> A.Val
-    stripAnnotTop (A.VAnnot v' _) = stripAnnotTop v'
-    stripAnnotTop v'              = v'
-anfClosureRecBind _ = fail "lambda expected in recursive bindings"
 
 anfClosureDec :: A.Dec -> C.Dec
 anfClosureDec (A.DEnum x ls) = C.DEnum x ls

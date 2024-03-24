@@ -111,13 +111,14 @@ tcExp (R.EBinOp op e1 e2) exp_ty = do
             return $ L.EAnnot (L.EExternApp op' [e1', e2']) exp_ty
         _ -> fail "required binary function type"
 tcExp (R.ELet xes e2) exp_ty = do
-    xes' <- forM xes $ \(x, e) -> do
+    bbs <- forM xes $ \(x, e) -> do
         x' <- newId x
         t <- newTyVar
         e' <- tcExp e t
-        return ((x', t), e')
-    e2' <- locally L.varScope (map (\(x, _) -> (fst x ^. name, x)) xes' ++) $ tcExp e2 exp_ty
-    return $ L.EAnnot (foldr (uncurry L.ELet) e2' xes') exp_ty
+        return $ L.NonrecBind (x', t) e'
+    let env = map (\case L.NonrecBind x _ -> (fst x ^. name, x); _ -> error "impossible") bbs
+    e2' <- locally L.varScope (env ++) $ tcExp e2 exp_ty
+    return $ L.EAnnot (foldr L.ELet e2' bbs) exp_ty
 tcExp (R.ELetrec xes e2) exp_ty = do
     env <- forM xes $ \(x, _) -> do
         x' <- newId x
@@ -128,7 +129,7 @@ tcExp (R.ELetrec xes e2) exp_ty = do
             e' <- tcExp e (snd x)
             return (x, e')) env xes
         e2' <- locally L.varScope (env ++) $ tcExp e2 exp_ty
-        return $ L.EAnnot (L.ELetrec xes' e2') exp_ty
+        return $ L.EAnnot (L.ELet (L.MutrecBinds xes') e2') exp_ty
 tcExp (R.EIf e1 e2 e3) exp_ty = do
     e1' <- tcExp e1 tyBool
     e2' <- tcExp e2 exp_ty
@@ -167,8 +168,12 @@ instance Zonking L.Exp where
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
         L.EExternAppF f es -> L.EExternApp <$> zonk f <*> sequence es
         L.ELamF x e -> L.ELam <$> zonk x <*> e
-        L.ELetF x e1 e2 -> L.ELet <$> zonk x <*> e1 <*> e2
-        L.ELetrecF xes e2 -> L.ELetrec <$> mapM (\(x, e) -> ((,) <$> zonk x) <*> e) xes <*> e2
+        L.ELetF (L.NonrecBind x e1) e2 -> do
+            bb <- L.NonrecBind <$> zonk x <*> zonk e1
+            L.ELet bb <$> e2
+        L.ELetF (L.MutrecBinds xes) e2 -> do
+            bb <- L.MutrecBinds <$> mapM (\(x, e) -> (,) <$> zonk x <*> zonk e) xes
+            L.ELet bb <$> e2
         L.ETupleF es -> L.ETuple <$> sequence es
         L.ECaseF e les -> L.ECase <$> e <*> mapM (\(l, ei) -> (l,) <$> ei) les
         L.EAnnotF e t -> L.EAnnot <$> e <*> zonk t

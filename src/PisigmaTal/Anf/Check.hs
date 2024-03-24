@@ -3,6 +3,7 @@ module PisigmaTal.Anf.Check (checkProgram) where
 import Control.Monad
 import Control.Monad.Reader
 import PisigmaTal.Anf
+import Prelude              hiding (exp)
 
 checkEqTys :: Ty -> Ty -> IO ()
 checkEqTys TInt TInt = return ()
@@ -38,8 +39,8 @@ checkExp (ELet b e) = do
     checkBind b
     local (extendBindEnv (bindVar b)) $ checkExp e
 checkExp (ELetrec bs e) =
-    local (flip (foldr (extendBindEnv . bindVar)) bs) $ do
-        mapM_ checkBind bs
+    local (flip (foldr (extendBindEnv . (\(RecBind x _ _) -> x))) bs) $ do
+        mapM_ checkRecBind bs
         checkExp e
 checkExp (ECase v les)
     | (_, t1) : _ <- les = do
@@ -78,6 +79,11 @@ checkBind (BCall var fval args) = do
             zipWithM_ checkEqTys arg_tys' arg_tys
             checkEqTys (snd var) res_ty
         _ -> fail $ "required function type, but got " ++ show ty
+
+checkRecBind :: RecBind -> ReaderT Env IO ()
+checkRecBind (RecBind f vars exp) = do
+    ty <- local (flip (foldr extendBindEnv) vars) $ checkExp exp
+    lift $ checkEqTys (snd f) (TFun (map snd vars) ty)
 
 checkProgram :: Program -> IO ()
 checkProgram (decs, e) = void $ runReaderT (checkExp e) decs

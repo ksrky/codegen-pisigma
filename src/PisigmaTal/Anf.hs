@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module PisigmaTal.Anf (
@@ -9,6 +10,7 @@ module PisigmaTal.Anf (
     Val(..),
     FunVal(..),
     Bind(..),
+    RecBind(..),
     Exp(..),
     ExpF(..),
     Dec(..),
@@ -56,9 +58,12 @@ data Bind
     | BCall Var FunVal [Val]
     deriving (Eq, Show)
 
+data RecBind = RecBind Var [Var] Exp
+    deriving (Eq, Show)
+
 data Exp
     = ELet Bind Exp
-    | ELetrec [Bind] Exp
+    | ELetrec [RecBind] Exp
     | ECase Val [(Label, Exp)]
     | EReturn Val
     | EAnnot Exp Ty

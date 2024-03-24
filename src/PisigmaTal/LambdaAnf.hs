@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 module PisigmaTal.LambdaAnf (lambdaAnfProgram) where
 
 import Data.Functor.Foldable
@@ -47,13 +48,19 @@ lambdaAnfExp (L.EExternApp fvar exps) kont =
         go acc (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) rest
     in go [] exps
 lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)
-lambdaAnfExp (L.ELet x e1 e2) kont =
+lambdaAnfExp (L.ELet (L.NonrecBind x e1) e2) kont =
     lambdaAnfExp e1 $ \v1 ->
     A.ELet (A.BVal (lambdaAnfVar x) v1) (lambdaAnfExp e2 kont)
-lambdaAnfExp (L.ELetrec xes1 e2) kont = go [] xes1
+lambdaAnfExp (L.ELet (L.MutrecBinds xes1) e2) kont = go [] xes1
   where
+    stripAnnotTop :: A.Val -> A.Val
+    stripAnnotTop (A.VAnnot val _) = stripAnnotTop val
+    stripAnnotTop val              = val
+    buildRecBind :: (A.Var, A.Val) -> A.RecBind
+    buildRecBind (f, stripAnnotTop -> A.VLam xs e) = A.RecBind f xs e
+    buildRecBind _                                 = error "right-hand side of letrec binding"
     go :: [(A.Var, A.Val)] -> [(L.Var, L.Exp)] -> A.Exp
-    go acc [] = A.ELetrec (map (uncurry A.BVal) acc) (lambdaAnfExp e2 kont)
+    go acc [] = A.ELetrec (map buildRecBind acc) (lambdaAnfExp e2 kont)
     go acc ((x, e) : xes) = lambdaAnfExp e $ \v -> go ((lambdaAnfVar x, v) : acc) xes
 lambdaAnfExp (L.ETuple es) kont = go [] es
   where

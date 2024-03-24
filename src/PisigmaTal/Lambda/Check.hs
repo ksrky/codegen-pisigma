@@ -44,11 +44,11 @@ checkExp (EExternApp fvar args) = do
             lift $ zipWithM_ checkEqTys arg_tys' arg_tys
             return ret_ty
         _ -> fail "unknown external function"
-checkExp (ELet x e1 e2) = do
+checkExp (ELet (NonrecBind x e1) e2) = do
     t1 <- checkExp e1
     lift $ checkEqTys (snd x) t1
     local (extendBindEnv x) $ checkExp e2
-checkExp (ELetrec xes e2) =
+checkExp (ELet (MutrecBinds xes) e2) =
     local (\env -> foldr (extendBindEnv . fst) env xes) $ do
         forM_ xes $ \(x, e) -> do
             t <- checkExp e

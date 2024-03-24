@@ -1,4 +1,6 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 module PisigmaTal.Lambda (
     Lit(..),
@@ -8,6 +10,10 @@ module PisigmaTal.Lambda (
     Var,
     Exp(..),
     ExpF(..),
+    Bind(..),
+    BindBlock(..),
+    pattern NonrecBind,
+    pattern MutrecBinds,
     Dec(..),
     Program,
     Ctx(..),
@@ -58,11 +64,27 @@ data Exp
     | EExternApp Var [Exp]
     | ELam Var Exp
     | ETuple [Exp]
-    | ELet Var Exp Exp
-    | ELetrec [(Var, Exp)] Exp
+    | ELet BindBlock Exp
     | ECase Exp [(Label, Exp)]
     | EAnnot Exp Ty
     deriving (Eq, Show)
+
+data Bind = Bind Var Exp
+    deriving (Eq, Show)
+
+data BindBlock
+    = Nonrec Bind
+    | Mutrec [Bind]
+    deriving (Eq, Show)
+
+pattern NonrecBind :: Var -> Exp -> BindBlock
+pattern NonrecBind x e = Nonrec (Bind x e)
+
+pattern MutrecBinds :: [(Var, Exp)] -> BindBlock
+pattern MutrecBinds xes <- Mutrec (map (\(Bind x e) -> (x, e)) -> xes) where
+    MutrecBinds xes = Mutrec (map (uncurry Bind) xes)
+
+{-# COMPLETE NonrecBind, MutrecBinds #-}
 
 data Dec
     = DEnum Id [Label]
@@ -125,8 +147,7 @@ instance Typeable Exp where
                    | otherwise        -> error "impossible"
         EExternAppF (_, t) _ -> snd $ splitTFun t
         ELamF (_, t1) t2 -> TFun t1 t2
-        ELetF _ _ t -> t
-        ELetrecF _ t -> t
+        ELetF _ t -> t
         ETupleF ts -> TTuple ts
         ECaseF _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"

@@ -60,17 +60,17 @@ pEApp = do
 pELam :: Parser Exp
 pELam = ELam <$> (charL '\\' *> pName) <* stringL "->" <*> pExp <?> "ELam"
 
-pBinding :: Parser (String, Exp)
-pBinding = (,) <$> pName <* charL '=' <*> lexeme pExp <?> "Binding"
+pBind :: Parser (String, Exp)
+pBind = (,) <$> pName <* charL '=' <*> lexeme pExp <?> "Binding"
 
-pBindings :: Parser [(String, Exp)]
-pBindings = pBinding `sepBy` stringL "and" <?> "Bindings"
+pBinds :: Parser [(String, Exp)]
+pBinds = pBind `sepBy` stringL "and" <?> "Bindings"
 
 pELet :: Parser Exp
-pELet = ELet <$> (stringL "let" *> pBindings) <* stringL "in" <*> pExp <?> "ELet"
+pELet = ELet <$> (stringL "let" *> pBinds) <* stringL "in" <*> pExp <?> "ELet"
 
 pELetrec :: Parser Exp
-pELetrec = ELetrec <$> (stringL "let rec" *> pBindings) <* stringL "in" <*> pExp <?> "ELet"
+pELetrec = ELetrec <$> (stringL "let rec" *> pBinds) <* stringL "in" <*> pExp <?> "ELet"
 
 pEIf :: Parser Exp
 pEIf = EIf <$> (stringL "if" *> pExp) <*> (stringL "then" *> pExp) <*> (stringL "else" *> pExp) <?> "EIf"
