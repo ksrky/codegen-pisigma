@@ -8,5 +8,5 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Tests"
     [ testGroup "PisigmaTal" [testsPisigmaTal]
-    , testGroup "Tal" [unitTest]
+    , testGroup "Tal" [interpreterTest]
     ]

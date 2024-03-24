@@ -11,7 +11,9 @@ import Tal.Syntax
 data TalState = TalState
     { _heaps    :: Heaps
     , _regFile  :: RegFile
+    , _stack    :: Stack
     , _nextUniq :: Uniq
+    -- , stack pointer?
     }
 
 makeClassy ''TalState
@@ -25,8 +27,9 @@ evalTalState = evalStateT
 
 defaultTalState :: TalState
 defaultTalState = TalState
-    { _heaps = M.empty
-    , _regFile = M.empty
+    { _heaps    = M.empty
+    , _regFile  = M.empty
+    , _stack    = []
     , _nextUniq = 0
     }
 
@@ -63,6 +66,26 @@ wordize (VWord w)        = return w
 wordize (VPack ty v ty') = VPack ty <$> wordize v <*> pure ty'
 wordize (VRoll v ty)     = VRoll <$> wordize v <*> pure ty
 wordize (VUnroll v)      = VUnroll <$> wordize v
+
+allocStack :: MonadTalState m => [WordVal] -> m ()
+allocStack ws = stack %= (ws ++)
+
+freeStack :: MonadTalState m => Int -> m ()
+freeStack n = stack %= drop n
+
+readSlot :: MonadTalState m => Maybe Ptr -> Int -> m WordVal
+readSlot Nothing i = uses stack (!! i)
+readSlot (Just p) i = do
+    st <- use stack
+    let n = length st
+    return $ st !! (n - p + i)
+
+writeSlot :: MonadTalState m => Maybe Ptr -> Int -> WordVal -> m ()
+writeSlot Nothing i w = stack %= (ix i .~ w)
+writeSlot (Just p) i w = do
+    st <- use stack
+    let n = length st
+    stack %= (ix (n - p + i) .~ w)
 
 liftMetaWord :: WordVal -> Word
 liftMetaWord (VInt i) = fromIntegral i

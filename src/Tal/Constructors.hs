@@ -7,7 +7,8 @@ module Tal.Constructors (
     mkProgramFromInstrs
     ) where
 
-import Data.Map.Strict qualified as M
+import Control.Lens.Cons
+import Data.Map.Strict   qualified as M
 import Tal.Constant
 import Tal.Syntax
 
@@ -21,8 +22,8 @@ mkArgumentRegs n
 
 infixr 5 <>|
 
-(<>|) :: [Instr] -> Instrs -> Instrs
-(<>|) inslist instrs = foldr ISeq instrs inslist
+(<>|) :: (Foldable t, Cons a a b b) => t b -> a -> a
+(<>|) bs a = foldr (<|) a bs
 
 emptyHeaps :: Heaps
 emptyHeaps = M.empty

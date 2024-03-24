@@ -1,4 +1,4 @@
-module Tests.Tal.Interpreter where
+module Tests.Tal.Interpreter (interpreterTest) where
 
 import Control.Lens.Cons
 import Data.Map.Strict   qualified as M
@@ -12,8 +12,8 @@ import Test.Tasty.HUnit
 rv :: Reg
 rv = returnReg
 
-unitTest :: TestTree
-unitTest = testGroup "Tal.Interpreter"
+interpreterTest :: TestTree
+interpreterTest = testGroup "Tal.Interpreter"
     [ testCase "mov rv, 1; halt [int]" $ do
         let instrs =
                 [IMove rv (VWord (VInt 1))] <>| IHalt TInt

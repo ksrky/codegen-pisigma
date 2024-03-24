@@ -67,6 +67,28 @@ runInstr (IUnpack rd v) = do
     VPack _ w _ <- wordize v
     extendRegFile rd w
     return id
+runInstr (ISalloc n) = do
+    allocStack $ replicate n VNonsense
+    return id
+runInstr (ISfree n) = do
+    freeStack n
+    return id
+runInstr (ISload rd sp i) | SpecialReg "sp" <- sp = do
+    extendRegFile rd =<< readSlot Nothing i
+    return id
+runInstr (ISload rd rs i) = do
+    VPtr ptr <- readReg rs
+    extendRegFile rd =<< readSlot (Just ptr) i
+    undefined
+runInstr (ISstore sp i rs) | SpecialReg "sp" <- sp = do
+    w <- readReg rs
+    writeSlot Nothing i w
+    return id
+runInstr (ISstore rd i rs) = do
+    VPtr ptr <- readReg rd
+    w <- readReg rs
+    writeSlot (Just ptr) i w
+    undefined
 
 aopFun :: Num a => Aop -> a -> a -> a
 aopFun Add = (+)

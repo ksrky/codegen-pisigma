@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Tal.Syntax (
@@ -12,6 +13,7 @@ module Tal.Syntax (
     HeapsTy,
     RegFileTy,
     Telescopes,
+    Ptr,
     Val(..),
     WordVal,
     SmallVal,
@@ -28,7 +30,6 @@ module Tal.Syntax (
 
 import Control.Lens.Cons
 import Control.Lens.Prism
-import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import Data.Map.Strict          qualified as M
 import Data.Word
@@ -58,6 +59,7 @@ data Ty
     | TRecurs Ty
     | TRow RowTy
     | TNonsense
+    | TPtr StackTy
     deriving (Eq, Show)
 
 type InitFlag = Bool
@@ -73,6 +75,11 @@ instance Cons RowTy RowTy (Ty, InitFlag) (Ty, InitFlag) where
 data StackTy = SNil | SVar Int | SCons Ty StackTy
     deriving (Eq, Show)
 
+instance Cons StackTy StackTy Ty Ty where
+    _Cons = prism (uncurry SCons) $ \case
+        SCons ty stack -> Right (ty, stack)
+        stack          -> Left stack
+
 type HeapsTy = M.Map Label Ty
 
 type RegFileTy = M.Map Reg Ty
@@ -80,6 +87,9 @@ type RegFileTy = M.Map Reg Ty
 type Telescopes = [TyVar]
 
 data NonReg
+
+-- | One-based index from the beginning of a stack.
+type Ptr = Int
 
 data Val a where
     VReg      :: Reg -> Val Reg
@@ -91,6 +101,7 @@ data Val a where
     VRoll     :: Val a -> Ty -> Val a
     VUnroll   :: Val a -> Val a
     VNonsense :: Val NonReg
+    VPtr      :: Ptr -> Val NonReg
 
 deriving instance Eq (Val a)
 deriving instance Show (Val a)
@@ -140,13 +151,13 @@ data Instr
     | IStore Reg Int Reg
     | IUnpack Reg SmallVal
     -- | @salloc n@
-    -- | ISalloc Int
+    | ISalloc Int
     -- | @sfree n@
-    -- | ISfree Int
-    -- | @sload rd, sp(i)@
-    -- | ISload Reg Int
-    -- | @sstore sp(i), rs@
-    -- | ISstore Int Reg
+    | ISfree Int
+    -- | @sload rd, rs(i)@
+    | ISload Reg Reg Int
+    -- | @sstore rd(i), rs@
+    | ISstore Reg Int Reg
     deriving (Eq, Show)
 
 data Instrs
@@ -167,6 +178,7 @@ type Program = (Heaps, RegFile, Instrs)
 makeBaseFunctor ''Ty
 makeBaseFunctor ''RowTy
 
+{-
 mapTy :: (Int -> Int -> Ty) -> Int -> Ty -> Ty
 mapTy onvar = flip $ cata $ \case
     TIntF -> const TInt
@@ -194,36 +206,4 @@ substTy s = mapTy (\x j -> if x == j then shiftTy j s else TVar x) 0
 
 substTop :: Ty -> Ty -> Ty
 substTop s t = shiftTy (-1) (substTy (shiftTy 1 s) t)
-
-class Subst a where
-    subst :: Ty -> a -> a
-
-instance Subst Ty where
-    subst = substTop
-
-instance Subst (Val a) where
-    subst s = \case
-        VReg r -> VReg r
-        VWord v -> VWord v
-        VLabel l -> VLabel l
-        VInt i -> VInt i
-        VJunk ty -> VJunk $ subst s ty
-        VPack ty v ty' -> VPack (subst s ty) v (subst s ty')
-        VRoll v ty -> VRoll v (subst s ty)
-        VUnroll v -> VUnroll v
-        VNonsense -> VNonsense
-
-instance Subst Instr where
-    subst s = \case
-        IAop aop rd rs v -> IAop aop rd rs (subst s v)
-        IBop bop rd v -> IBop bop rd (subst s v)
-        ICall v -> ICall (subst s v)
-        ILoad rd rs i -> ILoad rd rs i
-        IMalloc rd tys -> IMalloc rd (map (subst s) tys)
-        IMove rd v -> IMove rd (subst s v)
-        IStore rd i rs -> IStore rd i rs
-        IUnpack rd v -> IUnpack rd (subst s v)
-        -- ISalloc n -> ISalloc n
-        -- ISfree n -> ISfree n
-        -- ISload rd i -> ISload rd i
-        -- ISstore i rs -> ISstore i rs
+-}
