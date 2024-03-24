@@ -103,7 +103,7 @@ allocTalExp (A.ELet (A.BCall ty val vals) exp) | let arity = length vals = do
     let instrs_storeArgs =
             zipWith T.IMove tmpRegs vals'
             ++ zipWith (\a t -> T.IMove a (T.VReg t)) argumentRegs tmpRegs
-    return $ instrs_storeArgs <>| T.ICall reg val' <| instrs
+    return $ instrs_storeArgs <>| T.ICall val' <| T.IMove reg (T.VReg returnReg) <| instrs
 allocTalExp (A.ELet (A.BProj ty val idx) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
@@ -114,34 +114,43 @@ allocTalExp (A.ELet (A.BProj ty val idx) exp) = do
 allocTalExp (A.ELet (A.BUnpack exty val) exp) | A.TExists ty <- exty = do
     reg <- freshReg
     ty' <- allocTalTy ty
-    instrs <- withExtendReg reg $ -- tmp: TyVar telescopes
-        withExtendRegTy reg ty' $ allocTalExp exp
     val' <- allocTalVal val
+    instrs <- withExtendReg reg $ -- tmp: TyVar telescopes -- tmp: TyVar telescopes
+         -- tmp: TyVar telescopes
+        withExtendRegTy reg ty' $ allocTalExp exp
     return $ T.IUnpack reg val' <| instrs -- tmp: TyVar
 allocTalExp (A.ELet A.BUnpack{} _) = error "expected existential type"
 allocTalExp (A.ELet (A.BMalloc ty tys) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
+    tys' <- mapM allocTalTy tys
     instrs <- withExtendReg reg $
         withExtendRegTy reg ty' $ allocTalExp exp
-    tys' <- mapM allocTalTy tys
     return $ T.IMalloc reg tys' <| instrs
 allocTalExp (A.ELet (A.BUpdate ty var idx val) exp) = do
     reg <- freshReg
     reg' <- freshReg
     ty' <- allocTalTy ty
-    instrs <- withExtendReg reg $
-        withExtendRegTy reg ty' $ allocTalExp exp
     var' <- allocTalVal var
     val' <- allocTalVal val
+    instrs <- withExtendReg reg $
+        withExtendRegTy reg ty' $ allocTalExp exp
     return $ T.IMove reg var' <| T.IMove reg' val' <| T.IStore reg (idxToInt idx) reg' <| instrs
 allocTalExp (A.ECase val cases) = do
     mapM_ allocTalExp cases
     reg <- freshReg
+    val' <- allocTalVal val
+    rfty <- view regFileTy
+    heaps <- forM cases $ \exp -> do
+        instrs <- allocTalExp exp
+        return $ T.HCode rfty instrs
+    labs <- mapM (freshName . show) [0 .. length cases - 1]
+    extendHeaps $ zip labs heaps
     undefined
 allocTalExp (A.EReturn val) = do
     val' <- allocTalVal val
     ty <- allocTalTy (A.typeof val)
+    freeAllRegs
     return $ T.IMove returnReg val' <| T.IHalt ty
 allocTalExp (A.EAnnot exp _) = allocTalExp exp
 

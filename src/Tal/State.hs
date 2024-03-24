@@ -8,11 +8,10 @@ import Control.Monad.State
 import Data.Map.Strict          qualified as M
 import Tal.Syntax
 
-
 data TalState = TalState
-    { _heaps        :: Heaps
-    , _regFile      :: RegFile
-    , _inUseNameMap :: M.Map String Int
+    { _heaps    :: Heaps
+    , _regFile  :: RegFile
+    , _nextUniq :: Word
     }
 
 makeClassy ''TalState
@@ -21,13 +20,15 @@ class MonadState TalState m => MonadTalState m
 
 instance Monad m => MonadTalState (StateT TalState m)
 
-runTalState :: MonadIO m => StateT TalState m a -> m a
-runTalState builder = evalStateT builder $
-    TalState
-        { _heaps = M.empty
-        , _regFile = M.empty
-        , _inUseNameMap = M.empty
-        }
+evalTalState :: Monad m => StateT TalState m a -> TalState -> m a
+evalTalState = evalStateT
+
+defaultTalState :: TalState
+defaultTalState = TalState
+    { _heaps = M.empty
+    , _regFile = M.empty
+    , _nextUniq = 0
+    }
 
 extendHeap  :: MonadTalState m => (Name, Heap) -> m ()
 extendHeap (name, heap) = heaps %= M.insert name heap
@@ -43,14 +44,10 @@ getHeap name = lookupHeap name >>= \case
     Just h -> return h
     Nothing -> fail "heap not found"
 
-freshName :: (MonadTalState m) => String -> m Name
+freshName :: MonadTalState m => String -> m Name
 freshName str = do
-    names <- use inUseNameMap
-    case M.lookup str names of
-        Just num -> freshName $ str ++ "." ++ show num
-        Nothing -> do
-            inUseNameMap %= M.insert str 1
-            return $ Name str
+    uniq <- nextUniq <<%= (+ 1)
+    return $ Name str uniq
 
 extendRegFile :: MonadTalState m => Reg -> WordVal -> m ()
 extendRegFile reg val = regFile %= M.insert reg val

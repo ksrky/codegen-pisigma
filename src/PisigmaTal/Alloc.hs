@@ -108,7 +108,7 @@ mapTy onvar = flip $ cata $ \case
     TRowF row_ty -> \c -> TRow $ mapRowTy onvar c row_ty
     TAliasF x mb_ty -> \c -> TAlias x (mb_ty <*> pure (c + 1))
 
-mapRowTy ::  (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
+mapRowTy :: (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
 mapRowTy onvar c = cata $ \case
     REmptyF -> REmpty
     RVarF x -> case onvar x c of

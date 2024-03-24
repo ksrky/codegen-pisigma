@@ -37,7 +37,10 @@ data Reg
     | SpecialReg String
     deriving (Eq, Ord, Show)
 
-newtype Name = Name String
+data Name = Name
+    { nameText :: String
+    , nameUniq :: Word
+    }
     deriving (Eq, Ord, Show)
 
 type Label = Name

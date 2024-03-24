@@ -1,7 +1,8 @@
 module Tal.Constant (
     numArgumentRegs,
     argumentRegs,
-    returnReg
+    returnReg,
+    sptrReg
     ) where
 
 import Tal.Syntax
@@ -13,4 +14,7 @@ argumentRegs :: [Reg]
 argumentRegs = map GeneralReg [1 .. fromIntegral numArgumentRegs]
 
 returnReg :: Reg
-returnReg = GeneralReg 1
+returnReg = SpecialReg "rv"
+
+sptrReg :: Reg
+sptrReg = SpecialReg "sp"

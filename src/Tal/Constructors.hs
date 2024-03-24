@@ -1,7 +1,8 @@
 module Tal.Constructors (
     mkRegFileTy,
     mkArgumentRegs,
-    (<>|)
+    (<>|),
+    mkProgramFromInstrs
     ) where
 
 import Data.Map.Strict qualified as M
@@ -20,3 +21,6 @@ infixr 5 <>|
 
 (<>|) :: [Instr] -> Instrs -> Instrs
 (<>|) inslist instrs = foldr ISeq instrs inslist
+
+mkProgramFromInstrs :: Instrs -> Program
+mkProgramFromInstrs instrs = (M.empty, M.empty, instrs)

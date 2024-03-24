@@ -45,10 +45,10 @@ library
       PisigmaTal.RawLambda
       PisigmaTal.Toplevel
       Prettyprinter.Prec
-      Tal.Bytecode
       Tal.Constant
       Tal.Constructors
       Tal.Context
+      Tal.Interpreter
       Tal.State
       Tal.Syntax
   other-modules:

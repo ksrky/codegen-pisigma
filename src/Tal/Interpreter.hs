@@ -1,8 +1,17 @@
-module Tal.Bytecode (runInstrs) where
+module Tal.Bytecode (runProgram) where
 
+import Control.Lens.Operators
 import Tal.Constant
 import Tal.State
 import Tal.Syntax
+
+runProgram :: MonadFail m => Word -> Program -> m ()
+runProgram uniq (hs, rf, instrs) = do
+    let st = defaultTalState
+            & heaps .~ hs
+            & regFile .~ rf
+            & nextUniq .~ uniq
+    evalTalState (runInstrs instrs) st
 
 runInstrs :: (MonadTalState m, MonadFail m) => Instrs -> m ()
 runInstrs (ISeq ins rest) = do

@@ -13,6 +13,7 @@ data TalContext = TalContext
     { _regEnv       :: [Reg]
     , _regFileTy    :: RegFileTy
     , _inUseRegSet  :: IORef (S.Set Reg)
+    , _nextUniq     :: IORef Word
     , _inUseNameMap :: IORef (M.Map String Int)
     }
 
@@ -25,12 +26,14 @@ instance Monad m => MonadTalBuilder (ReaderT TalContext m)
 runTalBuilder :: MonadIO m => ReaderT TalContext m a -> m a
 runTalBuilder builder = do
     _inUseRegSet <- liftIO $ newIORef S.empty
+    _nextUniq <- liftIO $ newIORef 0
     _inUseNameMap <- liftIO $ newIORef M.empty
     runReaderT builder $
         TalContext
             { _regEnv = []
             , _inUseRegSet
             , _regFileTy = M.empty
+            , _nextUniq
             , _inUseNameMap
             }
 
@@ -50,21 +53,38 @@ withExtendRegTy reg ty = locally regFileTy (M.insert reg ty)
 
 freshReg :: (HasTalContext r, MonadReader r m, MonadIO m) => m Reg
 freshReg = do
-    usedRegsRef <- view inUseRegSet
-    usedRegs <- liftIO $ readIORef usedRegsRef
-    let reg = S.findMin usedRegs
-    liftIO $ modifyIORef usedRegsRef (S.insert reg)
+    ref <- view inUseRegSet
+    regs <- liftIO $ readIORef ref
+    let reg = S.findMin regs
+    liftIO $ modifyIORef ref (S.insert reg)
     return reg
 
 freeReg :: (HasTalContext r, MonadReader r m, MonadIO m) => Reg -> m ()
 freeReg reg = do
-    usedRegsRef <- view inUseRegSet
-    liftIO $ modifyIORef usedRegsRef (S.delete reg)
+    ref <- view inUseRegSet
+    liftIO $ modifyIORef ref (S.delete reg)
+
+freeAllRegs :: (HasTalContext r, MonadReader r m, MonadIO m) => m ()
+freeAllRegs = do
+    ref <- view inUseRegSet
+    liftIO $ writeIORef ref S.empty
 
 freeRegSet :: (HasTalContext r, MonadReader r m, MonadIO m) => m ()
 freeRegSet = do
-    usedRegsRef <- view inUseRegSet
-    liftIO $ writeIORef usedRegsRef S.empty
+    ref <- view inUseRegSet
+    liftIO $ writeIORef ref S.empty
+
+isInUseReg :: (HasTalContext r, MonadReader r m, MonadIO m) => Reg -> m Bool
+isInUseReg reg = do
+    ref <- view inUseRegSet
+    regs <- liftIO $ readIORef ref
+    return $ S.member reg regs
+
+newUniq :: (HasTalContext r, MonadReader r m, MonadIO m) => m Word
+newUniq = do
+    ref <- view nextUniq
+    liftIO $ modifyIORef ref (+ 1)
+    liftIO $ readIORef ref
 
 freshName :: (HasTalContext r, MonadReader r m, MonadIO m) => String -> m Name
 freshName str = do
@@ -74,4 +94,4 @@ freshName str = do
         Just num -> freshName $ str ++ "." ++ show num
         Nothing -> do
             liftIO $ writeIORef ref (M.insert str 1 names)
-            return $ Name str
+            Name str <$> newUniq
