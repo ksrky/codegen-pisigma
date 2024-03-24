@@ -10,10 +10,10 @@ import Data.Set                 qualified as S
 import Tal.Syntax
 
 data TalContext = TalContext
-    { _regEnv      :: [Reg]
-    , _usedRegSet  :: IORef (S.Set Reg)
-    , _regFileTy   :: RegFileTy
-    , _usedNameMap :: IORef (M.Map String Int)
+    { _regEnv       :: [Reg]
+    , _regFileTy    :: RegFileTy
+    , _inUseRegSet  :: IORef (S.Set Reg)
+    , _inUseNameMap :: IORef (M.Map String Int)
     }
 
 makeClassy ''TalContext
@@ -24,14 +24,14 @@ instance Monad m => MonadTalBuilder (ReaderT TalContext m)
 
 runTalBuilder :: MonadIO m => ReaderT TalContext m a -> m a
 runTalBuilder builder = do
-    _usedRegSet <- liftIO $ newIORef S.empty
-    _usedNameMap <- liftIO $ newIORef M.empty
+    _inUseRegSet <- liftIO $ newIORef S.empty
+    _inUseNameMap <- liftIO $ newIORef M.empty
     runReaderT builder $
         TalContext
             { _regEnv = []
-            , _usedRegSet
+            , _inUseRegSet
             , _regFileTy = M.empty
-            , _usedNameMap
+            , _inUseNameMap
             }
 
 findReg :: MonadTalBuilder m => Int -> m Reg
@@ -50,7 +50,7 @@ withExtendRegTy reg ty = locally regFileTy (M.insert reg ty)
 
 freshReg :: (HasTalContext r, MonadReader r m, MonadIO m) => m Reg
 freshReg = do
-    usedRegsRef <- view usedRegSet
+    usedRegsRef <- view inUseRegSet
     usedRegs <- liftIO $ readIORef usedRegsRef
     let reg = S.findMin usedRegs
     liftIO $ modifyIORef usedRegsRef (S.insert reg)
@@ -58,20 +58,20 @@ freshReg = do
 
 freeReg :: (HasTalContext r, MonadReader r m, MonadIO m) => Reg -> m ()
 freeReg reg = do
-    usedRegsRef <- view usedRegSet
+    usedRegsRef <- view inUseRegSet
     liftIO $ modifyIORef usedRegsRef (S.delete reg)
 
 freeRegSet :: (HasTalContext r, MonadReader r m, MonadIO m) => m ()
 freeRegSet = do
-    usedRegsRef <- view usedRegSet
+    usedRegsRef <- view inUseRegSet
     liftIO $ writeIORef usedRegsRef S.empty
 
 freshName :: (HasTalContext r, MonadReader r m, MonadIO m) => String -> m Name
 freshName str = do
-    usedNamesRef <- view usedNameMap
-    usedNames <- liftIO $ readIORef usedNamesRef
-    case M.lookup str usedNames of
+    ref <- view inUseNameMap
+    names <- liftIO $ readIORef ref
+    case M.lookup str names of
         Just num -> freshName $ str ++ "." ++ show num
         Nothing -> do
-            liftIO $ writeIORef usedNamesRef (M.insert str 1 usedNames)
+            liftIO $ writeIORef ref (M.insert str 1 names)
             return $ Name str

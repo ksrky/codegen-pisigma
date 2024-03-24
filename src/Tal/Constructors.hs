@@ -1,4 +1,8 @@
-module Tal.Constructors where
+module Tal.Constructors (
+    mkRegFileTy,
+    mkArgumentRegs,
+    (<>|)
+    ) where
 
 import Data.Map.Strict qualified as M
 import Tal.Constant

@@ -1,6 +1,9 @@
-module Tal.Constant where
+module Tal.Constant (
+    numArgumentRegs,
+    argumentRegs,
+    returnReg
+    ) where
 
-import Data.Word
 import Tal.Syntax
 
 numArgumentRegs :: Int
