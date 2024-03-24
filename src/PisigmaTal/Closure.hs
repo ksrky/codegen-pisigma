@@ -25,13 +25,15 @@ module PisigmaTal.Closure (
     lookupEnumEnv,
     lookupBindEnv,
     extendBindEnv,
-    unrollUClos,
-    unpackClos,
+    pattern ClosTy,
+    pattern UClosTy,
+    unrollUClosTy,
+    unpackClosTy,
+    pattern Clos,
+    pattern UClos,
     bindVar,
     Typeable(..),
     StripAnnot(..),
-    mkClos,
-    mkUClos,
     mkTTuple
 ) where
 
@@ -146,35 +148,36 @@ lookupBindEnv x = \case
 extendBindEnv :: Var -> Env -> Env
 extendBindEnv (x, t) = (DBind x t:)
 
--- | Make a packed closure
-mkClos :: [Ty] -> Ty -> Ty
-mkClos ts1 t2 =
-    let t_env = newIdUnsafe "t_env"
-        t_cl = newIdUnsafe "t_cl" in
-    TExists t_env $ TRecurs t_cl $ TRow $ TFun (TVar t_cl : ts1) t2 :> RVar t_env
-
--- | Make an unpacked closure
-mkUClos :: [Ty] -> Ty -> RowTy -> Ty
-mkUClos ts1 t2 r =
-    let t_cl = newIdUnsafe "t_cl" in
-    TRecurs t_cl $ TRow (TFun (TVar t_cl : ts1) t2 :> r)
-
 mkTTuple :: [Ty] -> Ty
 mkTTuple ts = TRow $ foldr (:>) REmpty ts
 
-pattern Clos :: TyVar -> [Ty] -> Ty -> Ty
-pattern Clos tv ts1 t2 <- TExists _ (TRecurs tv (TRow (TFun ts1 t2 :> RVar _)))
+pattern ClosTy :: [Ty] -> Ty -> Ty
+pattern ClosTy ts1 t2 <- TExists _ (TRecurs _ (TRow (TFun (_ : ts1) t2 :> RVar _))) where
+    ClosTy ts1 t2 =
+        let t_env = newIdUnsafe "t_env"
+            t_cl  = newIdUnsafe "t_cl" in
+        TExists t_env $ TRecurs t_cl $ TRow $ TFun (TVar t_cl : ts1) t2 :> RVar t_env
 
-pattern UClos :: [Ty] -> Ty -> RowTy -> Ty
-pattern UClos ts1 t2 r <- TRecurs _ (TRow (TFun ts1 t2 :> r))
+pattern UClosTy :: [Ty] -> Ty -> RowTy -> Ty
+pattern UClosTy ts1 t2 r <- TRecurs _ (TRow (TFun (_ : ts1) t2 :> r)) where
+    UClosTy ts1 t2 r =
+        let t_cl = newIdUnsafe "t_cl" in
+        TRecurs t_cl $ TRow (TFun (TVar t_cl : ts1) t2 :> r)
 
-unpackClos :: Ty -> Ty -> Ty
-unpackClos (TRow r) (Clos tv ts1 t2) = TRecurs tv $ TRow $ TFun ts1 t2 :> r
-unpackClos  _ _                      = error "existential type required"
+unpackClosTy :: Ty -> Ty -> Ty
+unpackClosTy (TRow r) (ClosTy ts1 t2) = UClosTy ts1 t2 r
+unpackClosTy  _ _                     = error "existential type required"
 
-unrollUClos :: Ty -> Ty
-unrollUClos s@(UClos (_ : ts1) t2 r) = TRow $ TFun (s : ts1) t2 :> r
-unrollUClos _                        = error "recursive type required"
+unrollUClosTy :: Ty -> Ty
+unrollUClosTy s@(UClosTy ts1 t2 r) = TRow $ TFun (s : ts1) t2 :> r
+unrollUClosTy _                    = error "recursive type required"
+
+pattern UClos :: [Val] -> Ty -> Val
+pattern UClos vals t_ucl = VRoll (VTuple vals) t_ucl
+
+pattern Clos :: Ty -> [Val] -> Ty -> Val
+pattern Clos t_env vals t_cl <- VPack t_env (UClos vals _) t_cl where
+    Clos t_env vals t_cl = VPack t_env (UClos vals (unpackClosTy t_env t_cl)) t_cl
 
 bindVar :: Bind -> Var
 bindVar (BVal x _)      = x
@@ -205,7 +208,7 @@ instance Typeable Val where
         VRollF _ t -> t
         VUnrollF v ->
             case typeof v of
-                TRecurs tv t -> unrollUClos (TRecurs tv t)
+                TRecurs tv t -> unrollUClosTy (TRecurs tv t)
                 _            -> error "required recursive type"
         VAnnotF _ t -> t
 

@@ -52,19 +52,19 @@ checkVal cts (VTuple vs) = do
 checkVal cts (VPack t1 v t2)
     | TExists{} <- t2 = do
         t <- checkVal cts v
-        lift $ checkEqTys cts (unpackClos t1 t2) t
+        lift $ checkEqTys cts (unpackClosTy t1 t2) t
         return t2
     | otherwise = fail $ "expected existential type, but got " ++ show t2
 checkVal cts (VRoll v t)
     | TRecurs{} <- t = do
         t' <- checkVal cts v
-        lift $ checkEqTys cts (unrollUClos t) t'
+        lift $ checkEqTys cts (unrollUClosTy t) t'
         return t
     | otherwise = fail $ "expected recursive type, but got " ++ show t
 checkVal cts (VUnroll v) = do
     t <- checkVal cts v
     case t of
-        TRecurs{} -> return $ unrollUClos t
+        TRecurs{} -> return $ unrollUClosTy t
         _         -> fail $ "expected recursive type, but got " ++ show t
 checkVal cts (VAnnot v t) = do
     t' <- checkVal cts v

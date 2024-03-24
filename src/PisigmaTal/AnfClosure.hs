@@ -48,7 +48,7 @@ anfClosureTy :: A.Ty -> C.Ty
 anfClosureTy = cata $ \case
     A.TIntF        -> C.TInt
     A.TNameF x     -> C.TName x
-    A.TFunF ts1 t2 -> C.mkClos ts1 t2
+    A.TFunF ts1 t2 -> C.ClosTy ts1 t2
     A.TTupleF ts   -> C.TRow $ foldr (C.:>) C.REmpty ts
 
 anfClosureKnownVar :: A.Var -> C.Var
@@ -73,8 +73,8 @@ anfClosureVal = cata $ \case
         modify $ List.nub . (escs ++)
         let r_env = foldr ((C.:>) . snd) C.REmpty escs'
             t_env = C.TRow r_env
-            t_ucl = C.mkUClos (map snd xs') (C.typeof exp') r_env
-            t_cl = C.mkClos (map snd xs') (C.typeof exp')
+            t_ucl = C.UClosTy (map snd xs') (C.typeof exp') r_env
+            t_cl = C.ClosTy (map snd xs') (C.typeof exp')
             x_cl = (newIdUnsafe "x_cl", t_ucl)
             t_code = C.TFun (t_ucl : map snd xs') (C.typeof exp')
         f_code <- (,t_code) <$> newId "f_code"
@@ -84,7 +84,7 @@ anfClosureVal = cata $ \case
                 C.body = foldr C.ELet exp' binds
             }
         appendDefn (f_code, v_code)
-        return $ C.VPack t_env (C.VRoll (C.VTuple (C.VFun f_code : map C.VVar escs')) t_ucl) t_cl
+        return $ C.Clos t_env (C.VFun f_code : map C.VVar escs') t_cl
     A.VTupleF vs -> C.VTuple <$> sequence vs
     A.VAnnotF mval ty -> C.VAnnot <$> mval <*> pure (anfClosureTy ty)
 
@@ -115,8 +115,8 @@ anfClosureExp = cata $ \case
             let (f, xs, e, escs) = predata !! (i - 1)
             let r_env = foldr ((C.:>) . snd) C.REmpty escs
                 t_env = C.TRow r_env
-                t_ucl = C.mkUClos (map snd xs) (C.typeof e) r_env
-                t_cl = C.mkClos (map snd xs) (C.typeof e)
+                t_ucl = C.UClosTy (map snd xs) (C.typeof e) r_env
+                t_cl = C.ClosTy (map snd xs) (C.typeof e)
                 x_cl = (newIdUnsafe "x_cl", t_ucl)
                 t_code = C.TFun (t_ucl : map snd xs) (C.typeof e)
             f_code <- (,t_code) <$> newId (fst f ^. name  ++ "_code")
@@ -127,8 +127,8 @@ anfClosureExp = cata $ \case
                     C.body = foldr C.ELet e (bind0 : binds')
                 }
             appendDefn (f_code, v_code)
-            let v = C.VPack t_env (C.VRoll (C.VTuple (C.VFun f_code : map C.VVar escs)) t_ucl) t_cl
-            return $ C.BVal f v
+            let clos = C.Clos t_env (C.VFun f_code : map C.VVar escs) t_cl
+            return $ C.BVal f clos
         C.ELetrec binds' <$> mexp
     A.ECaseF v les -> C.ECase <$> anfClosureVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
     A.EReturnF v -> C.EReturn <$> anfClosureVal v
