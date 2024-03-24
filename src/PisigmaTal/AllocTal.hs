@@ -103,7 +103,7 @@ allocTalExp (A.ELet (A.BCall ty val vals) exp) | let arity = length vals = do
     let instrs_storeArgs =
             zipWith T.IMove tmpRegs vals'
             ++ zipWith (\a t -> T.IMove a (T.VReg t)) argumentRegs tmpRegs
-    return $ instrs_storeArgs <>| T.ICall val' <| T.IMove reg (T.VReg returnReg) <| instrs
+    return $ instrs_storeArgs <>| T.ICall val' <| T.IMove reg (T.VReg RVReg) <| instrs
 allocTalExp (A.ELet (A.BProj ty val idx) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
@@ -143,7 +143,7 @@ allocTalExp (A.ECase val cases) = do
     rfty <- view regFileTy
     heaps <- forM cases $ \exp -> do
         instrs <- allocTalExp exp
-        return $ T.HCode rfty instrs
+        return $ T.HCode [] rfty instrs
     labs <- mapM (freshName . show) [0 .. length cases - 1]
     extendHeaps $ zip labs heaps
     undefined
@@ -151,7 +151,7 @@ allocTalExp (A.EReturn val) = do
     val' <- allocTalVal val
     ty <- allocTalTy (A.typeof val)
     freeAllRegs
-    return $ T.IMove returnReg val' <| T.IHalt ty
+    return $ T.IMove RVReg val' <| T.IHalt ty
 allocTalExp (A.EAnnot exp _) = allocTalExp exp
 
 allocTalHeap :: (MonadTalBuilder m, MonadFail m, MonadIO m) => A.Heap -> TalM m T.Heap
@@ -159,7 +159,7 @@ allocTalHeap (A.HGlobal _ val) = T.HGlobal <$> allocTalNonVarVal val
 allocTalHeap (A.HCode tys _ exp) = do
     rfilety <- mkRegFileTy <$> mapM allocTalTy tys
     instrs <- withExtendRegs (mkArgumentRegs (length tys)) $ allocTalExp exp
-    return $ T.HCode rfilety instrs
+    return $ T.HCode [] rfilety instrs
 allocTalHeap _ = undefined
 
 allocTalInstrs :: (MonadTalBuilder m, MonadFail m, MonadIO m) => A.Program -> TalM m T.Instrs

@@ -9,10 +9,10 @@ import Data.Map.Strict          qualified as M
 import Tal.Syntax
 
 data TalState = TalState
-    { _heaps    :: Heaps
-    , _regFile  :: RegFile
-    , _stack    :: Stack
-    , _nextUniq :: Uniq
+    { _talHeaps   :: Heaps
+    , _talRegFile :: RegFile
+    , _talStack   :: Stack
+    , _nextUniq   :: Uniq
     -- , stack pointer?
     }
 
@@ -27,20 +27,20 @@ evalTalState = evalStateT
 
 defaultTalState :: TalState
 defaultTalState = TalState
-    { _heaps    = M.empty
-    , _regFile  = M.empty
-    , _stack    = []
+    { _talHeaps    = M.empty
+    , _talRegFile  = M.empty
+    , _talStack    = []
     , _nextUniq = 0
     }
 
 extendHeap  :: MonadTalState m => (Name, Heap) -> m ()
-extendHeap (name, heap) = heaps %= M.insert name heap
+extendHeap (name, heap) = talHeaps %= M.insert name heap
 
 lookupHeap :: MonadTalState m => Name -> m (Maybe Heap)
-lookupHeap name = M.lookup name <$> use heaps
+lookupHeap name = uses talHeaps (M.lookup name)
 
 lookupRegFile :: MonadTalState m => Reg -> m (Maybe WordVal)
-lookupRegFile reg = M.lookup reg <$> use regFile
+lookupRegFile reg = M.lookup reg <$> use talRegFile
 
 getHeap :: (MonadTalState m, MonadFail m) => Name -> m Heap
 getHeap name = lookupHeap name >>= \case
@@ -53,7 +53,7 @@ freshName str = do
     return $ Name str uniq
 
 extendRegFile :: MonadTalState m => Reg -> WordVal -> m ()
-extendRegFile reg val = regFile %= M.insert reg val
+extendRegFile reg val = talRegFile %= M.insert reg val
 
 readReg :: (MonadTalState m, MonadFail m) => Reg -> m WordVal
 readReg reg = lookupRegFile reg >>= \case
@@ -68,24 +68,27 @@ wordize (VRoll v ty)     = VRoll <$> wordize v <*> pure ty
 wordize (VUnroll v)      = VUnroll <$> wordize v
 
 allocStack :: MonadTalState m => [WordVal] -> m ()
-allocStack ws = stack %= (ws ++)
+allocStack ws = talStack %= (ws ++)
 
 freeStack :: MonadTalState m => Int -> m ()
-freeStack n = stack %= drop n
+freeStack n = talStack %= drop n
+
+getStackSize :: MonadTalState m => m Int
+getStackSize = uses talStack length
 
 readSlot :: MonadTalState m => Maybe Ptr -> Int -> m WordVal
-readSlot Nothing i = uses stack (!! i)
+readSlot Nothing i = uses talStack (!! i)
 readSlot (Just p) i = do
-    st <- use stack
+    st <- use talStack
     let n = length st
     return $ st !! (n - p + i)
 
 writeSlot :: MonadTalState m => Maybe Ptr -> Int -> WordVal -> m ()
-writeSlot Nothing i w = stack %= (ix i .~ w)
+writeSlot Nothing i w = talStack %= (ix i .~ w)
 writeSlot (Just p) i w = do
-    st <- use stack
+    st <- use talStack
     let n = length st
-    stack %= (ix (n - p + i) .~ w)
+    talStack %= (ix (n - p + i) .~ w)
 
 liftMetaWord :: WordVal -> Word
 liftMetaWord (VInt i) = fromIntegral i

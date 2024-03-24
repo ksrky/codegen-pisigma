@@ -1,8 +1,9 @@
+{-# LANGUAGE PatternSynonyms #-}
 module Tal.Constant (
     numArgumentRegs,
     argumentRegs,
-    returnReg,
-    sptrReg,
+    pattern RVReg,
+    pattern SPReg,
     reg1, reg2, reg3, reg4,
     ) where
 
@@ -16,11 +17,11 @@ numArgumentRegs = 4
 argumentRegs :: [Reg]
 argumentRegs = map GeneralReg [1 .. fromIntegral numArgumentRegs]
 
-returnReg :: Reg
-returnReg = SpecialReg "rv"
+pattern RVReg :: Reg
+pattern RVReg = SpecialReg "rv"
 
-sptrReg :: Reg
-sptrReg = SpecialReg "sp"
+pattern SPReg :: Reg
+pattern SPReg = SpecialReg "sp"
 
 reg1, reg2, reg3, reg4 :: Reg
 reg1 = GeneralReg 1

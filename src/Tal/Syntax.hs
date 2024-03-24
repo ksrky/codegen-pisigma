@@ -125,7 +125,7 @@ type SmallVal = Val Reg
 
 data Heap
     = HGlobal WordVal
-    | HCode RegFileTy Instrs
+    | HCode Telescopes RegFileTy Instrs
     | HStruct [WordVal]
     deriving (Eq, Show)
 
@@ -145,6 +145,7 @@ data Instr
     = IAop Aop Reg Reg SmallVal
     | IBop Bop Reg SmallVal
     | ICall SmallVal
+    -- | ICoerce _ Reg
     | ILoad Reg Reg Int
     | IMalloc Reg [Ty]
     | IMove Reg SmallVal

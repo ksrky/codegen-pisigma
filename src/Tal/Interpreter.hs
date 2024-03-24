@@ -9,10 +9,10 @@ import Tal.Syntax
 runProgram :: (MonadIO m, MonadFail m) => Uniq -> Program -> m Word
 runProgram uniq (hs, rf, instrs) = do
     let st = defaultTalState
-            & heaps .~ hs
-            & regFile .~ rf
+            & talHeaps .~ hs
+            & talRegFile .~ rf
             & nextUniq .~ uniq
-    ret <- evalTalState (runInstrs instrs >> readReg returnReg) st
+    ret <- evalTalState (runInstrs instrs >> readReg RVReg) st
     return $ liftMetaWord ret
 
 runInstrs :: (MonadTalState m, MonadFail m) => Instrs -> m ()
@@ -21,7 +21,7 @@ runInstrs (ISeq ins rest) = do
     runInstrs $ f rest
 runInstrs (IJump v) = do
     VLabel l <- wordize v
-    HCode _ ins <- getHeap l
+    HCode _ _ ins <- getHeap l
     runInstrs ins
 runInstrs (IHalt _) = return ()
 
@@ -35,12 +35,12 @@ runInstr (IBop bop rd v) = do
     VInt i <- readReg rd
     if bopFun bop i then do
         VLabel l <- wordize v
-        HCode _ ins <- getHeap l
+        HCode _ _ ins <- getHeap l
         return $ const ins
     else return id
 runInstr (ICall v) = do
     VLabel l <- wordize v
-    HCode _ ins <- getHeap l
+    HCode _ _ ins <- getHeap l
     return $ const ins
 runInstr (ILoad rd rs i) = do
     VLabel l <- readReg rs
@@ -51,6 +51,10 @@ runInstr (IMalloc rd tys) = do
     lab <- freshName "mal"
     extendHeap (lab, HStruct $ map VJunk tys)
     extendRegFile rd (VLabel lab)
+    return id
+runInstr (IMove rd v) | VReg SPReg <- v = do
+    n <- getStackSize
+    extendRegFile rd (VPtr n)
     return id
 runInstr (IMove rd v) = do
     w <- wordize v
@@ -73,14 +77,14 @@ runInstr (ISalloc n) = do
 runInstr (ISfree n) = do
     freeStack n
     return id
-runInstr (ISload rd sp i) | SpecialReg "sp" <- sp = do
+runInstr (ISload rd sp i) | SPReg <- sp = do
     extendRegFile rd =<< readSlot Nothing i
     return id
 runInstr (ISload rd rs i) = do
     VPtr ptr <- readReg rs
     extendRegFile rd =<< readSlot (Just ptr) i
     undefined
-runInstr (ISstore sp i rs) | SpecialReg "sp" <- sp = do
+runInstr (ISstore sp i rs) | SPReg <- sp = do
     w <- readReg rs
     writeSlot Nothing i w
     return id
