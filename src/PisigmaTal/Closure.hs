@@ -102,6 +102,7 @@ data Bind
     | BCall Var Fun [Val]
     | BProj Var Val Idx
     | BUnpack TyVar Var Val
+    -- | BFixpack [(Var, (Ty, Val, Ty))]
     deriving (Eq, Show)
 
 data Exp

@@ -26,7 +26,7 @@ findLocals x = do
     escs <- get
     if fst x `elem` lcls || fst x `elem` map fst escs
         then return ()
-        else modify (++ [x])
+        else modify (|> x)
 
 removeLocals :: Escapes -> Locals -> Escapes
 removeLocals escs lcls = filter (\x -> fst x `notElem` lcls) escs
@@ -75,14 +75,14 @@ anfClosureVal = cata $ \case
             t_env = C.TRow r_env
             t_ucl = C.UClosTy (map snd xs') (C.typeof exp') r_env
             t_cl = C.ClosTy (map snd xs') (C.typeof exp')
-            x_cl = (newIdUnsafe "x_cl", t_ucl)
             t_code = C.TFun (t_ucl : map snd xs') (C.typeof exp')
-        f_code <- (,t_code) <$> newId "f_code"
+        x_cl <- (,t_ucl) <$> newId "x_cl"
         let binds = zipWith (\x i -> C.BProj x (C.VUnroll (C.VVar x_cl)) (intToIdx i)) escs' [2 ..]
             v_code = C.Code {
                 C.args = x_cl : xs',
                 C.body = foldr C.ELet exp' binds
             }
+        f_code <- (,t_code) <$> newId "f_code"
         appendDefn (f_code, v_code)
         return $ C.Clos t_env (C.VFun f_code : map C.VVar escs') t_cl
     A.VTupleF vs -> C.VTuple <$> sequence vs
@@ -95,10 +95,10 @@ anfClosureBind (A.BCall x (A.ExternalFun f) vs2) = do
     return [C.BCall (anfClosureVar x) (C.ExternalFun (anfClosureKnownVar f)) vs2']
 anfClosureBind (A.BCall x (A.LocalFun v1) vs2)
     | C.TExists tv t_cl <- anfClosureTy (A.typeof v1) = do
-    let x_cl = (newIdUnsafe "x_cl", t_cl)
+    x_cl <- (,t_cl) <$> newId "x_cl"
     d1 <- C.BUnpack tv x_cl <$> anfClosureVal v1
     let t_code = C.TFun (t_cl : map (anfClosureTy . A.typeof) vs2) (anfClosureTy (A.typeof x))
-    let x_code = (newIdUnsafe "x_code", t_code)
+    x_code <- (,t_code) <$> newId "x_code"
     let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) Idx1
     d3 <- C.BCall (anfClosureVar x) (C.LocalFun x_code) <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
     return [d1, d2, d3]
@@ -108,37 +108,36 @@ anfClosureExp :: A.Exp -> CCM C.Exp
 anfClosureExp = cata $ \case
     A.ELetF d me -> flip (foldr C.ELet) <$> anfClosureBind d <*> local (fst (A.bindVar d):) me
     A.ELetrecF binds mexp -> do
-        let n_binds = length binds
-        predata <- mapM anfClosureRecBind binds
-        modify $ List.nub . (concatMap (\(_, ls, _, es) -> es List.\\ ls) predata ++)
-        binds' <- forM [1 .. n_binds] $ \i -> do
-            let (f, xs, e, escs) = predata !! (i - 1)
+        binds' <- forM binds $ \(A.RecBind f vars exp) -> do
+            let f' = anfClosureVar f
+            let vars' = map anfClosureVar vars
+            (exp', escs) <- lift $ runStateT (local (const $ map fst (f : vars)) $ anfClosureExp exp) []
+            modify (escs ++)
             let r_env = foldr ((C.:>) . snd) C.REmpty escs
                 t_env = C.TRow r_env
-                t_ucl = C.UClosTy (map snd xs) (C.typeof e) r_env
-                t_cl = C.ClosTy (map snd xs) (C.typeof e)
-                x_cl = (newIdUnsafe "x_cl", t_ucl)
-                t_code = C.TFun (t_ucl : map snd xs) (C.typeof e)
-            f_code <- (,t_code) <$> newId (fst f ^. name  ++ "_code")
-            let bind0 = C.BVal f $ C.VPack t_env (C.VVar x_cl) t_cl
+                var_tys = map snd vars'
+                ret_ty = C.typeof exp'
+                t_ucl = C.UClosTy var_tys ret_ty r_env
+                t_cl = C.ClosTy var_tys ret_ty
+                t_code = C.TFun (t_ucl : var_tys) ret_ty
+            x_cl <- (,t_ucl) <$> newId "x_cl"
+            let bind0 = C.BVal f' $ C.VPack t_env (C.VVar x_cl) t_cl
                 binds' = zipWith (\x j -> C.BProj x (C.VUnroll (C.VVar x_cl)) (intToIdx j)) escs [2 ..]
                 v_code = C.Code {
-                    C.args = x_cl : xs,
-                    C.body = foldr C.ELet e (bind0 : binds')
+                    C.args = x_cl : vars',
+                    C.body = foldr C.ELet exp' (bind0 : binds')
                 }
+            f_code <- (,t_code) <$> newId (fst f ^. name  ++ "_code")
             appendDefn (f_code, v_code)
-            let clos = C.Clos t_env (C.VFun f_code : map C.VVar escs) t_cl
-            return $ C.BVal f clos
+            -- let uclos = C.UClos (C.VFun f_code : map C.VVar escs) t_ucl
+            -- return (f', (t_env, uclos, t_cl))
+            return $ C.BVal f' (C.Clos t_env (C.VFun f_code : map C.VVar escs) t_cl)
+        modify List.nub
+        -- C.ELet (C.BFixpack closures) <$> mexp
         C.ELetrec binds' <$> mexp
     A.ECaseF v les -> C.ECase <$> anfClosureVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
     A.EReturnF v -> C.EReturn <$> anfClosureVal v
     A.EAnnotF mexp ty -> C.EAnnot <$> mexp <*> pure (anfClosureTy ty)
-
-anfClosureRecBind :: A.RecBind -> CCM (C.Var, [C.Var], C.Exp, [C.Var])
-anfClosureRecBind (A.RecBind f xs e) = do
-    let xs' = map anfClosureVar xs
-    (e', escs) <- lift $ runStateT (local (const $ map fst (f : xs)) $ anfClosureExp e) []
-    return (anfClosureVar f, xs', e', escs)
 
 anfClosureDec :: A.Dec -> C.Dec
 anfClosureDec (A.DEnum x ls) = C.DEnum x ls

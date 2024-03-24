@@ -123,7 +123,7 @@ closureAllocExp (C.ELet (C.BProj x v i) e) = do
 closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
     ty <-  locally varScope (tv :) $ closureAllocTy (snd x)
     (v', binds) <- runWriterT $ closureAllocVal v
-    e' <- locally varScope (([fst x, tv] ++) . (dummyIds binds ++)) $ closureAllocExp e
+    e' <- locally varScope ((fst x : tv : dummyIds binds) ++) $ closureAllocExp e
     return $ foldr A.ELet e' (binds ++ [A.BUnpack ty v'])
 closureAllocExp (C.ELetrec binds exp) = do
     let bindIds = map (fst . C.bindVar) binds
