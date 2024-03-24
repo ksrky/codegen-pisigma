@@ -10,7 +10,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 rv :: Reg
-rv = returnReg
+rv = RVReg
 
 interpreterTest :: TestTree
 interpreterTest = testGroup "Tal.Interpreter"
@@ -29,7 +29,7 @@ interpreterTest = testGroup "Tal.Interpreter"
     , testCase "mov r1, 0; bnz r1, l1; mov rv, 10; halt [int]; \
         \l1: mov rv, -10; halt [int]" $ do
         let l1 = Name "l1" 0
-            heaps = M.fromList [(l1, HCode M.empty (IMove rv (VWord (VInt (-10))) <| IHalt TInt))]
+            heaps = M.fromList [(l1, HCode [] M.empty (IMove rv (VWord (VInt (-10))) <| IHalt TInt))]
             instrs =
                 [ IMove reg1 (VWord (VInt 0))
                 , IBop Bnz reg1 (VWord (VLabel l1))
