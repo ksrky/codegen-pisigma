@@ -80,7 +80,7 @@ isInUseReg reg = do
     regs <- liftIO $ readIORef ref
     return $ S.member reg regs
 
-newUniq :: (HasTalContext r, MonadReader r m, MonadIO m) => m Word
+newUniq :: (HasTalContext r, MonadReader r m, MonadIO m) => m Uniq
 newUniq = do
     ref <- view nextUniq
     liftIO $ modifyIORef ref (+ 1)

@@ -11,7 +11,7 @@ import Tal.Syntax
 data TalState = TalState
     { _heaps    :: Heaps
     , _regFile  :: RegFile
-    , _nextUniq :: Word
+    , _nextUniq :: Uniq
     }
 
 makeClassy ''TalState
@@ -63,3 +63,7 @@ wordize (VWord w)        = return w
 wordize (VPack ty v ty') = VPack ty <$> wordize v <*> pure ty'
 wordize (VRoll v ty)     = VRoll <$> wordize v <*> pure ty
 wordize (VUnroll v)      = VUnroll <$> wordize v
+
+liftMetaWord :: WordVal -> Word
+liftMetaWord (VInt i) = fromIntegral i
+liftMetaWord _        = error "liftWord: VInt required"

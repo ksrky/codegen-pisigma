@@ -1,4 +1,4 @@
-module Tests.Anf (expMap) where
+module Tests.PisigmaTal.Anf (expMap) where
 
 import Data.Map.Strict qualified as Map
 import PisigmaTal.Anf

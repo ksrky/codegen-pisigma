@@ -2,6 +2,8 @@ module Tal.Constructors (
     mkRegFileTy,
     mkArgumentRegs,
     (<>|),
+    emptyHeaps,
+    emptyRegFile,
     mkProgramFromInstrs
     ) where
 
@@ -22,5 +24,12 @@ infixr 5 <>|
 (<>|) :: [Instr] -> Instrs -> Instrs
 (<>|) inslist instrs = foldr ISeq instrs inslist
 
+emptyHeaps :: Heaps
+emptyHeaps = M.empty
+
+emptyRegFile :: RegFile
+emptyRegFile = M.empty
+
 mkProgramFromInstrs :: Instrs -> Program
-mkProgramFromInstrs instrs = (M.empty, M.empty, instrs)
+mkProgramFromInstrs instrs = (emptyHeaps, emptyRegFile, instrs)
+

@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module Tests.Lambda (expMap, pattern ScopeTest1) where
+module Tests.PisigmaTal.Lambda (expMap, pattern ScopeTest1) where
 
 import Data.Map.Strict   qualified as Map
 import PisigmaTal.Lambda

@@ -2,6 +2,7 @@
 
 module Tal.Syntax (
     Reg(..),
+    Uniq,
     Name(..),
     Label,
     TyVar,
@@ -37,9 +38,11 @@ data Reg
     | SpecialReg String
     deriving (Eq, Ord, Show)
 
+type Uniq = Word
+
 data Name = Name
     { nameText :: String
-    , nameUniq :: Word
+    , nameUniq :: Uniq
     }
     deriving (Eq, Ord, Show)
 

@@ -80,10 +80,12 @@ test-suite pisigma-tal-test
   type: exitcode-stdio-1.0
   main-is: Tests.hs
   other-modules:
-      Tests.Anf
-      Tests.Closure
-      Tests.Lambda
-      Tests.Raw
+      Tests.PisigmaTal
+      Tests.PisigmaTal.Anf
+      Tests.PisigmaTal.Closure
+      Tests.PisigmaTal.Lambda
+      Tests.PisigmaTal.Raw
+      Tests.Tal.Interpreter
       Paths_pisigma_tal
   autogen-modules:
       Paths_pisigma_tal

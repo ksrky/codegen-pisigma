@@ -1,4 +1,4 @@
-module Tests.Raw (expMap) where
+module Tests.PisigmaTal.Raw (expMap) where
 
 import Data.Map.Strict qualified as Map
 import PisigmaTal.Raw

@@ -1,17 +1,19 @@
-module Tal.Bytecode (runProgram) where
+module Tal.Interpreter (runProgram) where
 
 import Control.Lens.Operators
+import Control.Monad.IO.Class
 import Tal.Constant
 import Tal.State
 import Tal.Syntax
 
-runProgram :: MonadFail m => Word -> Program -> m ()
+runProgram :: (MonadIO m, MonadFail m) => Uniq -> Program -> m Word
 runProgram uniq (hs, rf, instrs) = do
     let st = defaultTalState
             & heaps .~ hs
             & regFile .~ rf
             & nextUniq .~ uniq
-    evalTalState (runInstrs instrs) st
+    ret <- evalTalState (runInstrs instrs >> readReg returnReg) st
+    return $ liftMetaWord ret
 
 runInstrs :: (MonadTalState m, MonadFail m) => Instrs -> m ()
 runInstrs (ISeq ins rest) = do
@@ -21,10 +23,7 @@ runInstrs (IJump v) = do
     VLabel l <- wordize v
     HCode _ ins <- getHeap l
     runInstrs ins
-runInstrs (IHalt _) = do
-    -- tmp: return result or set exit code
-    _ret <- readReg returnReg
-    return ()
+runInstrs (IHalt _) = return ()
 
 runInstr :: (MonadTalState m, MonadFail m) => Instr -> m (Instrs -> Instrs)
 runInstr (IAop aop rd rs v) = do

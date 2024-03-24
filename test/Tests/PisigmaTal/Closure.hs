@@ -1,4 +1,4 @@
-module Tests.Closure (expMap) where
+module Tests.PisigmaTal.Closure (expMap) where
 
 import Data.Map.Strict    qualified as Map
 import PisigmaTal.Closure

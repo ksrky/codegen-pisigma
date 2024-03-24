@@ -1,3 +1,5 @@
+module Tests.PisigmaTal (testsPisigmaTal) where
+
 import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
@@ -18,16 +20,13 @@ import Prettyprinter.Render.Text
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.HUnit
-import Tests.Anf                 qualified as Anf
-import Tests.Closure             qualified as Closure
-import Tests.Lambda              qualified as Lambda
-import Tests.Raw                 qualified as Raw
+import Tests.PisigmaTal.Anf      qualified as Anf
+import Tests.PisigmaTal.Closure  qualified as Closure
+import Tests.PisigmaTal.Lambda   qualified as Lambda
+import Tests.PisigmaTal.Raw      qualified as Raw
 
-main :: IO ()
-main = defaultMain tests
-
-tests :: TestTree
-tests = testGroup "pisigma-tal" [parserTests, scopeTests, stepTests, goldenTests]
+testsPisigmaTal :: TestTree
+testsPisigmaTal = testGroup "pisigma-tal" [parserTests, scopeTests, stepTests, goldenTests]
 
 parserTests :: TestTree
 parserTests = testGroup "Parser tests"
