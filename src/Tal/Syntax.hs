@@ -60,6 +60,7 @@ data Ty
     | TRow RowTy
     | TNonsense
     | TPtr StackTy
+    | TAlias Name
     deriving (Eq, Show)
 
 type InitFlag = Bool

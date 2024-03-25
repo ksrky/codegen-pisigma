@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module PisigmaTal.AllocTal where
+module PisigmaTal.AllocTal (allocTalProgram) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
@@ -40,17 +40,17 @@ runTalM builder = runStateT builder initTalState
 extendHeaps :: MonadTalBuilder m => [(T.Name, T.Heap)] -> TalM m ()
 extendHeaps heaps = heapsState %= M.union (M.fromList heaps)
 
-allocTalTy :: MonadTalBuilder m => A.Ty -> m T.Ty
+allocTalTy :: (MonadTalBuilder m, MonadIO m) => A.Ty -> m T.Ty
 allocTalTy = cata $ \case
     A.TIntF -> return T.TInt
     A.TVarF i -> return $ T.TVar i
     A.TFunF tys _ -> T.TRegFile . mkRegFileTy <$> sequence tys
     A.TExistsF ty -> T.TExists <$> ty
     A.TRecursF ty -> T.TRecurs <$> ty
-    A.TRowF row -> undefined
-    A.TAliasF x _ -> undefined
+    A.TRowF row -> T.TRow <$> allocTalRowTy row
+    A.TAliasF x _ -> T.TAlias <$> freshName (x ^. name)
 
-allocTalRowTy :: MonadTalBuilder m => A.RowTy -> m T.RowTy
+allocTalRowTy :: (MonadTalBuilder m, MonadIO m) => A.RowTy -> m T.RowTy
 allocTalRowTy = cata $ \case
     A.REmptyF -> return T.REmpty
     A.RVarF i -> return $ T.RVar i
@@ -58,15 +58,15 @@ allocTalRowTy = cata $ \case
         ty' <- allocTalTy ty
         T.RSeq (ty', flag) <$> rest
 
-allocConst :: A.Const -> T.WordVal
-allocConst (A.CInt i)      = T.VInt i
-allocConst (A.CGlobal x _) = T.VLabel undefined
+allocTalConst :: (MonadTalBuilder m, MonadIO m) => A.Const -> m T.WordVal
+allocTalConst (A.CInt i)      = return $ T.VInt i
+allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name)
 
-allocTalVal :: MonadTalBuilder m => A.Val -> m T.SmallVal
+allocTalVal :: (MonadTalBuilder m, MonadIO m) => A.Val -> m T.SmallVal
 allocTalVal (A.VVar x _ty) = do
     reg <- findReg x
     return $ T.VReg reg
-allocTalVal (A.VConst c) = return $ T.VWord (allocConst c)
+allocTalVal (A.VConst c) = T.VWord <$> allocTalConst c
 allocTalVal (A.VPack t1 v t2) =
     T.VPack <$> allocTalTy t1 <*> allocTalVal v <*> allocTalTy t2
 allocTalVal (A.VFixPack packs) = undefined
@@ -74,10 +74,11 @@ allocTalVal (A.VRoll v t) = T.VRoll <$> allocTalVal v <*> allocTalTy t
 allocTalVal (A.VUnroll v) = T.VUnroll <$> allocTalVal v
 allocTalVal (A.VAnnot v _) = allocTalVal v
 
-allocTalNonVarVal :: (MonadTalBuilder m, MonadFail m) => A.Val -> m T.WordVal
+allocTalNonVarVal :: (MonadTalBuilder m, MonadFail m, MonadIO m) =>
+    A.Val -> m T.WordVal
 allocTalNonVarVal = cata $ \case
     A.VVarF{} -> fail "unexpected variable"
-    A.VConstF c -> return $ allocConst c
+    A.VConstF c -> allocTalConst c
     A.VPackF ty1 val ty2 -> T.VPack <$> allocTalTy ty1 <*> val <*> allocTalTy ty2
     A.VFixPackF packs -> undefined
     A.VRollF val ty -> T.VRoll <$> val <*> allocTalTy ty
@@ -146,7 +147,12 @@ allocTalExp (A.ECase val cases) = do
         return $ T.HCode [] rfty instrs
     labs <- mapM (freshName . show) [0 .. length cases - 1]
     extendHeaps $ zip labs heaps
-    undefined
+    instr_list <- forM (tail labs) $ \l -> do
+        return
+            [ T.IAop T.Sub reg reg (T.VWord (T.VInt 1))
+            , T.IBop T.Bz reg (T.VWord (T.VLabel l))]
+    return $ T.IMove reg val' <| T.IBop T.Bz reg (T.VWord (T.VLabel (head labs)))
+        <| concat instr_list <>| T.IHalt T.TNonsense -- tmp: exception or default
 allocTalExp (A.EReturn val) = do
     val' <- allocTalVal val
     ty <- allocTalTy (A.typeof val)
