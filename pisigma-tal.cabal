@@ -49,6 +49,7 @@ library
       Tal.Constructors
       Tal.Context
       Tal.Interpreter
+      Tal.Prettyprint
       Tal.State
       Tal.Syntax
   other-modules:

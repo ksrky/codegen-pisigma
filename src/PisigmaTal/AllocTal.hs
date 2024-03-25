@@ -174,4 +174,4 @@ allocTalInstrs (idheaps, exp) | (ids, heaps) <- unzip idheaps = do
 allocTalProgram :: A.Program -> IO T.Program
 allocTalProgram (heaps, exp) = do
     (instrs, st) <- runTalBuilder $ runTalM $ allocTalInstrs (heaps, exp)
-    return (st ^. heapsState, M.empty, instrs)
+    return (st ^. heapsState, instrs)

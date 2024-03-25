@@ -32,5 +32,5 @@ emptyRegFile :: RegFile
 emptyRegFile = M.empty
 
 mkProgramFromInstrs :: Instrs -> Program
-mkProgramFromInstrs instrs = (emptyHeaps, emptyRegFile, instrs)
+mkProgramFromInstrs instrs = (emptyHeaps, instrs)
 

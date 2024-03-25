@@ -3,14 +3,15 @@ module Tal.Interpreter (runProgram) where
 import Control.Lens.Operators
 import Control.Monad.IO.Class
 import Tal.Constant
+import Tal.Constructors
 import Tal.State
 import Tal.Syntax
 
 runProgram :: (MonadIO m, MonadFail m) => Uniq -> Program -> m Word
-runProgram uniq (hs, rf, instrs) = do
+runProgram uniq (hs, instrs) = do
     let st = defaultTalState
             & talHeaps .~ hs
-            & talRegFile .~ rf
+            & talRegFile .~ emptyRegFile
             & nextUniq .~ uniq
     ret <- evalTalState (runInstrs instrs >> readReg RVReg) st
     return $ liftMetaWord ret

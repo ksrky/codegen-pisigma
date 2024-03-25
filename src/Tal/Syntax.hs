@@ -174,7 +174,7 @@ instance Cons Instrs Instrs Instr Instr where
         ISeq i is -> Right (i, is)
         ins       -> Left ins
 
-type Program = (Heaps, RegFile, Instrs)
+type Program = (Heaps, Instrs)
 
 makeBaseFunctor ''Ty
 makeBaseFunctor ''RowTy
