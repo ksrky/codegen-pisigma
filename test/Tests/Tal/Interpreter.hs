@@ -35,6 +35,6 @@ interpreterTest = testGroup "Tal.Interpreter"
                 , IBop Bnz reg1 (VWord (VLabel l1))
                 , IMove rv (VWord (VInt 10))
                 ] <>| IHalt TInt
-        ret <- runProgram 1 (heaps, emptyRegFile, instrs)
+        ret <- runProgram 1 (heaps, instrs)
         ret @?= (10 :: Word)
     ]

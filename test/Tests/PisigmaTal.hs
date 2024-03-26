@@ -5,6 +5,7 @@ import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
 import Data.Text.Encoding
 import PisigmaTal.Alloc.Check    qualified as Alloc
+import PisigmaTal.AllocTal
 import PisigmaTal.Anf.Check      qualified as Anf
 import PisigmaTal.AnfClosure
 import PisigmaTal.Closure.Check  qualified as Closure
@@ -17,6 +18,7 @@ import PisigmaTal.RawLambda
 import Prettyprinter             hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text
+import Tal.Prettyprint
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.HUnit
@@ -211,6 +213,9 @@ stepTests = testGroup "Step tests"
       Closure.checkProgram e4
   ]
 
+goldenTests :: TestTree
+goldenTests = testGroup "Golden tests" [goldenClosTests, goldenTalTests]
+
 outputClosString :: Text -> IO BL.ByteString
 outputClosString  inp = do
   raw_prog <- parseProgram inp
@@ -222,8 +227,8 @@ outputClosString  inp = do
   let out = renderStrict $ layoutPretty layoutOptions $ pretty clos_texp
   return $ BL.fromStrict $ encodeUtf8 out
 
-goldenTests :: TestTree
-goldenTests = testGroup "Golden tests"
+goldenClosTests :: TestTree
+goldenClosTests = testGroup "Golden Closure tests"
   [ goldenVsString "\\x -> x" ".golden/clos_\\x -> x.txt" $ outputClosString "\\x -> x"
   , goldenVsString "(\\x -> x) 5" ".golden/clos_(\\x -> x) 5.txt" $ outputClosString "(\\x -> x) 5"
   , goldenVsString "\\x -> (\\y -> x + y)" ".golden/clos_\\x -> (\\y -> x + y).txt" $ outputClosString "\\x -> (\\y -> x + y)"
@@ -236,4 +241,21 @@ goldenTests = testGroup "Golden tests"
   , goldenVsString "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
     ".golden/clos_let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5.txt"
     $ outputClosString "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
+  ]
+
+outputTalString :: Text -> IO BL.ByteString
+outputTalString  inp = do
+  raw_prog <- parseProgram inp
+  lambda_prog <- rawLambdaProgram raw_prog
+  let anf_prog = lambdaAnfProgram lambda_prog
+  closure_prog <- anfClosureProgram anf_prog
+  alloc_prog <- closureAllocProgram closure_prog
+  tal_prog <- allocTalProgram alloc_prog
+  let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
+  let out = renderStrict $ layoutPretty layoutOptions $ pprtal tal_prog
+  return $ BL.fromStrict $ encodeUtf8 out
+
+goldenTalTests :: TestTree
+goldenTalTests = testGroup "Golden TAL test"
+  [ goldenVsString "42" ".golden/tal_42.txt" $ outputTalString "42"
   ]

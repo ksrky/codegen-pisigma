@@ -26,6 +26,7 @@ instance PprTal Ty where
     pprtal (TRow rty)      = pprtal rty
     pprtal TNonsense       = "ns"
     pprtal (TPtr sty)      = "ptr" <+> pprtal sty
+    pprtal (TAlias name)   = pprtal name
 
 instance PprTal RowTy where
     pprtal REmpty                = "ε"
