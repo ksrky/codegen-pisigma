@@ -31,8 +31,8 @@ instance PprTal Ty where
 instance PprTal RowTy where
     pprtal REmpty                = "ε"
     pprtal (RVar i)              = "#" <> pretty i
-    pprtal (RSeq (ty, flag) rty) =
-        parens (pprtal ty) <> pretty (fromEnum flag) <+> ", " <+> pprtal rty
+    pprtal (RSeq ty rty) =
+        parens (pprtal ty) <> ", " <+> pprtal rty
 
 instance PprTal StackTy where
     pprtal SNil           = "nil"

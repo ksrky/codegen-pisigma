@@ -27,8 +27,6 @@ import PisigmaTal.Idx
 import Prettyprinter            hiding (pretty)
 import Prettyprinter.Prec
 
-type InitFlag = Bool
-
 data Ty
     = TInt
     | TVar Int
@@ -41,12 +39,12 @@ data Ty
 
 infixr 5 :>
 
-data RowTy = REmpty | RVar Int | (Ty, InitFlag) :> RowTy
+data RowTy = REmpty | RVar Int | Ty :> RowTy
     deriving (Eq, Show)
 
 type instance Index RowTy = Idx
 
-type instance IxValue RowTy = (Ty, InitFlag)
+type instance IxValue RowTy = Ty
 instance Ixed RowTy where
     ix _ _ REmpty             = pure REmpty
     ix _ _ (RVar x)           = pure $ RVar x
@@ -115,7 +113,7 @@ mapRowTy onvar c = cata $ \case
         TRow row -> row
         TVar y   -> RVar y
         _        -> error "TRow or TVar required"
-    (ty, flag) :>$ row -> (mapTy onvar c ty, flag) :> row
+    ty :>$ row -> mapTy onvar c ty :> row
 
 shiftTy :: Int -> Ty -> Ty
 shiftTy d = mapTy (\x c -> TVar (if x < c then x else x + d)) 0
@@ -153,10 +151,9 @@ instance PrettyPrec Ty where
     prettyPrec _ (TAlias x _) = pretty x
 
 instance PrettyPrec RowTy where
-    pretty REmpty               = "ε"
-    pretty (RVar i)             = "`" <> pretty i
-    pretty ((ty, True) :> row)  = pretty ty <> "¹" <> "," <+> pretty row
-    pretty ((ty, False) :> row) = pretty ty <> "⁰" <> "," <+> pretty row
+    pretty REmpty      = "ε"
+    pretty (RVar i)    = "`" <> pretty i
+    pretty (ty :> row) = pretty ty <> "," <+> pretty row
 
 instance PrettyPrec Val where
     prettyPrec _ (VVar i _)    = "`" <> pretty i

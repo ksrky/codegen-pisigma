@@ -29,7 +29,7 @@ checkEqTys t1 t2 = fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++
 checkEqRowTys :: RowTy -> RowTy -> IO ()
 checkEqRowTys REmpty REmpty = return ()
 checkEqRowTys (RVar x) (RVar y) | x == y = return ()
-checkEqRowTys ((t1, flag1) :> r1) ((t2, flag2) :> r2) | flag1 == flag2 = do
+checkEqRowTys (t1 :> r1) (t2 :> r2) = do
     checkEqTys t1 t2
     checkEqRowTys r1 r2
 checkEqRowTys r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
@@ -67,7 +67,7 @@ checkVal (VFixPack packs) = do
             lift $ checkEqTys (substTop ty1 ty2) ty
             return ann_ty
         _ -> fail $ "expected existential type, but got " ++ show ann_ty
-    return $ TRow (foldr (\ty -> ((ty, True) :>)) REmpty ann_tys)
+    return $ TRow (foldr (:>) REmpty ann_tys)
 checkVal (VRoll val ann_ty)
     | TRecurs ty <- ann_ty = do
         ty' <- checkVal val
@@ -106,11 +106,9 @@ checkExp (ELet (BProj ann_ty val idx) body) = do
     locally localEnv (Just ann_ty :) $ checkExp body
   where
     go :: Idx -> RowTy -> IO Ty
-    go Idx1 ((ty1, initialized) :> _)
-        | initialized     = return ty1
-        | not initialized = fail "field uninitialized"
-    go i (_  :> row) = go (idxPred i) row
-    go _ _ = error "impossible"
+    go Idx1 (ty1 :> _) = return ty1
+    go i (_  :> row)   = go (idxPred i) row
+    go _ _             = error "impossible"
 checkExp (ELet (BUnpack ann_ty val) body) = do
     ty <- checkVal val
     case ty of
@@ -118,17 +116,16 @@ checkExp (ELet (BUnpack ann_ty val) body) = do
         _           -> fail $ "expected existential type, but got " ++ show ty
     locally localEnv ([Just ann_ty, Nothing] ++) $ checkExp body
 checkExp (ELet (BMalloc ann_ty tys) body) = do
-    let row_ty = TRow $ foldr (\ty -> ((ty, False) :>)) REmpty tys
+    let row_ty = TRow $ foldr (:>) REmpty tys
     lift $ checkEqTys ann_ty row_ty
     locally localEnv (Just ann_ty :) $ checkExp body
 checkExp (ELet (BUpdate ann_ty val1 idx val2) body) = do
     ty1 <- checkVal val1
+    lift $ checkEqTys ann_ty ty1
     ty2 <- checkVal val2
     case ty1 of
         TRow row1 -> lift $  do
-            checkEqTys (fst (row1 ^?! ix idx)) ty2
-            let row1' = row1 & ix idx %~ \(ty, _) -> (ty, True)
-            checkEqTys ann_ty (TRow row1')
+            checkEqTys (row1 ^?! ix idx) ty2
         _ -> fail $ "expected row type, but got " ++ show ty1
     locally localEnv (Just ann_ty :) $ checkExp body
 checkExp (ECase val exps) = do

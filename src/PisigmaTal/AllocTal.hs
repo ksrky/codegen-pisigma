@@ -54,9 +54,9 @@ allocTalRowTy :: (MonadTalBuilder m, MonadIO m) => A.RowTy -> m T.RowTy
 allocTalRowTy = cata $ \case
     A.REmptyF -> return T.REmpty
     A.RVarF i -> return $ T.RVar i
-    (ty, flag) A.:>$ rest -> do
+    ty A.:>$ rest -> do
         ty' <- allocTalTy ty
-        T.RSeq (ty', flag) <$> rest
+        T.RSeq ty' <$> rest
 
 allocTalConst :: (MonadTalBuilder m, MonadIO m) => A.Const -> m T.WordVal
 allocTalConst (A.CInt i)      = return $ T.VInt i

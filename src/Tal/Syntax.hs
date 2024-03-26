@@ -63,14 +63,12 @@ data Ty
     | TAlias Name
     deriving (Eq, Show)
 
-type InitFlag = Bool
-
-data RowTy = REmpty | RVar Int | RSeq (Ty, InitFlag) RowTy
+data RowTy = REmpty | RVar Int | RSeq Ty RowTy
     deriving (Eq, Show)
 
-instance Cons RowTy RowTy (Ty, InitFlag) (Ty, InitFlag) where
+instance Cons RowTy RowTy Ty Ty where
     _Cons = prism (uncurry RSeq) $ \case
-        RSeq (ty, flag) row -> Right ((ty, flag), row)
+        RSeq ty row -> Right (ty, row)
         row                 -> Left row
 
 data StackTy = SNil | SVar Int | SCons Ty StackTy

@@ -46,7 +46,7 @@ closureAllocRowTy :: C.RowTy -> CtxM A.RowTy
 closureAllocRowTy = cata $ \case
     ty C.:>$ row -> do
         ty' <- closureAllocTy ty
-        ((ty' ,True) A.:>) <$> row
+        (ty' A.:>) <$> row
     C.RVarF x -> do
         vsc <- view varScope
         case List.elemIndex x vsc of
@@ -73,17 +73,13 @@ closureAllocVal (C.VLabel l _) = do
 closureAllocVal (C.VTuple vals) = do
     let n_vals = length vals
     tys <- lift $ mapM (closureAllocTy . C.typeof) vals
-    let mallocty = A.TRow $ foldr (\ty -> ((ty, False) A.:>)) A.REmpty tys
-        bind0 = A.BMalloc mallocty tys
-        structtys = mallocty :
-            map (\i -> A.TRow (foldr (\j -> ((tys !! j, j < i) A.:>)) A.REmpty [0 .. n_vals - 1])) [1 .. n_vals]
+    let rowty = A.TRow $ foldr (A.:>) A.REmpty tys
+        bind0 = A.BMalloc rowty tys
     binds <- forM [1 .. n_vals] $ \i -> do
-        let ty1 = structtys !! i
-        let ty2 = structtys !! (i - 1)
         val <- locally varScope (replicate i dummyId ++) $ closureAllocVal (vals !! (i - 1))
-        return $ A.BUpdate ty1 (A.VVar 0 ty2) (intToIdx i) val
+        return $ A.BUpdate rowty (A.VVar 0 rowty) (intToIdx i) val
     tell (bind0 : binds)
-    return $ A.VVar 0 (last (mallocty : structtys))
+    return $ A.VVar 0 rowty
 closureAllocVal (C.VPack t1 v t2) =
     A.VPack <$> lift (closureAllocTy t1) <*> closureAllocVal v <*> lift (closureAllocTy t2)
 closureAllocVal (C.VRoll v t) = do
@@ -136,7 +132,7 @@ closureAllocExp (C.ELetrec binds exp) = do
                 return (ty1', val', ty2')
             _ -> fail "not supported yet"
         let pack_tys = map (view _3) packs
-            packs_ty = A.TRow $ foldr ((A.:>) . (, True)) A.REmpty pack_tys
+            packs_ty = A.TRow $ foldr (A.:>) A.REmpty pack_tys
             binds'' = A.BVal packs_ty (A.VFixPack packs) :
                 map (\i -> A.BProj (pack_tys !! i) (A.VVar i packs_ty) (intToIdx (i + 1))) [0 .. length binds - 1]
         return $ binds' ++ binds''
