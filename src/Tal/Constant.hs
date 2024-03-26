@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 module Tal.Constant (
     numArgumentRegs,
     argumentRegs,

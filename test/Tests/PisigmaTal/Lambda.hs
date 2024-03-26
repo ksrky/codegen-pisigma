@@ -1,5 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
-
 module Tests.PisigmaTal.Lambda (expMap, pattern ScopeTest1) where
 
 import Data.Map.Strict   qualified as Map

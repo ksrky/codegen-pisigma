@@ -48,6 +48,7 @@ default-extensions:
   - ImportQualifiedPost
   - LambdaCase
   - OverloadedStrings
+  - PatternSynonyms
   - TypeFamilies
 
 library:
