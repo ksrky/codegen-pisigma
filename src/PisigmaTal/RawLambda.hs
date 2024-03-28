@@ -108,7 +108,7 @@ tcExp (R.EBinOp op e1 e2) exp_ty = do
             e1' <- tcExp e1 t1'
             e2' <- tcExp e2 t2'
             lift $ unify exp_ty tr
-            return $ L.EAnnot (L.EExternApp op' [e1', e2']) exp_ty
+            return $ L.EAnnot (L.EFullApp op' [e1', e2']) exp_ty
         _ -> fail "required binary function type"
 tcExp (R.ELet xes e2) exp_ty = do
     bbs <- forM xes $ \(x, e) -> do
@@ -166,7 +166,7 @@ instance Zonking L.Exp where
         L.EVarF x -> L.EVar <$> zonk x
         L.ELabelF l t -> L.ELabel l <$> zonk t
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
-        L.EExternAppF f es -> L.EExternApp <$> zonk f <*> sequence es
+        L.EFullAppF f es -> L.EFullApp <$> zonk f <*> sequence es
         L.ELamF x e -> L.ELam <$> zonk x <*> e
         L.ELetF (L.NonrecBind x e1) e2 -> do
             bb <- L.NonrecBind <$> zonk x <*> zonk e1

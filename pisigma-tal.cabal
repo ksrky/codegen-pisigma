@@ -41,6 +41,7 @@ library
       PisigmaTal.Lambda.Init
       PisigmaTal.LambdaAnf
       PisigmaTal.Parser
+      PisigmaTal.Primitive
       PisigmaTal.Raw
       PisigmaTal.RawLambda
       PisigmaTal.Toplevel

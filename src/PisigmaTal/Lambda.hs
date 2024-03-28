@@ -60,7 +60,7 @@ data Exp
     | EVar Var
     | ELabel Label Ty
     | EApp Exp Exp
-    | EExternApp Var [Exp]
+    | EFullApp Var [Exp]
     | ELam Var Exp
     | ETuple [Exp]
     | ELet BindBlock Exp
@@ -144,7 +144,7 @@ instance Typeable Exp where
         ELabelF _ t -> t
         EAppF t1 _ | TFun _ t12 <- t1 -> t12
                    | otherwise        -> error "impossible"
-        EExternAppF (_, t) _ -> snd $ splitTFun t
+        EFullAppF (_, t) _ -> snd $ splitTFun t
         ELamF (_, t1) t2 -> TFun t1 t2
         ELetF _ t -> t
         ETupleF ts -> TTuple ts

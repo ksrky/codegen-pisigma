@@ -59,26 +59,28 @@ checkExp (EAnnot e t) = do
     lift $ checkEqTys t t'
     return t
 
-checkFunVal :: FunVal -> ReaderT Env IO Ty
-checkFunVal (LocalFun val) = checkVal val
-checkFunVal (KnownFun var) = do
-    env <- ask
-    case lookupBindEnv (fst var) env of
-        Just ty -> return ty
-        Nothing -> fail $ "unbound function: " ++ show var
-
 checkBind :: Bind -> ReaderT Env IO ()
 checkBind (BVal var val) = do
     ty <- checkVal val
     lift $ checkEqTys (snd var) ty
-checkBind (BCall var fval args) = do
-    ty <- checkFunVal fval
+checkBind (BPartialApp var fun args) = do
+    fun_ty <- checkVal fun
     arg_tys <- mapM checkVal args
-    case ty of
+    case fun_ty of
         TFun arg_tys' res_ty -> lift $ do
             zipWithM_ checkEqTys arg_tys' arg_tys
             checkEqTys (snd var) res_ty
-        _ -> fail $ "required function type, but got " ++ show ty
+        _ -> fail $ "required function type, but got " ++ show fun_ty
+checkBind (BFullApp var fun args) = do
+    arg_tys <- mapM checkVal args
+    env <- ask
+    case lookupBindEnv (fst fun) env of
+        Just fun_ty
+            | TFun arg_tys' res_ty <- fun_ty -> lift $ do
+            zipWithM_ checkEqTys arg_tys' arg_tys
+            checkEqTys (snd var) res_ty
+            | otherwise -> fail "required function type"
+        Nothing -> fail $ "unbound function: " ++ show fun
 
 checkRecBind :: RecBind -> ReaderT Env IO ()
 checkRecBind (RecBind f vars exp) = do

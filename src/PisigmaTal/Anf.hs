@@ -7,7 +7,6 @@ module PisigmaTal.Anf (
     Var,
     ValF(..),
     Val(..),
-    FunVal(..),
     Bind(..),
     RecBind(..),
     Exp(..),
@@ -49,12 +48,10 @@ data Val
     | VAnnot Val Ty
     deriving (Eq, Show)
 
-data FunVal = LocalFun Val | KnownFun Var
-    deriving (Eq, Show)
-
 data Bind
     = BVal Var Val
-    | BCall Var FunVal [Val]
+    | BPartialApp Var Val [Val]
+    | BFullApp Var Var [Val]
     deriving (Eq, Show)
 
 data RecBind = RecBind Var [Var] Exp
@@ -127,5 +124,6 @@ instance Typeable Exp where
         EAnnotF _ t -> t
 
 bindVar :: Bind -> Var
-bindVar (BVal x _)    = x
-bindVar (BCall x _ _) = x
+bindVar (BVal x _)          = x
+bindVar (BPartialApp x _ _) = x
+bindVar (BFullApp x _ _)    = x

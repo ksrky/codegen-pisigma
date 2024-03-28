@@ -90,10 +90,7 @@ anfClosureVal = cata $ \case
 
 anfClosureBind :: A.Bind -> CCM [C.Bind]
 anfClosureBind (A.BVal x v) = List.singleton <$> (C.BVal (anfClosureVar x) <$> anfClosureVal v)
-anfClosureBind (A.BCall x (A.KnownFun f) vs2) = do
-    vs2' <- mapM anfClosureVal vs2
-    return [C.BCall (anfClosureVar x) (C.KnownFun (anfClosureKnownVar f)) vs2']
-anfClosureBind (A.BCall x (A.LocalFun v1) vs2)
+anfClosureBind (A.BPartialApp x v1 vs2)
     | C.TExists tv t_cl <- anfClosureTy (A.typeof v1) = do
     x_cl <- (,t_cl) <$> newId "x_cl"
     d1 <- C.BUnpack tv x_cl <$> anfClosureVal v1
@@ -103,6 +100,9 @@ anfClosureBind (A.BCall x (A.LocalFun v1) vs2)
     d3 <- C.BCall (anfClosureVar x) (C.LocalFun x_code) <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
     return [d1, d2, d3]
     | otherwise = error "impossible"
+anfClosureBind (A.BFullApp x f vs2) = do
+    vs2' <- mapM anfClosureVal vs2
+    return [C.BCall (anfClosureVar x) (C.KnownFun (anfClosureKnownVar f)) vs2']
 
 anfClosureExp :: A.Exp -> CCM C.Exp
 anfClosureExp = cata $ \case

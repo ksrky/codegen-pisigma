@@ -11,4 +11,4 @@ expMap = Map.fromList
 
 
 pattern ScopeTest1 :: Var -> Var -> Var -> Exp
-pattern ScopeTest1 x0 x1 x2 <- ELam x0 (EExternApp _ [EVar x1, EVar x2])
+pattern ScopeTest1 x0 x1 x2 <- ELam x0 (EFullApp _ [EVar x1, EVar x2])
