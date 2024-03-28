@@ -61,7 +61,7 @@ checkExp (EAnnot e t) = do
 
 checkFunVal :: FunVal -> ReaderT Env IO Ty
 checkFunVal (LocalFun val) = checkVal val
-checkFunVal (ExternalFun var) = do
+checkFunVal (KnownFun var) = do
     env <- ask
     case lookupBindEnv (fst var) env of
         Just ty -> return ty

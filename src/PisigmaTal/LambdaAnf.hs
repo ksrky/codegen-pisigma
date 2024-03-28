@@ -44,7 +44,7 @@ lambdaAnfExp (L.EExternApp fvar exps) kont =
                 var = (newIdUnsafe "x_ext", lambdaAnfTy ret_ty)
                 body = kont (A.VVar var)
                 fvar' = (fst fvar, A.TFun (map lambdaAnfTy arg_tys) (lambdaAnfTy ret_ty))
-            in A.ELet (A.BCall var (A.ExternalFun fvar') (reverse acc)) body
+            in A.ELet (A.BCall var (A.KnownFun fvar') (reverse acc)) body
         go acc (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) rest
     in go [] exps
 lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)

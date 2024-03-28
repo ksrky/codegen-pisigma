@@ -93,7 +93,7 @@ data Val
 
 data Fun
     = LocalFun {funVar :: Var}
-    | ExternalFun {funVar :: Var}
+    | KnownFun {funVar :: Var}
     deriving (Eq, Show)
 
 data Bind
@@ -255,8 +255,8 @@ instance PrettyPrec Val where
     prettyPrec _ (VAnnot v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
 
 instance PrettyPrec Fun where
-    pretty (LocalFun (f, _))    = pretty f
-    pretty (ExternalFun (f, _)) = pretty f
+    pretty (LocalFun (f, _)) = pretty f
+    pretty (KnownFun (f, _)) = pretty f
 
 instance PrettyPrec Bind where
     pretty (BVal x v) = hang 2 $ pretty x <+> "=" <> softline <> pretty v

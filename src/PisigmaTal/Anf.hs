@@ -49,7 +49,7 @@ data Val
     | VAnnot Val Ty
     deriving (Eq, Show)
 
-data FunVal = LocalFun Val | ExternalFun Var
+data FunVal = LocalFun Val | KnownFun Var
     deriving (Eq, Show)
 
 data Bind

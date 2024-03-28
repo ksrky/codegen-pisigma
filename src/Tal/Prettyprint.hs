@@ -62,6 +62,8 @@ instance PprTal (Name, Heap) where
         encloseSep "[" "]" ", " (map pprtal tvs) <> pprtal rfty <> "." <> line <> pprtal instrs
     pprtal (name, HStruct ws) = "struct" <+> pprtal name <+> "=" <+>
         encloseSep "{" "}" ", " (map pprtal ws)
+    pprtal (name, HExtern ty) = "extern" <+> pprtal name <+> "=" <+> pprtal ty
+    pprtal (name, HTypeAlias ty) = "type" <+> pprtal name <+> "=" <+> pprtal ty
 
 instance PprTal Aop where
     pprtal Add = "add"

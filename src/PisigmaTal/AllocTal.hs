@@ -2,7 +2,7 @@
 
 module PisigmaTal.AllocTal (allocTalProgram) where
 
-import Control.Lens.Combinators
+import Control.Lens.Combinators hiding (op)
 import Control.Lens.Operators
 import Control.Monad.Reader
 import Control.Monad.State
@@ -60,6 +60,7 @@ allocTalRowTy = cata $ \case
 
 allocTalConst :: (MonadTalBuilder m, MonadIO m) => A.Const -> m T.WordVal
 allocTalConst (A.CInt i)      = return $ T.VInt i
+allocTalConst (A.CPrimop{})   = error "impossible"
 allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name)
 
 allocTalVal :: (MonadTalBuilder m, MonadIO m) => A.Val -> m T.SmallVal
@@ -85,14 +86,29 @@ allocTalNonVarVal = cata $ \case
     A.VUnrollF val -> T.VUnroll <$> val
     A.VAnnotF val _ -> val
 
+mapPrimop :: A.Primop -> T.Aop
+mapPrimop = \case
+    A.Add -> T.Add; A.Sub -> T.Sub; A.Mul -> T.Mul
+
+buildMove :: (MonadTalBuilder m, MonadIO m) => T.SmallVal -> TalM m (Maybe T.Instr, T.Reg)
+buildMove (T.VReg reg) = return (Nothing, reg)
+buildMove val = do
+    reg <- freshReg
+    return (Just (T.IMove reg val), reg)
+
 allocTalExp :: (MonadTalBuilder m, MonadIO m) => A.Exp -> TalM m T.Instrs
 allocTalExp (A.ELet (A.BVal ty val) exp) = do
+    ty' <- allocTalTy ty
+    (mb_instr, reg) <- buildMove =<< allocTalVal val
+    instrs <- withExtendReg reg $ withExtendRegTy reg ty' $ allocTalExp exp
+    return $ mb_instr <>| instrs
+allocTalExp (A.ELet (A.BCall ty (A.VConst (A.CPrimop op _)) vals) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
-    val' <- allocTalVal val
-    instrs <- withExtendReg reg $
-        withExtendRegTy reg ty' $ allocTalExp exp
-    return $ T.IMove reg val' <| instrs
+    (mb_instr, reg') <- buildMove =<< allocTalVal (head vals)
+    val2 <- allocTalVal (vals !! 1)
+    instrs <- withExtendReg reg $ withExtendRegTy reg ty' $ allocTalExp exp
+    return $ mb_instr <>| T.IAop (mapPrimop op) reg reg' val2 <| instrs
 allocTalExp (A.ELet (A.BCall ty val vals) exp) | let arity = length vals = do
     reg <- freshReg
     ty' <- allocTalTy ty
@@ -116,8 +132,7 @@ allocTalExp (A.ELet (A.BUnpack exty val) exp) | A.TExists ty <- exty = do
     reg <- freshReg
     ty' <- allocTalTy ty
     val' <- allocTalVal val
-    instrs <- withExtendReg reg $ -- tmp: TyVar telescopes -- tmp: TyVar telescopes
-         -- tmp: TyVar telescopes
+    instrs <- withExtendReg reg $ -- tmp: TyVar telescopes
         withExtendRegTy reg ty' $ allocTalExp exp
     return $ T.IUnpack reg val' <| instrs -- tmp: TyVar
 allocTalExp (A.ELet A.BUnpack{} _) = error "expected existential type"
@@ -166,7 +181,8 @@ allocTalHeap (A.HCode tys _ exp) = do
     rfilety <- mkRegFileTy <$> mapM allocTalTy tys
     instrs <- withExtendRegs (mkArgumentRegs (length tys)) $ allocTalExp exp
     return $ T.HCode [] rfilety instrs
-allocTalHeap _ = undefined
+allocTalHeap (A.HExtern ty) = T.HExtern <$> allocTalTy ty
+allocTalHeap (A.HTypeAlias ty) = T.HTypeAlias <$> allocTalTy ty
 
 allocTalInstrs :: (MonadTalBuilder m, MonadFail m, MonadIO m) => A.Program -> TalM m T.Instrs
 allocTalInstrs (idheaps, exp) | (ids, heaps) <- unzip idheaps = do

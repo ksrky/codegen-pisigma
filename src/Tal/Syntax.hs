@@ -125,6 +125,8 @@ data Heap
     = HGlobal WordVal
     | HCode Telescopes RegFileTy Instrs
     | HStruct [WordVal]
+    | HExtern Ty
+    | HTypeAlias Ty
     deriving (Eq, Show)
 
 type Heaps = M.Map Name Heap

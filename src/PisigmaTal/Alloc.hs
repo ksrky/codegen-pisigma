@@ -8,6 +8,7 @@ module PisigmaTal.Alloc (
     Const (..),
     Val (..),
     ValF (..),
+    Primop(..),
     Bind (..),
     Exp (..),
     ExpF (..),
@@ -51,8 +52,12 @@ instance Ixed RowTy where
     ix Idx1 f (ty :> row)     = f ty <&> (:> row)
     ix (IdxS k) f (ty :> row) = (ty :>) <$> ix k f row
 
+data Primop = Add | Sub | Mul
+    deriving (Eq, Show)
+
 data Const
     = CInt Int
+    | CPrimop Primop Ty
     | CGlobal Id Ty
     deriving (Eq, Show)
 
@@ -131,13 +136,34 @@ instance Typeable Ty where
     typeof = id
 
 instance Typeable Val where
-    typeof = undefined
+    typeof = \case
+        VVar _ t -> t
+        VConst (CGlobal _ t) -> t
+        VConst (CPrimop _ t) -> t
+        VConst (CInt _) -> TInt
+        VPack _ _ t -> t
+        VFixPack _ -> undefined
+        VRoll _ t -> t
+        VUnroll v ->
+            case typeof v of
+                TRecurs t -> substTop (TRecurs t) t
+                _         -> error "required recursive type"
+        VAnnot _ t -> t
 
 instance Typeable Exp where
-    typeof = undefined
+    typeof = cata $ \case
+        ELetF _ t -> t
+        ECaseF _ ts -> head ts
+        EReturnF v -> typeof v
+        EAnnotF _ t -> t
+
+instance PrettyPrec Primop where
+    pretty = \case
+        Add -> "add"; Sub -> "sub"; Mul -> "mul"
 
 instance PrettyPrec Const where
     pretty (CInt i)      = pretty i
+    pretty (CPrimop p _) = pretty p
     pretty (CGlobal f _) = pretty f
 
 instance PrettyPrec Ty where

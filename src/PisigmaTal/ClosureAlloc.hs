@@ -2,11 +2,13 @@
 
 module PisigmaTal.ClosureAlloc (closureAllocProgram) where
 
-import Control.Lens.Combinators
+import Control.Lens.Combinators hiding (op)
+import Control.Lens.Operators
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Data.Functor.Foldable
 import Data.List                qualified as List
+import Data.Maybe
 import PisigmaTal.Alloc         qualified as A
 import PisigmaTal.Closure       qualified as C
 import PisigmaTal.Id
@@ -96,12 +98,19 @@ closureAllocExp :: C.Exp -> CtxM A.Exp
 closureAllocExp (C.ELet (C.BVal x val) exp) = do
     ty <- closureAllocTy (snd x)
     (val', binds) <- runWriterT $ closureAllocVal val
-    exp' <- locally varScope ((fst x :) . (dummyIds binds ++)) $ closureAllocExp exp
-    return $ foldr A.ELet exp' (binds ++ [A.BVal ty val'])
+    exp' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp exp
+    return $ foldr A.ELet exp' (binds |> A.BVal ty val')
 closureAllocExp (C.ELet (C.BCall x fun args) exp) = do
     ty <- closureAllocTy (snd x)
     fun' <- case fun of
-        C.ExternalFun (f, fty) -> A.VConst <$> (A.CGlobal f <$> closureAllocTy fty)
+        C.KnownFun (f, fty) |  "#" `List.isInfixOf` (f ^. name) -> do
+            fty' <- closureAllocTy fty
+            case f ^. name of
+                "#add" -> return $ A.VConst (A.CPrimop A.Add fty')
+                "#sub" -> return $ A.VConst (A.CPrimop A.Sub fty')
+                "#mul" -> return $ A.VConst (A.CPrimop A.Mul fty')
+                _      -> fail $ "unknown primitive: " ++ show f
+        C.KnownFun (f, fty) -> A.VConst . A.CGlobal f <$> closureAllocTy fty
         C.LocalFun (f, fty) -> do
             vsc <- view varScope
             case List.elemIndex f vsc of
@@ -109,18 +118,18 @@ closureAllocExp (C.ELet (C.BCall x fun args) exp) = do
                 Nothing -> fail $ "unknown function: " ++ show f
     (args', bindss) <- mapAndUnzipM (runWriterT . closureAllocVal) args
     let binds = concat bindss
-    exp' <- locally varScope ((fst x :) . (dummyIds binds ++)) $ closureAllocExp exp
-    return $ foldr A.ELet exp' (binds ++ [A.BCall ty fun' args'])
+    exp' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp exp
+    return $ foldr A.ELet exp' (binds |> A.BCall ty fun' args')
 closureAllocExp (C.ELet (C.BProj x v i) e) = do
     ty <- closureAllocTy (snd x)
     (v', binds) <- runWriterT $ closureAllocVal v
-    e' <- locally varScope ((fst x :) . (dummyIds binds ++)) $ closureAllocExp e
-    return $ foldr A.ELet e' (binds ++ [A.BProj ty v' i])
+    e' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp e
+    return $ foldr A.ELet e' (binds |> A.BProj ty v' i)
 closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
     ty <-  locally varScope (tv :) $ closureAllocTy (snd x)
     (v', binds) <- runWriterT $ closureAllocVal v
     e' <- locally varScope ((fst x : tv : dummyIds binds) ++) $ closureAllocExp e
-    return $ foldr A.ELet e' (binds ++ [A.BUnpack ty v'])
+    return $ foldr A.ELet e' (binds |> A.BUnpack ty v')
 closureAllocExp (C.ELetrec binds exp) = do
     let bindIds = map (fst . C.bindVar) binds
     binds' <- locally varScope (reverse bindIds ++) $ do

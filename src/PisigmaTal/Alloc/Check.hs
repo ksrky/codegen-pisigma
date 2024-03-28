@@ -43,6 +43,7 @@ makeLenses ''Env
 
 checkConst :: Const -> ReaderT Env IO Ty
 checkConst (CInt _)       = return TInt
+checkConst (CPrimop _ ty) = return ty
 checkConst (CGlobal x ty) = do
     Just ty' <- views globalEnv (lookup x)
     lift $ checkEqTys ty ty'
