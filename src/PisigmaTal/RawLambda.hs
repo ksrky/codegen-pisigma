@@ -100,10 +100,12 @@ tcExp (R.ELam x e) exp_ty = do
     return $ L.EAnnot (L.ELam (x', t1) e') exp_ty
 tcExp (R.EBinOp op e1 e2) exp_ty = do
     ctx <- view L.varScope
-    op' <- case lookup op ctx of
-        Just op' -> return op'
-        Nothing  -> fail $ "unknown binop: " ++ op
-    case snd op' of
+    op' <- case lookup op primOps of
+        Just (primOp, ty) -> return $ L.PrimOp primOp ty
+        Nothing -> case lookup op ctx of
+            Just opVar -> return $ uncurry L.KnownOp opVar
+            Nothing    -> fail $ "unknown binop: " ++ op
+    case L.typeof op' of
         L.TFun t1' (L.TFun t2' tr) -> do
             e1' <- tcExp e1 t1'
             e2' <- tcExp e2 t2'
@@ -160,13 +162,18 @@ instance Zonking L.Ty where
 instance Zonking L.Var where
     zonk (x, t) = (x,) <$> zonk t
 
+instance Zonking L.Op where
+    zonk = \case
+        L.KnownOp x t -> L.KnownOp x <$> zonk t
+        L.PrimOp op t -> return $ L.PrimOp op t
+
 instance Zonking L.Exp where
     zonk = cata $ \case
         L.ELitF l -> return $ L.ELit l
         L.EVarF x -> L.EVar <$> zonk x
         L.ELabelF l t -> L.ELabel l <$> zonk t
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
-        L.EFullAppF f es -> L.EFullApp <$> zonk f <*> sequence es
+        L.EFullAppF op es -> L.EFullApp <$> zonk op <*> sequence es
         L.ELamF x e -> L.ELam <$> zonk x <*> e
         L.ELetF (L.NonrecBind x e1) e2 -> do
             bb <- L.NonrecBind <$> zonk x <*> zonk e1

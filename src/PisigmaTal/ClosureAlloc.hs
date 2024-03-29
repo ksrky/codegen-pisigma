@@ -100,26 +100,23 @@ closureAllocExp (C.ELet (C.BVal x val) exp) = do
     (val', binds) <- runWriterT $ closureAllocVal val
     exp' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp exp
     return $ foldr A.ELet exp' (binds |> A.BVal ty val')
-closureAllocExp (C.ELet (C.BCall x fun args) exp) = do
+closureAllocExp (C.ELet (C.BCall x (f, fty) args) exp) = do
     ty <- closureAllocTy (snd x)
-    fun' <- case fun of
-        C.KnownFun (f, fty) |  "#" `List.isInfixOf` (f ^. name) -> do
-            fty' <- closureAllocTy fty
-            case f ^. name of
-                "#add" -> return $ A.VConst (A.CPrimop A.Add fty')
-                "#sub" -> return $ A.VConst (A.CPrimop A.Sub fty')
-                "#mul" -> return $ A.VConst (A.CPrimop A.Mul fty')
-                _      -> fail $ "unknown primitive: " ++ show f
-        C.KnownFun (f, fty) -> A.VConst . A.CGlobal f <$> closureAllocTy fty
-        C.LocalFun (f, fty) -> do
-            vsc <- view varScope
-            case List.elemIndex f vsc of
-                Just i  -> A.VVar i <$> closureAllocTy fty
-                Nothing -> fail $ "unknown function: " ++ show f
+    vsc <- view varScope
+    fun' <- case List.elemIndex f vsc of
+        Just i  -> A.VVar i <$> closureAllocTy fty
+        Nothing -> A.VConst . A.CGlobal f <$> closureAllocTy fty
     (args', bindss) <- mapAndUnzipM (runWriterT . closureAllocVal) args
     let binds = concat bindss
     exp' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp exp
     return $ foldr A.ELet exp' (binds |> A.BCall ty fun' args')
+closureAllocExp (C.ELet (C.BOpCall x op opty args) exp) = do
+    ty <- closureAllocTy (snd x)
+    opty' <- closureAllocTy opty
+    (args', bindss) <- mapAndUnzipM (runWriterT . closureAllocVal) args
+    let binds = concat bindss
+    exp' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp exp
+    return $ foldr A.ELet exp' (binds |> A.BPrim ty op opty' args')
 closureAllocExp (C.ELet (C.BProj x v i) e) = do
     ty <- closureAllocTy (snd x)
     (v', binds) <- runWriterT $ closureAllocVal v

@@ -8,7 +8,6 @@ module PisigmaTal.Alloc (
     Const (..),
     Val (..),
     ValF (..),
-    Primop(..),
     Bind (..),
     Exp (..),
     ExpF (..),
@@ -25,6 +24,7 @@ import Data.Functor.Foldable
 import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
 import PisigmaTal.Id
 import PisigmaTal.Idx
+import PisigmaTal.Primitive
 import Prettyprinter            hiding (pretty)
 import Prettyprinter.Prec
 
@@ -52,12 +52,8 @@ instance Ixed RowTy where
     ix Idx1 f (ty :> row)     = f ty <&> (:> row)
     ix (IdxS k) f (ty :> row) = (ty :>) <$> ix k f row
 
-data Primop = Add | Sub | Mul
-    deriving (Eq, Show)
-
 data Const
     = CInt Int
-    | CPrimop Primop Ty
     | CGlobal Id Ty
     deriving (Eq, Show)
 
@@ -74,6 +70,7 @@ data Val
 data Bind
     = BVal Ty Val
     | BCall Ty Val [Val]
+    | BPrim Ty PrimOp Ty [Val]
     | BProj Ty Val Idx
     | BUnpack Ty Val
     | BMalloc Ty [Ty]
@@ -139,7 +136,6 @@ instance Typeable Val where
     typeof = \case
         VVar _ t -> t
         VConst (CGlobal _ t) -> t
-        VConst (CPrimop _ t) -> t
         VConst (CInt _) -> TInt
         VPack _ _ t -> t
         VFixPack _ -> undefined
@@ -157,13 +153,8 @@ instance Typeable Exp where
         EReturnF v -> typeof v
         EAnnotF _ t -> t
 
-instance PrettyPrec Primop where
-    pretty = \case
-        Add -> "add"; Sub -> "sub"; Mul -> "mul"
-
 instance PrettyPrec Const where
     pretty (CInt i)      = pretty i
-    pretty (CPrimop p _) = pretty p
     pretty (CGlobal f _) = pretty f
 
 instance PrettyPrec Ty where
@@ -194,6 +185,7 @@ instance PrettyPrec Val where
 instance PrettyPrec Bind where
     pretty (BVal _ v) = "_ =" <+> pretty v
     pretty (BCall _ f vs) = "_ =" <+> pretty f <+> hsep (map pretty vs)
+    pretty (BPrim _ op _ vs) = "_ =" <+> pretty op <+> hsep (map pretty vs)
     pretty (BProj _ v i) = "_ =" <+> pretty v <> "." <> pretty i
     pretty (BUnpack t v) = "[_, _ :" <+> pretty t <> "] = unpack" <+> pretty v
     pretty (BMalloc _ ts) = "_ = malloc" <+> brackets (hsep (punctuate ", " (map pretty ts)))

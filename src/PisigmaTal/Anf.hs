@@ -7,6 +7,7 @@ module PisigmaTal.Anf (
     Var,
     ValF(..),
     Val(..),
+    Op(..),
     Bind(..),
     RecBind(..),
     Exp(..),
@@ -24,6 +25,7 @@ module PisigmaTal.Anf (
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import PisigmaTal.Id
+import PisigmaTal.Primitive
 
 newtype Lit = LInt Int
     deriving (Eq, Show)
@@ -48,10 +50,15 @@ data Val
     | VAnnot Val Ty
     deriving (Eq, Show)
 
+data Op
+    = KnownOp Id Ty
+    | PrimOp PrimOp Ty
+    deriving (Eq, Show)
+
 data Bind
     = BVal Var Val
-    | BPartialApp Var Val [Val]
-    | BFullApp Var Var [Val]
+    | BApp Var Val [Val]
+    | BFullApp Var Op [Val]
     deriving (Eq, Show)
 
 data RecBind = RecBind Var [Var] Exp
@@ -125,5 +132,5 @@ instance Typeable Exp where
 
 bindVar :: Bind -> Var
 bindVar (BVal x _)          = x
-bindVar (BPartialApp x _ _) = x
+bindVar (BApp x _ _) = x
 bindVar (BFullApp x _ _)    = x

@@ -7,6 +7,7 @@ module PisigmaTal.Lambda (
     Ty(..),
     TyF(..),
     Var,
+    Op(..),
     Exp(..),
     ExpF(..),
     Bind(..),
@@ -27,12 +28,13 @@ module PisigmaTal.Lambda (
     stripAnnot
 ) where
 
-import Control.Lens.Combinators
+import Control.Lens.Combinators hiding (op)
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH
 import Data.IORef
 import GHC.Stack
 import PisigmaTal.Id
+import PisigmaTal.Primitive
 
 newtype Lit = LInt Int
     deriving (Eq, Show)
@@ -55,12 +57,17 @@ data Ty
 
 type Var = (Id, Ty)
 
+data Op
+    = KnownOp Id Ty
+    | PrimOp PrimOp Ty
+    deriving (Eq, Show)
+
 data Exp
     = ELit Lit
     | EVar Var
     | ELabel Label Ty
     | EApp Exp Exp
-    | EFullApp Var [Exp]
+    | EFullApp Op [Exp]
     | ELam Var Exp
     | ETuple [Exp]
     | ELet BindBlock Exp
@@ -137,6 +144,11 @@ instance Typeable Ty where
 instance Typeable Var where
     typeof = snd
 
+instance Typeable Op where
+    typeof = \case
+        KnownOp _ t -> t
+        PrimOp _ t  -> t
+
 instance Typeable Exp where
     typeof = cata $ \case
         ELitF l -> typeof l
@@ -144,7 +156,7 @@ instance Typeable Exp where
         ELabelF _ t -> t
         EAppF t1 _ | TFun _ t12 <- t1 -> t12
                    | otherwise        -> error "impossible"
-        EFullAppF (_, t) _ -> snd $ splitTFun t
+        EFullAppF op _ -> snd $ splitTFun $ typeof op
         ELamF (_, t1) t2 -> TFun t1 t2
         ELetF _ t -> t
         ETupleF ts -> TTuple ts

@@ -11,6 +11,7 @@ import Data.Map.Strict          qualified as M
 import PisigmaTal.Alloc         qualified as A
 import PisigmaTal.Id
 import PisigmaTal.Idx
+import PisigmaTal.Primitive
 import Prelude                  hiding (exp)
 import Tal.Constant
 import Tal.Constructors
@@ -60,7 +61,6 @@ allocTalRowTy = cata $ \case
 
 allocTalConst :: (MonadTalBuilder m, MonadIO m) => A.Const -> m T.WordVal
 allocTalConst (A.CInt i)      = return $ T.VInt i
-allocTalConst (A.CPrimop{})   = error "impossible"
 allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name)
 
 allocTalVal :: (MonadTalBuilder m, MonadIO m) => A.Val -> m T.SmallVal
@@ -86,9 +86,9 @@ allocTalNonVarVal = cata $ \case
     A.VUnrollF val -> T.VUnroll <$> val
     A.VAnnotF val _ -> val
 
-mapPrimop :: A.Primop -> T.Aop
+mapPrimop :: PrimOp -> T.Aop
 mapPrimop = \case
-    A.Add -> T.Add; A.Sub -> T.Sub; A.Mul -> T.Mul
+    Add -> T.Add; Sub -> T.Sub; Mul -> T.Mul;
 
 buildMove :: (MonadTalBuilder m, MonadIO m) => T.SmallVal -> TalM m (Maybe T.Instr, T.Reg)
 buildMove (T.VReg reg) = return (Nothing, reg)
@@ -102,13 +102,6 @@ allocTalExp (A.ELet (A.BVal ty val) exp) = do
     (mb_instr, reg) <- buildMove =<< allocTalVal val
     instrs <- withExtendReg reg $ withExtendRegTy reg ty' $ allocTalExp exp
     return $ mb_instr <>| instrs
-allocTalExp (A.ELet (A.BCall ty (A.VConst (A.CPrimop op _)) vals) exp) = do
-    reg <- freshReg
-    ty' <- allocTalTy ty
-    (mb_instr, reg') <- buildMove =<< allocTalVal (head vals)
-    val2 <- allocTalVal (vals !! 1)
-    instrs <- withExtendReg reg $ withExtendRegTy reg ty' $ allocTalExp exp
-    return $ mb_instr <>| T.IAop (mapPrimop op) reg reg' val2 <| instrs
 allocTalExp (A.ELet (A.BCall ty val vals) exp) | let arity = length vals = do
     reg <- freshReg
     ty' <- allocTalTy ty
@@ -121,6 +114,13 @@ allocTalExp (A.ELet (A.BCall ty val vals) exp) | let arity = length vals = do
             zipWith T.IMove tmpRegs vals'
             ++ zipWith (\a t -> T.IMove a (T.VReg t)) argumentRegs tmpRegs
     return $ instrs_storeArgs <>| T.ICall val' <| T.IMove reg (T.VReg RVReg) <| instrs
+allocTalExp (A.ELet (A.BPrim ty op _ vals) exp) = do
+    reg <- freshReg
+    ty' <- allocTalTy ty
+    (mb_instr, reg') <- buildMove =<< allocTalVal (head vals)
+    val2 <- allocTalVal (vals !! 1)
+    instrs <- withExtendReg reg $ withExtendRegTy reg ty' $ allocTalExp exp
+    return $ mb_instr <>| T.IAop (mapPrimop op) reg reg' val2 <| instrs
 allocTalExp (A.ELet (A.BProj ty val idx) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty

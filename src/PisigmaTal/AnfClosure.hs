@@ -90,19 +90,22 @@ anfClosureVal = cata $ \case
 
 anfClosureBind :: A.Bind -> CCM [C.Bind]
 anfClosureBind (A.BVal x v) = List.singleton <$> (C.BVal (anfClosureVar x) <$> anfClosureVal v)
-anfClosureBind (A.BPartialApp x v1 vs2)
+anfClosureBind (A.BApp x v1 vs2)
     | C.TExists tv t_cl <- anfClosureTy (A.typeof v1) = do
     x_cl <- (,t_cl) <$> newId "x_cl"
     d1 <- C.BUnpack tv x_cl <$> anfClosureVal v1
     let t_code = C.TFun (t_cl : map (anfClosureTy . A.typeof) vs2) (anfClosureTy (A.typeof x))
     x_code <- (,t_code) <$> newId "x_code"
     let d2 = C.BProj x_code (C.VUnroll (C.VVar x_cl)) Idx1
-    d3 <- C.BCall (anfClosureVar x) (C.LocalFun x_code) <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
+    d3 <- C.BCall (anfClosureVar x) x_code <$> ((C.VVar x_cl :) <$> mapM anfClosureVal vs2)
     return [d1, d2, d3]
     | otherwise = error "impossible"
-anfClosureBind (A.BFullApp x f vs2) = do
+anfClosureBind (A.BFullApp x (A.KnownOp f ty) vs2) = do
     vs2' <- mapM anfClosureVal vs2
-    return [C.BCall (anfClosureVar x) (C.KnownFun (anfClosureKnownVar f)) vs2']
+    return [C.BCall (anfClosureVar x) (anfClosureKnownVar (f, ty)) vs2']
+anfClosureBind (A.BFullApp x (A.PrimOp op ty) vs2) = do
+    vs2' <- mapM anfClosureVal vs2
+    return [C.BOpCall (anfClosureVar x) op (anfClosureKnownTy ty) vs2']
 
 anfClosureExp :: A.Exp -> CCM C.Exp
 anfClosureExp = cata $ \case

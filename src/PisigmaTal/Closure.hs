@@ -11,7 +11,6 @@ module PisigmaTal.Closure (
     Label,
     Val(..),
     ValF(..),
-    Fun(..),
     Bind(..),
     Exp(..),
     ExpF(..),
@@ -43,6 +42,7 @@ import Data.Functor.Foldable.TH
 import GHC.Stack
 import PisigmaTal.Id
 import PisigmaTal.Idx
+import PisigmaTal.Primitive
 import Prettyprinter            hiding (Pretty (..))
 import Prettyprinter.Prec
 
@@ -91,14 +91,10 @@ data Val
     | VAnnot Val Ty
     deriving (Eq, Show)
 
-data Fun
-    = LocalFun {funVar :: Var}
-    | KnownFun {funVar :: Var}
-    deriving (Eq, Show)
-
 data Bind
     = BVal Var Val
-    | BCall Var Fun [Val]
+    | BCall Var Var [Val]
+    | BOpCall Var PrimOp Ty [Val]
     | BProj Var Val Idx
     | BUnpack TyVar Var Val
     -- | BFixpack [(Var, (Ty, Val, Ty))]
@@ -180,10 +176,11 @@ pattern Clos t_env vals t_cl <- VPack t_env (UClos vals _) t_cl where
     Clos t_env vals t_cl = VPack t_env (UClos vals (unpackClosTy t_env t_cl)) t_cl
 
 bindVar :: Bind -> Var
-bindVar (BVal x _)      = x
-bindVar (BCall x _ _)   = x
-bindVar (BProj x _ _)   = x
-bindVar (BUnpack _ x _) = x
+bindVar (BVal x _)        = x
+bindVar (BCall x _ _)     = x
+bindVar (BOpCall x _ _ _) = x
+bindVar (BProj x _ _)     = x
+bindVar (BUnpack _ x _)   = x
 
 class Typeable a where
     typeof :: HasCallStack => a -> Ty
@@ -254,14 +251,12 @@ instance PrettyPrec Val where
     prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
     prettyPrec _ (VAnnot v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
 
-instance PrettyPrec Fun where
-    pretty (LocalFun (f, _)) = pretty f
-    pretty (KnownFun (f, _)) = pretty f
-
 instance PrettyPrec Bind where
     pretty (BVal x v) = hang 2 $ pretty x <+> "=" <> softline <> pretty v
-    pretty (BCall x v1 vs2) = hang 2 $ pretty x <+> "=" <> softline <> pretty v1
+    pretty (BCall x (f, _) vs2) = hang 2 $ pretty x <+> "=" <> softline <> pretty f
         <> parens (hsep (punctuate "," (map prettyMax vs2)))
+    pretty (BOpCall x op _ vs) = hang 2 $ pretty x <+> "=" <> softline <> pretty op
+        <> parens (hsep (punctuate "," (map prettyMax vs)))
     pretty (BProj x v idx) = hang 2 $ pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty idx
     pretty (BUnpack tv x v) = hang 2 $ brackets (pretty tv <> "," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
 
@@ -297,10 +292,11 @@ instance StripAnnot Val where
         v           -> embed v
 
 instance StripAnnot Bind where
-    stripAnnot (BVal x v)       = BVal x (stripAnnot v)
-    stripAnnot (BCall x f vs)   = BCall x f (map stripAnnot vs)
-    stripAnnot (BProj x v i)    = BProj x (stripAnnot v) i
-    stripAnnot (BUnpack tv x v) = BUnpack tv x (stripAnnot v)
+    stripAnnot (BVal x v)           = BVal x (stripAnnot v)
+    stripAnnot (BCall x f vs)       = BCall x f (map stripAnnot vs)
+    stripAnnot (BOpCall x op ty vs) = BOpCall x op ty (map stripAnnot vs)
+    stripAnnot (BProj x v i)        = BProj x (stripAnnot v) i
+    stripAnnot (BUnpack tv x v)     = BUnpack tv x (stripAnnot v)
 
 instance StripAnnot Exp where
     stripAnnot = cata $ \case

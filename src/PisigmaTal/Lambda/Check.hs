@@ -36,14 +36,20 @@ checkExp (EApp e1 e2) = do
 checkExp (ELam x e) = do
     t <- local (extendBindEnv x) $ checkExp e
     return $ TFun (snd x) t
-checkExp (EFullApp fvar args) = do
+checkExp (EFullApp op args) = do
+    fun_ty <- case op of
+        KnownOp x ty -> do
+            mb_ty <- asks $ lookupBindEnv x
+            case mb_ty of
+                Just ty' -> do
+                    lift $ checkEqTys ty ty'
+                    return ty'
+                Nothing -> fail "unknown external function"
+        PrimOp _ ty -> return ty
     arg_tys <- mapM checkExp args
-    mb_fun_ty <- asks $ lookupBindEnv (fst fvar)
-    case mb_fun_ty of
-        Just fun_ty | (arg_tys', ret_ty) <- splitTFun fun_ty -> do
-            lift $ zipWithM_ checkEqTys arg_tys' arg_tys
-            return ret_ty
-        _ -> fail "unknown external function"
+    let (arg_tys', ret_ty) = splitTFun fun_ty
+    lift $ zipWithM_ checkEqTys arg_tys' arg_tys
+    return ret_ty
 checkExp (ELet (NonrecBind x e1) e2) = do
     t1 <- checkExp e1
     lift $ checkEqTys (snd x) t1

@@ -36,15 +36,18 @@ lambdaAnfExp (L.EApp e1 e2) kont =
             _           -> error "impossible" in
     let var = (newIdUnsafe "x_call", t_call) in
     let body = kont (A.VVar var) in
-    A.ELet (A.BPartialApp var v1 [v2]) body
-lambdaAnfExp (L.EFullApp fvar exps) kont =
+    A.ELet (A.BApp var v1 [v2]) body
+lambdaAnfExp (L.EFullApp op exps) kont =
     let go :: [A.Val] -> [L.Exp] -> A.Exp
         go acc [] =
-            let (arg_tys, ret_ty) = L.splitTFun (snd fvar)
+            let (arg_tys, ret_ty) = L.splitTFun $ L.typeof op
                 var = (newIdUnsafe "x_ext", lambdaAnfTy ret_ty)
                 body = kont (A.VVar var)
-                fvar' = (fst fvar, A.TFun (map lambdaAnfTy arg_tys) (lambdaAnfTy ret_ty))
-            in A.ELet (A.BFullApp var fvar' (reverse acc)) body
+                ty' = A.TFun (map lambdaAnfTy arg_tys) (lambdaAnfTy ret_ty)
+                op' = case op of
+                    L.KnownOp x _ -> A.KnownOp x ty'
+                    L.PrimOp p _  -> A.PrimOp p ty'
+            in A.ELet (A.BFullApp var op' (reverse acc)) body
         go acc (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) rest
     in go [] exps
 lambdaAnfExp (L.ELam x e) kont = kont $ A.VLam [lambdaAnfVar x] (lambdaAnfExp e A.EReturn)

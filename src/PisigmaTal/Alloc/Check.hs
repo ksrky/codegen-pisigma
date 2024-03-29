@@ -43,7 +43,6 @@ makeLenses ''Env
 
 checkConst :: Const -> ReaderT Env IO Ty
 checkConst (CInt _)       = return TInt
-checkConst (CPrimop _ ty) = return ty
 checkConst (CGlobal x ty) = do
     Just ty' <- views globalEnv (lookup x)
     lift $ checkEqTys ty ty'
@@ -98,6 +97,14 @@ checkExp (ELet (BCall ann_ty val args) body) = do
             zipWithM_ checkEqTys arg_tys' arg_tys
             checkEqTys ann_ty ret_ty
         _ -> fail $ "required function type, but got " ++ show ty
+    locally localEnv (Just ann_ty :) $ checkExp body
+checkExp (ELet (BPrim ann_ty _ opty args) body) = do
+    arg_tys <- mapM checkVal args
+    case opty of
+        TFun arg_tys' ret_ty -> lift $ do
+            zipWithM_ checkEqTys arg_tys' arg_tys
+            checkEqTys ann_ty ret_ty
+        _ -> fail $ "required function type, but got " ++ show opty
     locally localEnv (Just ann_ty :) $ checkExp body
 checkExp (ELet (BProj ann_ty val idx) body) = do
     ty <- checkVal val
