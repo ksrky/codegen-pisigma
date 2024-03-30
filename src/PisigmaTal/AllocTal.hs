@@ -7,15 +7,15 @@ import Control.Lens.Operators
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Functor.Foldable
-import Data.Map.Strict qualified as M
-import PisigmaTal.Alloc qualified as A
+import Data.Map.Strict          qualified as M
+import PisigmaTal.Alloc         qualified as A
 import PisigmaTal.Id
 import PisigmaTal.Primitive
+import Prelude                  hiding (exp)
 import Tal.Constant
 import Tal.Constructors
 import Tal.Context
-import Tal.Syntax qualified as T
-import Prelude hiding (exp)
+import Tal.Syntax               qualified as T
 
 data TalState = TalState
     { _heapsState :: T.Heaps
@@ -60,7 +60,7 @@ allocTalRowTy = cata $ \case
         T.RSeq ty' <$> rest
 
 allocTalConst :: (MonadTalBuilder m, MonadIO m) => A.Const -> m T.WordVal
-allocTalConst (A.CInt i) = return $ T.VInt i
+allocTalConst (A.CInt i)      = return $ T.VInt i
 allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name)
 
 allocTalVal :: (MonadTalBuilder m, MonadIO m) => A.Val -> m T.SmallVal

@@ -44,7 +44,7 @@ import GHC.Stack
 import PisigmaTal.Id
 import PisigmaTal.Idx
 import PisigmaTal.Primitive
-import Prettyprinter hiding (Pretty (..))
+import Prettyprinter            hiding (Pretty (..))
 import Prettyprinter.Prec
 
 type TyVar = Id
@@ -167,15 +167,15 @@ pattern UClosTy ts1 t2 r <- TRecurs _ (TRow (TFun (_ : ts1) t2 :< r)) where
 
 unpackClosTy :: Ty -> Ty -> Ty
 unpackClosTy (TRow r) (ClosTy ts1 t2) = UClosTy ts1 t2 r
-unpackClosTy _ _ = error "existential type required"
+unpackClosTy _ _                      = error "existential type required"
 
 unrollUClosTy :: Ty -> Ty
 unrollUClosTy s@(UClosTy ts1 t2 r) = TRow $ TFun (s : ts1) t2 :< r
 unrollUClosTy _                    = error "recursive type required"
 
 bindVar :: Bind -> Var
-bindVar (BVal x _) = x
-bindVar (BCall x _ _) = x
+bindVar (BVal x _)        = x
+bindVar (BCall x _ _)     = x
 bindVar (BOpCall x _ _ _) = x
 bindVar (BProj x _ _)     = x
 bindVar (BUnpack _ x _)   = x
@@ -205,7 +205,7 @@ instance Typeable Val where
         VUnrollF v ->
             case typeof v of
                 TRecurs tv t -> unrollUClosTy (TRecurs tv t)
-                _ -> error "required recursive type"
+                _            -> error "required recursive type"
         VAnnotF _ t -> t
 
 instance Typeable Exp where
@@ -308,8 +308,8 @@ instance StripAnnot Val where
         v -> embed v
 
 instance StripAnnot Bind where
-    stripAnnot (BVal x v) = BVal x (stripAnnot v)
-    stripAnnot (BCall x f vs) = BCall x f (map stripAnnot vs)
+    stripAnnot (BVal x v)           = BVal x (stripAnnot v)
+    stripAnnot (BCall x f vs)       = BCall x f (map stripAnnot vs)
     stripAnnot (BOpCall x op ty vs) = BOpCall x op ty (map stripAnnot vs)
     stripAnnot (BProj x v i)        = BProj x (stripAnnot v) i
     stripAnnot (BUnpack tv x v)     = BUnpack tv x (stripAnnot v)

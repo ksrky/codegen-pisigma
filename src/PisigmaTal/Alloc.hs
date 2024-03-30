@@ -27,7 +27,7 @@ import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
 import PisigmaTal.Id
 import PisigmaTal.Idx
 import PisigmaTal.Primitive
-import Prettyprinter hiding (pretty)
+import Prettyprinter            hiding (pretty)
 import Prettyprinter.Prec
 
 data Ty
@@ -47,9 +47,9 @@ type instance Index RowTy = Idx
 
 type instance IxValue RowTy = Ty
 instance Ixed RowTy where
-    ix _ _ REmpty = pure REmpty
-    ix _ _ (RVar x) = pure $ RVar x
-    ix Idx1 f (RSeq ty row) = f ty <&> (`RSeq` row)
+    ix _ _ REmpty               = pure REmpty
+    ix _ _ (RVar x)             = pure $ RVar x
+    ix Idx1 f (RSeq ty row)     = f ty <&> (`RSeq` row)
     ix (IdxS k) f (RSeq ty row) = RSeq ty <$> ix k f row
 
 instance Cons RowTy RowTy Ty Ty where
@@ -117,8 +117,8 @@ mapRowTy onvar c = cata $ \case
     REmptyF -> REmpty
     RVarF x -> case onvar x c of
         TRow row -> row
-        TVar y -> RVar y
-        _ -> error "TRow or TVar required"
+        TVar y   -> RVar y
+        _        -> error "TRow or TVar required"
     RSeqF ty row -> mapTy onvar c ty <| row
 
 shiftTy :: Int -> Ty -> Ty
@@ -146,7 +146,7 @@ instance Typeable Val where
         VUnroll v ->
             case typeof v of
                 TRecurs t -> substTop (TRecurs t) t
-                _ -> error "required recursive type"
+                _         -> error "required recursive type"
         VAnnot _ t -> t
 
 instance Typeable Exp where
@@ -157,7 +157,7 @@ instance Typeable Exp where
         EAnnotF _ t -> t
 
 instance PrettyPrec Const where
-    pretty (CInt i) = pretty i
+    pretty (CInt i)      = pretty i
     pretty (CGlobal f _) = pretty f
 
 instance PrettyPrec Ty where
@@ -172,8 +172,8 @@ instance PrettyPrec Ty where
     prettyPrec _ (TAlias x _) = pretty x
 
 instance PrettyPrec RowTy where
-    pretty REmpty = "ε"
-    pretty (RVar i) = "`" <> pretty i
+    pretty REmpty        = "ε"
+    pretty (RVar i)      = "`" <> pretty i
     pretty (RSeq ty row) = pretty ty <> "," <+> pretty row
 
 instance PrettyPrec Val where

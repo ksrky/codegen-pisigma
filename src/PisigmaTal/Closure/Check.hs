@@ -5,7 +5,7 @@ import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
 import PisigmaTal.Closure
-import Prelude hiding (exp)
+import Prelude                hiding (exp)
 
 checkEqTys :: [(TyVar, TyVar)] -> Ty -> Ty -> IO ()
 checkEqTys _ TInt TInt = return ()
@@ -62,7 +62,7 @@ checkVal cts (VUnroll v) = do
     t <- checkVal cts v
     case t of
         TRecurs{} -> return $ unrollUClosTy t
-        _ -> fail $ "expected recursive type, but got " ++ show t
+        _         -> fail $ "expected recursive type, but got " ++ show t
 checkVal cts (VAnnot v t) = do
     t' <- checkVal cts v
     lift $ checkEqTys cts t t'
@@ -91,7 +91,7 @@ checkBind cts (BProj x v idx) = do
     t <- checkVal cts v
     case t of
         TRow row -> lift $ checkEqTys cts (snd x) (row ^?! ix idx)
-        _ -> fail $ "required row type, but got " ++ show t
+        _        -> fail $ "required row type, but got " ++ show t
 checkBind cts (BUnpack tv1 x v2) = do
     t2 <- checkVal cts v2
     case t2 of
