@@ -2,9 +2,9 @@
 
 module PisigmaTal.Alloc (
     Ty (..),
-    TyF(..),
-    RowTy(..),
-    RowTyF(..),
+    TyF (..),
+    RowTy (..),
+    RowTyF (..),
     Const (..),
     Val (..),
     ValF (..),
@@ -15,17 +15,19 @@ module PisigmaTal.Alloc (
     Program,
     shiftTy,
     substTop,
-    Typeable(..)
+    Typeable (..),
 ) where
 
 import Control.Lens.At
+import Control.Lens.Cons
 import Control.Lens.Operators
+import Control.Lens.Prism
 import Data.Functor.Foldable
 import Data.Functor.Foldable.TH (MakeBaseFunctor (makeBaseFunctor))
 import PisigmaTal.Id
 import PisigmaTal.Idx
 import PisigmaTal.Primitive
-import Prettyprinter            hiding (pretty)
+import Prettyprinter hiding (pretty)
 import Prettyprinter.Prec
 
 data Ty
@@ -38,19 +40,22 @@ data Ty
     | TAlias Id (Maybe Ty)
     deriving (Eq, Show)
 
-infixr 5 :>
-
-data RowTy = REmpty | RVar Int | Ty :> RowTy
+data RowTy = REmpty | RVar Int | RSeq Ty RowTy
     deriving (Eq, Show)
 
 type instance Index RowTy = Idx
 
 type instance IxValue RowTy = Ty
 instance Ixed RowTy where
-    ix _ _ REmpty             = pure REmpty
-    ix _ _ (RVar x)           = pure $ RVar x
-    ix Idx1 f (ty :> row)     = f ty <&> (:> row)
-    ix (IdxS k) f (ty :> row) = (ty :>) <$> ix k f row
+    ix _ _ REmpty = pure REmpty
+    ix _ _ (RVar x) = pure $ RVar x
+    ix Idx1 f (RSeq ty row) = f ty <&> (`RSeq` row)
+    ix (IdxS k) f (RSeq ty row) = RSeq ty <$> ix k f row
+
+instance Cons RowTy RowTy Ty Ty where
+    _Cons = prism (uncurry RSeq) $ \case
+        RSeq ty row -> Right (ty, row)
+        row -> Left row
 
 data Const
     = CInt Int
@@ -112,9 +117,9 @@ mapRowTy onvar c = cata $ \case
     REmptyF -> REmpty
     RVarF x -> case onvar x c of
         TRow row -> row
-        TVar y   -> RVar y
-        _        -> error "TRow or TVar required"
-    ty :>$ row -> mapTy onvar c ty :> row
+        TVar y -> RVar y
+        _ -> error "TRow or TVar required"
+    RSeqF ty row -> mapTy onvar c ty <| row
 
 shiftTy :: Int -> Ty -> Ty
 shiftTy d = mapTy (\x c -> TVar (if x < c then x else x + d)) 0
@@ -141,7 +146,7 @@ instance Typeable Val where
         VUnroll v ->
             case typeof v of
                 TRecurs t -> substTop (TRecurs t) t
-                _         -> error "required recursive type"
+                _ -> error "required recursive type"
         VAnnot _ t -> t
 
 instance Typeable Exp where
@@ -152,23 +157,24 @@ instance Typeable Exp where
         EAnnotF _ t -> t
 
 instance PrettyPrec Const where
-    pretty (CInt i)      = pretty i
+    pretty (CInt i) = pretty i
     pretty (CGlobal f _) = pretty f
 
 instance PrettyPrec Ty where
     prettyPrec _ TInt = "Int"
     prettyPrec _ (TVar i) = "`" <> pretty i
-    prettyPrec p (TFun ts t) = parPrec p 2 $
-        parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
+    prettyPrec p (TFun ts t) =
+        parPrec p 2 $
+            parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
     prettyPrec p (TExists t) = parPrec p 0 $ "∃_" <> dot <+> pretty t
     prettyPrec p (TRecurs t) = parPrec p 0 $ "μ_" <> dot <+> pretty t
     prettyPrec _ (TRow r) = braces $ pretty r
     prettyPrec _ (TAlias x _) = pretty x
 
 instance PrettyPrec RowTy where
-    pretty REmpty      = "ε"
-    pretty (RVar i)    = "`" <> pretty i
-    pretty (ty :> row) = pretty ty <> "," <+> pretty row
+    pretty REmpty = "ε"
+    pretty (RVar i) = "`" <> pretty i
+    pretty (RSeq ty row) = pretty ty <> "," <+> pretty row
 
 instance PrettyPrec Val where
     prettyPrec _ (VVar i _)    = "`" <> pretty i
@@ -189,17 +195,25 @@ instance PrettyPrec Bind where
     pretty (BUpdate _ v1 i v2) = "_ =" <+> pretty v1 <> brackets (pretty i) <+> "<-" <+> pretty v2
 
 instance PrettyPrec Exp where
-    pretty (ELet b e)   = vsep [hang 2 ("let" <+> pretty b) <+> "in", pretty e]
-    pretty (ECase v es) = vsep [ "case" <+> pretty v <+> "of"
-                               , "  " <> align (vsep (map (\ei -> hang 2 $ sep ["_ ->", pretty ei]) es))]
-    pretty (EReturn v)  = "ret" <+> prettyMax v
+    pretty (ELet b e) = vsep [hang 2 ("let" <+> pretty b) <+> "in", pretty e]
+    pretty (ECase v es) =
+        vsep
+            [ "case" <+> pretty v <+> "of"
+            , "  " <> align (vsep (map (\ei -> hang 2 $ sep ["_ ->", pretty ei]) es))
+            ]
+    pretty (EReturn v) = "ret" <+> prettyMax v
     pretty (EAnnot e t) = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
 instance PrettyPrec (Id, Heap) where
     pretty (x, HGlobal t v) = pretty x <+> ":" <+> pretty t <+> "=" <+> pretty v
-    pretty (x, HCode ts1 t2 e) = pretty x <+> "="
-        <+> parens (hsep $ punctuate ", " $ map (\t -> "_ :" <+> pretty t) ts1)
-        <+> ":" <+> pretty t2 <+> "=" <+> pretty e
+    pretty (x, HCode ts1 t2 e) =
+        pretty x
+            <+> "="
+            <+> parens (hsep $ punctuate ", " $ map (\t -> "_ :" <+> pretty t) ts1)
+            <+> ":"
+            <+> pretty t2
+            <+> "="
+            <+> pretty e
     pretty (x, HExtern t) = "extern" <+> pretty x <+> "=" <+> pretty t
     pretty (x, HTypeAlias t) = "type" <+> pretty x <+> "=" <+> pretty t
 

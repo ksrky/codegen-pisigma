@@ -7,10 +7,10 @@ import Control.Lens.Operators
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Data.Functor.Foldable
-import Data.List                qualified as List
+import Data.List qualified as List
 import Data.Maybe
-import PisigmaTal.Alloc         qualified as A
-import PisigmaTal.Closure       qualified as C
+import PisigmaTal.Alloc qualified as A
+import PisigmaTal.Closure qualified as C
 import PisigmaTal.Id
 import Prelude                  hiding (exp)
 
@@ -33,7 +33,7 @@ closureAllocTy = cata $ \case
     C.TVarF x -> do
         vsc <- view varScope
         case List.elemIndex x vsc of
-            Just i  -> return $ A.TVar i
+            Just i -> return $ A.TVar i
             Nothing -> fail $ "unbound type variable: " ++ show x
     C.TNameF x -> do
         tas <- view typeAliases
@@ -47,23 +47,23 @@ closureAllocRowTy :: C.RowTy -> CtxM A.RowTy
 closureAllocRowTy = cata $ \case
     C.RSeqF ty row -> do
         ty' <- closureAllocTy ty
-        (ty' A.:>) <$> row
+        A.RSeq ty' <$> row
     C.RVarF x -> do
         vsc <- view varScope
         case List.elemIndex x vsc of
             Just idx -> return $ A.RVar idx
-            Nothing  -> fail $ "unbound type variable: " ++ show x
+            Nothing -> fail $ "unbound type variable: " ++ show x
     C.REmptyF -> return A.REmpty
 
 closureAllocLit :: C.Lit -> A.Const
 closureAllocLit (C.LInt i) = A.CInt i
 
 closureAllocVal :: C.Val -> WriterT [A.Bind] CtxM A.Val
-closureAllocVal (C.VLit l)      = return $ A.VConst (closureAllocLit l)
+closureAllocVal (C.VLit l) = return $ A.VConst (closureAllocLit l)
 closureAllocVal (C.VVar (x, t)) = do
     vsc <- view varScope
     case List.elemIndex x vsc of
-        Just i  -> lift $ A.VVar i <$> closureAllocTy t
+        Just i -> lift $ A.VVar i <$> closureAllocTy t
         Nothing -> fail $ "unbound variable: " ++ show x
 closureAllocVal (C.VFun (f, t)) = lift $ A.VConst <$> (A.CGlobal f <$> closureAllocTy t)
 closureAllocVal (C.VLabel c l) = do
@@ -94,7 +94,7 @@ closureAllocExp (C.ELet (C.BCall x (f, fty) args) exp) = do
     ty <- closureAllocTy (snd x)
     vsc <- view varScope
     fun' <- case List.elemIndex f vsc of
-        Just i  -> A.VVar i <$> closureAllocTy fty
+        Just i -> A.VVar i <$> closureAllocTy fty
         Nothing -> A.VConst . A.CGlobal f <$> closureAllocTy fty
     (args', bindss) <- mapAndUnzipM (runWriterT . closureAllocVal) args
     let binds = concat bindss
@@ -113,7 +113,7 @@ closureAllocExp (C.ELet (C.BProj x v i) e) = do
     e' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp e
     return $ foldr A.ELet e' (binds |> A.BProj ty v' i)
 closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
-    ty <-  locally varScope (tv :) $ closureAllocTy (snd x)
+    ty <- locally varScope (tv :) $ closureAllocTy (snd x)
     (v', binds) <- runWriterT $ closureAllocVal v
     e' <- locally varScope ((fst x : tv : dummyIds binds) ++) $ closureAllocExp e
     return $ foldr A.ELet e' (binds |> A.BUnpack ty v')
@@ -135,8 +135,8 @@ closureAllocExp (C.ECase c v les) = do
         case List.elemIndex l labs of
             Just i  -> (i,) <$> closureAllocExp e
             Nothing -> fail $ "label not found: " ++ show l
-    es' <- forM [1..length les] $ \i -> case lookup i ies' of
-        Just e  -> return e
+    es' <- forM [1 .. length les] $ \i -> case lookup i ies' of
+        Just e -> return e
         Nothing -> fail "label index not found"
     return $ foldr A.ELet (A.ECase v' es') bs
 closureAllocExp (C.EReturn v) = do
@@ -170,7 +170,8 @@ closureAllocTopExp (defns, exp) = do
 
 closureAllocProgram :: C.Program -> IO A.Program
 closureAllocProgram (decs, texp) = runCtxM $ do
-    (exp', heaps) <- runWriterT $
-        closureAllocDecs decs $
-        closureAllocTopExp texp
+    (exp', heaps) <-
+        runWriterT $
+            closureAllocDecs decs $
+                closureAllocTopExp texp
     return (heaps, exp')

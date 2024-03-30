@@ -1,20 +1,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module PisigmaTal.Closure (
-    Lit(..),
+    Lit (..),
     TyVar,
-    Ty(..),
-    TyF(..),
-    RowTy(..),
-    RowTyF(..),
+    Ty (..),
+    TyF (..),
+    RowTy (..),
+    RowTyF (..),
     Var,
     Label,
-    Val(..),
-    ValF(..),
-    Bind(..),
-    Exp(..),
-    ExpF(..),
-    Code(..),
+    Val (..),
+    ValF (..),
+    Bind (..),
+    Exp (..),
+    ExpF (..),
+    Code (..),
     Defn,
     TopExp,
     EnumId,
@@ -29,9 +29,9 @@ module PisigmaTal.Closure (
     unrollUClosTy,
     unpackClosTy,
     bindVar,
-    Typeable(..),
-    StripAnnot(..),
-    mkTTuple
+    Typeable (..),
+    StripAnnot (..),
+    mkTTuple,
 ) where
 
 import Control.Lens.At
@@ -44,7 +44,7 @@ import GHC.Stack
 import PisigmaTal.Id
 import PisigmaTal.Idx
 import PisigmaTal.Primitive
-import Prettyprinter            hiding (Pretty (..))
+import Prettyprinter hiding (Pretty (..))
 import Prettyprinter.Prec
 
 type TyVar = Id
@@ -134,20 +134,20 @@ makeBaseFunctor ''Exp
 
 type Env = [Dec]
 
-lookupEnumEnv :: MonadFail m => Id -> Env -> m [Label]
+lookupEnumEnv :: (MonadFail m) => Id -> Env -> m [Label]
 lookupEnumEnv x = \case
     DEnum y ls : _ | x == y -> return ls
     _ : env -> lookupEnumEnv x env
     [] -> fail "Enum not found"
 
-lookupBindEnv :: MonadFail m => Id -> Env -> m Ty
+lookupBindEnv :: (MonadFail m) => Id -> Env -> m Ty
 lookupBindEnv x = \case
     DBind y t : _ | x == y -> return t
     _ : env -> lookupBindEnv x env
     [] -> fail "Func not found"
 
 extendBindEnv :: Var -> Env -> Env
-extendBindEnv (x, t) = (DBind x t:)
+extendBindEnv (x, t) = (DBind x t :)
 
 mkTTuple :: [Ty] -> Ty
 mkTTuple ts = TRow $ foldr (:<) REmpty ts
@@ -167,15 +167,15 @@ pattern UClosTy ts1 t2 r <- TRecurs _ (TRow (TFun (_ : ts1) t2 :< r)) where
 
 unpackClosTy :: Ty -> Ty -> Ty
 unpackClosTy (TRow r) (ClosTy ts1 t2) = UClosTy ts1 t2 r
-unpackClosTy  _ _                     = error "existential type required"
+unpackClosTy _ _ = error "existential type required"
 
 unrollUClosTy :: Ty -> Ty
 unrollUClosTy s@(UClosTy ts1 t2 r) = TRow $ TFun (s : ts1) t2 :< r
 unrollUClosTy _                    = error "recursive type required"
 
 bindVar :: Bind -> Var
-bindVar (BVal x _)        = x
-bindVar (BCall x _ _)     = x
+bindVar (BVal x _) = x
+bindVar (BCall x _ _) = x
 bindVar (BOpCall x _ _ _) = x
 bindVar (BProj x _ _)     = x
 bindVar (BUnpack _ x _)   = x
@@ -183,7 +183,7 @@ bindVar (BMalloc x _)     = x
 bindVar (BUpdate x _ _ _) = x
 
 class Typeable a where
-    typeof :: HasCallStack => a -> Ty
+    typeof :: (HasCallStack) => a -> Ty
 
 instance Typeable Lit where
     typeof _ = TInt
@@ -205,7 +205,7 @@ instance Typeable Val where
         VUnrollF v ->
             case typeof v of
                 TRecurs tv t -> unrollUClosTy (TRecurs tv t)
-                _            -> error "required recursive type"
+                _ -> error "required recursive type"
         VAnnotF _ t -> t
 
 instance Typeable Exp where
@@ -223,8 +223,9 @@ instance PrettyPrec Ty where
     prettyPrec _ TInt = "Int"
     prettyPrec _ (TVar tv) = pretty tv
     prettyPrec _ (TName l) = pretty l
-    prettyPrec p (TFun ts t) = parPrec p 2 $
-        parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
+    prettyPrec p (TFun ts t) =
+        parPrec p 2 $
+            parens (hsep $ punctuate "," $ map (prettyPrec 1) ts) <+> "->" <+> prettyPrec 2 t
     prettyPrec p (TExists tv t) = parPrec p 0 $ "∃" <> pretty tv <> dot <+> pretty t
     prettyPrec p (TRecurs tv t) = parPrec p 0 $ "μ" <> pretty tv <> dot <+> pretty t
     prettyPrec _ (TRow r) = braces $ pretty r
@@ -251,10 +252,18 @@ instance PrettyPrec Val where
 
 instance PrettyPrec Bind where
     pretty (BVal x v) = hang 2 $ pretty x <+> "=" <> softline <> pretty v
-    pretty (BCall x (f, _) vs2) = hang 2 $ pretty x <+> "=" <> softline <> pretty f
-        <> parens (hsep (punctuate "," (map prettyMax vs2)))
-    pretty (BOpCall x op _ vs) = hang 2 $ pretty x <+> "=" <> softline <> pretty op
-        <> parens (hsep (punctuate "," (map prettyMax vs)))
+    pretty (BCall x (f, _) vs2) =
+        hang 2 $
+            pretty x <+> "="
+                <> softline
+                <> pretty f
+                <> parens (hsep (punctuate "," (map prettyMax vs2)))
+    pretty (BOpCall x op _ vs) =
+        hang 2 $
+            pretty x <+> "="
+                <> softline
+                <> pretty op
+                <> parens (hsep (punctuate "," (map prettyMax vs)))
     pretty (BProj x v idx) = hang 2 $ pretty x <+> "=" <> softline <> prettyMax v <> "." <> pretty idx
     pretty (BUnpack tv x v) = hang 2 $ brackets (pretty tv <> "," <+> pretty x) <+> "=" <> softline <> "unpack" <+> prettyMax v
     pretty (BMalloc x ts) = hang 2 $ pretty x <+> "=" <> softline <> "malloc" <+> brackets (hsep $ punctuate "," $ map pretty ts)
@@ -268,16 +277,24 @@ instance PrettyPrec Exp where
     pretty (EAnnot e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
 
 instance PrettyPrec Code where
-    pretty (Code{args, body}) = "code" <> parens (hsep (punctuate "," (map prettyMax args)))
-        <> "." <> line <> indent 2 (pretty body)
+    pretty (Code{args, body}) =
+        "code"
+            <> parens (hsep (punctuate "," (map prettyMax args)))
+            <> "."
+            <> line
+            <> indent 2 (pretty body)
 
 instance PrettyPrec Dec where
     pretty (DEnum x ls) = "enum" <+> pretty x <+> "=" <+> brackets (hsep $ punctuate "," $ map pretty ls)
-    pretty (DBind x t)  = pretty x <+> ":" <+> pretty t
+    pretty (DBind x t) = pretty x <+> ":" <+> pretty t
 
 instance PrettyPrec TopExp where
-    pretty (defns, e) = vsep (map (\((f, _), c) -> pretty f <+> "=" <+> pretty c) defns) <> line
-        <> "main" <+> "=" <> line <> indent 2 (pretty e)
+    pretty (defns, e) =
+        vsep (map (\((f, _), c) -> pretty f <+> "=" <+> pretty c) defns)
+            <> line
+            <> "main" <+> "="
+            <> line
+            <> indent 2 (pretty e)
 
 instance PrettyPrec Program where
     pretty (ds, e) = vsep (map pretty ds) <> line <> pretty e
@@ -288,11 +305,11 @@ class StripAnnot a where
 instance StripAnnot Val where
     stripAnnot = cata $ \case
         VAnnotF v _ -> v
-        v           -> embed v
+        v -> embed v
 
 instance StripAnnot Bind where
-    stripAnnot (BVal x v)           = BVal x (stripAnnot v)
-    stripAnnot (BCall x f vs)       = BCall x f (map stripAnnot vs)
+    stripAnnot (BVal x v) = BVal x (stripAnnot v)
+    stripAnnot (BCall x f vs) = BCall x f (map stripAnnot vs)
     stripAnnot (BOpCall x op ty vs) = BOpCall x op ty (map stripAnnot vs)
     stripAnnot (BProj x v i)        = BProj x (stripAnnot v) i
     stripAnnot (BUnpack tv x v)     = BUnpack tv x (stripAnnot v)

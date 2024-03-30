@@ -7,15 +7,15 @@ import Control.Lens.Operators
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Functor.Foldable
-import Data.Map.Strict          qualified as M
-import PisigmaTal.Alloc         qualified as A
+import Data.Map.Strict qualified as M
+import PisigmaTal.Alloc qualified as A
 import PisigmaTal.Id
 import PisigmaTal.Primitive
-import Prelude                  hiding (exp)
 import Tal.Constant
 import Tal.Constructors
 import Tal.Context
-import Tal.Syntax               qualified as T
+import Tal.Syntax qualified as T
+import Prelude hiding (exp)
 
 data TalState = TalState
     { _heapsState :: T.Heaps
@@ -26,18 +26,19 @@ makeClassy ''TalState
 
 type TalM m = StateT TalState m
 
-instance MonadTalBuilder m => MonadTalBuilder (TalM m)
+instance (MonadTalBuilder m) => MonadTalBuilder (TalM m)
 
 initTalState :: TalState
-initTalState = TalState
-    { _heapsState = M.empty
-    , _heapLabels = M.empty
-    }
+initTalState =
+    TalState
+        { _heapsState = M.empty
+        , _heapLabels = M.empty
+        }
 
 runTalM :: TalM m a -> m (a, TalState)
 runTalM builder = runStateT builder initTalState
 
-extendHeaps :: MonadTalBuilder m => [(T.Name, T.Heap)] -> TalM m ()
+extendHeaps :: (MonadTalBuilder m) => [(T.Name, T.Heap)] -> TalM m ()
 extendHeaps heaps = heapsState %= M.union (M.fromList heaps)
 
 allocTalTy :: (MonadTalBuilder m, MonadIO m) => A.Ty -> m T.Ty
@@ -54,13 +55,13 @@ allocTalRowTy :: (MonadTalBuilder m, MonadIO m) => A.RowTy -> m T.RowTy
 allocTalRowTy = cata $ \case
     A.REmptyF -> return T.REmpty
     A.RVarF i -> return $ T.RVar i
-    ty A.:>$ rest -> do
+    A.RSeqF ty rest -> do
         ty' <- allocTalTy ty
         T.RSeq ty' <$> rest
 
 allocTalConst :: (MonadTalBuilder m, MonadIO m) => A.Const -> m T.WordVal
-allocTalConst (A.CInt i)      = return $ T.VInt i
-allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name) -- TODO: freshName wrong
+allocTalConst (A.CInt i) = return $ T.VInt i
+allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name)
 
 allocTalVal :: (MonadTalBuilder m, MonadIO m) => A.Val -> m T.SmallVal
 allocTalVal (A.VVar x _ty) = do
@@ -73,8 +74,10 @@ allocTalVal (A.VRoll v t) = T.VRoll <$> allocTalVal v <*> allocTalTy t
 allocTalVal (A.VUnroll v) = T.VUnroll <$> allocTalVal v
 allocTalVal (A.VAnnot v _) = allocTalVal v
 
-allocTalNonVarVal :: (MonadTalBuilder m, MonadFail m, MonadIO m) =>
-    A.Val -> m T.WordVal
+allocTalNonVarVal ::
+    (MonadTalBuilder m, MonadFail m, MonadIO m) =>
+    A.Val ->
+    m T.WordVal
 allocTalNonVarVal = cata $ \case
     A.VVarF{} -> fail "unexpected variable"
     A.VConstF c -> allocTalConst c
@@ -104,12 +107,14 @@ allocTalExp (A.ELet (A.BCall ty val vals) exp) | let arity = length vals = do
     ty' <- allocTalTy ty
     val' <- allocTalVal val
     vals' <- mapM allocTalVal vals
-    instrs <- withExtendReg reg $
-        withExtendRegTy reg ty' $ allocTalExp exp
+    instrs <-
+        withExtendReg reg $
+            withExtendRegTy reg ty' $
+                allocTalExp exp
     tmpRegs <- replicateM arity freshReg
     let instrs_storeArgs =
             zipWith T.IMove tmpRegs vals'
-            ++ zipWith (\a t -> T.IMove a (T.VReg t)) argumentRegs tmpRegs
+                ++ zipWith (\a t -> T.IMove a (T.VReg t)) argumentRegs tmpRegs
     return $ instrs_storeArgs <>| T.ICall val' <| T.IMove reg (T.VReg RVReg) <| instrs
 allocTalExp (A.ELet (A.BPrim ty op _ vals) exp) = do
     reg <- freshReg
@@ -129,15 +134,19 @@ allocTalExp (A.ELet (A.BUnpack ty val) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
     val' <- allocTalVal val
-    instrs <- withExtendReg reg $ -- tmp: TyVar telescopes
-        withExtendRegTy reg ty' $ allocTalExp exp
+    instrs <-
+        withExtendReg reg $ -- tmp: TyVar telescopes
+            withExtendRegTy reg ty' $
+                allocTalExp exp
     return $ T.IUnpack reg val' <| instrs -- tmp: TyVar
 allocTalExp (A.ELet (A.BMalloc ty tys) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
     tys' <- mapM allocTalTy tys
-    instrs <- withExtendReg reg $
-        withExtendRegTy reg ty' $ allocTalExp exp
+    instrs <-
+        withExtendReg reg $
+            withExtendRegTy reg ty' $
+                allocTalExp exp
     return $ T.IMalloc reg tys' <| instrs
 allocTalExp (A.ELet (A.BUpdate ty var idx val) exp) = do
     reg <- freshReg
@@ -161,9 +170,12 @@ allocTalExp (A.ECase val cases) = do
     instr_list <- forM (tail labs) $ \l -> do
         return
             [ T.IAop T.Sub reg reg (T.VWord (T.VInt 1))
-            , T.IBop T.Bz reg (T.VWord (T.VLabel l))]
-    return $ T.IMove reg val' <| T.IBop T.Bz reg (T.VWord (T.VLabel (head labs)))
-        <| concat instr_list <>| T.IHalt T.TNonsense -- tmp: exception or default
+            , T.IBop T.Bz reg (T.VWord (T.VLabel l))
+            ]
+    return $
+        T.IMove reg val'
+            <| T.IBop T.Bz reg (T.VWord (T.VLabel (head labs)))
+            <| concat instr_list <>| T.IHalt T.TNonsense -- tmp: exception or default
 allocTalExp (A.EReturn val) = do
     val' <- allocTalVal val
     ty <- allocTalTy (A.typeof val)

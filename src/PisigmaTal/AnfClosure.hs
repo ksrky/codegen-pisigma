@@ -12,7 +12,7 @@ import PisigmaTal.Anf             qualified as A
 import PisigmaTal.Closure         qualified as C
 import PisigmaTal.Id
 import PisigmaTal.Idx
-import Prelude                    hiding (exp)
+import Prelude hiding (exp)
 
 type Locals = [Id]
 
@@ -45,15 +45,15 @@ anfClosureLit (A.LInt i) = C.LInt i
 
 anfClosureKnownTy :: A.Ty -> C.Ty
 anfClosureKnownTy = cata $ \case
-    A.TIntF        -> C.TInt
-    A.TNameF x     -> C.TName x
+    A.TIntF -> C.TInt
+    A.TNameF x -> C.TName x
     A.TFunF ts1 t2 -> C.TFun ts1 t2
     A.TTupleF ts   -> C.TRow $ foldr C.RSeq C.REmpty ts
 
 anfClosureTy :: A.Ty -> C.Ty
 anfClosureTy = cata $ \case
-    A.TIntF        -> C.TInt
-    A.TNameF x     -> C.TName x
+    A.TIntF -> C.TInt
+    A.TNameF x -> C.TName x
     A.TFunF ts1 t2 -> C.ClosTy ts1 t2
     A.TTupleF ts   -> C.TRow $ foldr C.RSeq C.REmpty ts
 
@@ -185,7 +185,7 @@ anfClosureExp (A.EAnnot exp ty) = C.EAnnot <$> anfClosureExp exp <*> pure (anfCl
 
 anfClosureDec :: A.Dec -> C.Dec
 anfClosureDec (A.DEnum x ls) = C.DEnum x ls
-anfClosureDec (A.DBind x t)  = C.DBind x (anfClosureKnownTy t)
+anfClosureDec (A.DBind x t) = C.DBind x (anfClosureKnownTy t)
 
 anfClosureProgram :: A.Program -> IO C.Program
 anfClosureProgram (decs, exp) = do

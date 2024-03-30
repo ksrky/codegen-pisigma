@@ -29,20 +29,20 @@ checkEqTys t1 t2 = fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++
 checkEqRowTys :: RowTy -> RowTy -> IO ()
 checkEqRowTys REmpty REmpty = return ()
 checkEqRowTys (RVar x) (RVar y) | x == y = return ()
-checkEqRowTys (t1 :> r1) (t2 :> r2) = do
+checkEqRowTys (RSeq t1 r1) (RSeq t2 r2) = do
     checkEqTys t1 t2
     checkEqRowTys r1 r2
 checkEqRowTys r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
 
-data Env = Env {
-    _localEnv  :: [Maybe Ty], -- Nothing means type variable
-    _globalEnv :: [(Id, Ty)]
-}
+data Env = Env
+    { _localEnv  :: [Maybe Ty] -- Nothing means type variable
+    , _globalEnv :: [(Id, Ty)]
+    }
 
 makeLenses ''Env
 
 checkConst :: Const -> ReaderT Env IO Ty
-checkConst (CInt _)       = return TInt
+checkConst (CInt _) = return TInt
 checkConst (CGlobal x ty) = do
     Just ty' <- views globalEnv (lookup x)
     lift $ checkEqTys ty ty'
@@ -106,9 +106,9 @@ checkExp (ELet (BProj ann_ty val idx) body) = do
     locally localEnv (Just ann_ty :) $ checkExp body
   where
     go :: Idx -> RowTy -> IO Ty
-    go Idx1 (ty1 :> _) = return ty1
-    go i (_  :> row)   = go (pred i) row
-    go _ _             = error "impossible"
+    go Idx1 (RSeq ty1 _) = return ty1
+    go i (RSeq _ row)    = go (pred i) row
+    go _ _               = error "impossible"
 checkExp (ELet (BUnpack ann_ty val) body) = do
     ty <- checkVal val
     case ty of
@@ -116,7 +116,7 @@ checkExp (ELet (BUnpack ann_ty val) body) = do
         _           -> fail $ "expected existential type, but got " ++ show ty
     locally localEnv ([Just ann_ty, Nothing] ++) $ checkExp body
 checkExp (ELet (BMalloc ann_ty tys) body) = do
-    let row_ty = TRow $ foldr (:>) REmpty tys
+    let row_ty = TRow $ foldr RSeq REmpty tys
     lift $ checkEqTys ann_ty row_ty
     locally localEnv (Just ann_ty :) $ checkExp body
 checkExp (ELet (BUpdate ann_ty val1 idx val2) body) = do
@@ -124,7 +124,7 @@ checkExp (ELet (BUpdate ann_ty val1 idx val2) body) = do
     lift $ checkEqTys ann_ty ty1
     ty2 <- checkVal val2
     case ty1 of
-        TRow row1 -> lift $  do
+        TRow row1 -> lift $ do
             checkEqTys (row1 ^?! ix idx) ty2
         _ -> fail $ "expected row type, but got " ++ show ty1
     locally localEnv (Just ann_ty :) $ checkExp body
@@ -150,14 +150,13 @@ checkHeap HExtern{} = return ()
 checkHeap HTypeAlias{} = return ()
 
 initEnv :: [(Id, Heap)] -> [(Id, Ty)]
-initEnv []                                 = []
-initEnv ((x, HGlobal ty _) : hs)           = (x, ty) : initEnv hs
+initEnv [] = []
+initEnv ((x, HGlobal ty _) : hs) = (x, ty) : initEnv hs
 initEnv ((x, HCode arg_tys ret_ty _) : hs) = (x, TFun arg_tys ret_ty) : initEnv hs
-initEnv ((x, HExtern ty) : hs)             = (x, ty) : initEnv hs
-initEnv ((_, HTypeAlias{}) : hs)           = initEnv hs
-
+initEnv ((x, HExtern ty) : hs) = (x, ty) : initEnv hs
+initEnv ((_, HTypeAlias{}) : hs) = initEnv hs
 
 checkProgram :: Program -> IO ()
 checkProgram (heaps, exp) = do
-    let env = Env {_localEnv = [], _globalEnv = initEnv heaps}
+    let env = Env{_localEnv = [], _globalEnv = initEnv heaps}
     runReaderT (mapM_ (checkHeap . snd) heaps >> void (checkExp exp)) env
