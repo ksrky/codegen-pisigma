@@ -30,8 +30,7 @@ instance Num Idx where
     abs = id
     signum Idx1 = 1
     signum _    = 1
-    negate Idx1       = Idx1
-    negate (IdxS idx) = IdxS (negate idx)
+    negate _ = error "cannot negate"
 
 instance Enum Idx where
     toEnum n | n < 1 = error "non-positive index"

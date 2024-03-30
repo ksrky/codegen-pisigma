@@ -28,9 +28,9 @@ runInstrs (IHalt _) = return ()
 
 runInstr :: (MonadTalState m, MonadFail m) => Instr -> m (Instrs -> Instrs)
 runInstr (IAop aop rd rs v) = do
-    w1 <- readReg rs
-    w2 <- wordize v
-    extendRegFile rd (aopFun aop w1 w2)
+    VInt i1 <- readReg rs
+    VInt i2 <- wordize v
+    extendRegFile rd (VInt $ aopFun aop i1 i2)
     return id
 runInstr (IBop bop rd v) = do
     VInt i <- readReg rd
@@ -95,12 +95,11 @@ runInstr (ISstore rd i rs) = do
     writeSlot (Just ptr) i w
     undefined
 
-aopFun :: Aop -> WordVal -> WordVal -> WordVal
-aopFun Add (VInt m) (VInt n) = VInt (m + n)
-aopFun Sub (VInt m) (VInt n) = VInt (m - n)
-aopFun Mul (VInt m) (VInt n) = VInt (m * n)
-aopFun Div (VInt m) (VInt n) = VInt (m `div` n)
-aopFun _ _ _                 = error "int required"
+aopFun :: Aop -> Int -> Int -> Int
+aopFun Add = (+)
+aopFun Sub = (-)
+aopFun Mul = (*)
+aopFun Div = div
 
 bopFun :: (Ord a, Num a) => Bop -> a -> Bool
 bopFun Bz  = (== 0)
