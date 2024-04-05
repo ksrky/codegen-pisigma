@@ -12,7 +12,6 @@ import Data.Maybe
 import PisigmaTal.Alloc         qualified as A
 import PisigmaTal.Closure       qualified as C
 import PisigmaTal.Id
-import PisigmaTal.Idx
 import Prelude                  hiding (exp)
 
 data Ctx = Ctx {
@@ -118,6 +117,17 @@ closureAllocExp (C.ELet (C.BUnpack tv x v) e) = do
     (v', binds) <- runWriterT $ closureAllocVal v
     e' <- locally varScope ((fst x : tv : dummyIds binds) ++) $ closureAllocExp e
     return $ foldr A.ELet e' (binds |> A.BUnpack ty v')
+closureAllocExp (C.ELet (C.BMalloc x ts) e) = do
+    ty <- closureAllocTy (snd x)
+    ts' <- mapM closureAllocTy ts
+    e' <- locally varScope (fst x :) $ closureAllocExp e
+    return $ A.ELet (A.BMalloc ty ts') e'
+closureAllocExp (C.ELet (C.BUpdate x y idx v) e) = do
+    ty <- closureAllocTy (snd x)
+    (y', _) <- runWriterT $ closureAllocVal (C.VVar y)
+    (v', binds) <- runWriterT $ closureAllocVal v
+    e' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp e
+    return $ foldr A.ELet e' (binds ++ [A.BUpdate ty y' idx v'])
 closureAllocExp (C.ELetrec binds exp) = do
     let bindIds = map (fst . C.bindVar) binds
     binds' <- locally varScope (reverse bindIds ++) $ do

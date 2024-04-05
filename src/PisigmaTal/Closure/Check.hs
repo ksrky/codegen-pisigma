@@ -101,14 +101,13 @@ checkBind cts (BUnpack tv1 x v2) = do
 checkBind cts (BMalloc x tys) = do
     let row_ty = TRow $ foldr RSeq REmpty tys
     lift $ checkEqTys cts (snd x) row_ty
-checkBind cts (BUpdate x v1 idx v2) = do
-    ty1 <- checkVal cts v1
-    lift $ checkEqTys cts (snd x) ty1
-    ty2 <- checkVal cts v2
-    case ty1 of
+checkBind cts (BUpdate x y idx v) = do
+    lift $ checkEqTys cts (snd x) (snd y)
+    ty <- checkVal cts v
+    case snd y of
         TRow row1 -> lift $  do
-            checkEqTys cts (row1 ^?! ix idx) ty2
-        _ -> fail $ "expected row type, but got " ++ show ty1
+            checkEqTys cts (row1 ^?! ix idx) ty
+        _ -> fail $ "expected row type, but got " ++ show (snd y)
 
 checkExp :: [(TyVar, TyVar)] -> Exp -> ReaderT Env IO Ty
 checkExp cts (ELet b e) = do

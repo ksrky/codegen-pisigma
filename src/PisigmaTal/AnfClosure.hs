@@ -107,7 +107,7 @@ anfClosureVal (A.VTuple vals) = do
     go idx prev@(x, ty) (val : rest) = do
         next <- (, ty) <$> newId (x ^. name)
         val' <- anfClosureVal val
-        tell [C.BUpdate next (C.VVar prev) idx val']
+        tell [C.BUpdate next prev idx val']
         go (IdxS idx) next rest
 anfClosureVal (A.VAnnot val ty) = C.VAnnot <$> anfClosureVal val <*> pure (anfClosureTy ty)
 
@@ -118,7 +118,7 @@ buildUpdates = go Idx1
     go _ prev [] = return prev
     go idx prev@(x, ty) (val : rest) = do
         next <- (, ty) <$> newId (x ^. name)
-        tell [C.BUpdate next (C.VVar prev) idx val]
+        tell [C.BUpdate next prev idx val]
         go (IdxS idx) next rest
 
 anfClosureBind :: A.Bind -> CCM [C.Bind]

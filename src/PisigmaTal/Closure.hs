@@ -101,7 +101,7 @@ data Bind
     | BProj Var Val Idx
     | BUnpack TyVar Var Val
     | BMalloc Var [Ty]
-    | BUpdate Var Val Idx Val
+    | BUpdate Var Var Idx Val
     deriving (Eq, Show)
 
 data Exp
@@ -299,7 +299,7 @@ instance StripAnnot Bind where
     stripAnnot (BProj x v i)        = BProj x (stripAnnot v) i
     stripAnnot (BUnpack tv x v)     = BUnpack tv x (stripAnnot v)
     stripAnnot (BMalloc x ts)       = BMalloc x ts
-    stripAnnot (BUpdate x v i v')   = BUpdate x (stripAnnot v) i (stripAnnot v')
+    stripAnnot (BUpdate x y i v)    = BUpdate x y i (stripAnnot v)
 
 instance StripAnnot Exp where
     stripAnnot = cata $ \case

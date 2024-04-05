@@ -10,7 +10,6 @@ import Data.Functor.Foldable
 import Data.Map.Strict          qualified as M
 import PisigmaTal.Alloc         qualified as A
 import PisigmaTal.Id
-import PisigmaTal.Idx
 import PisigmaTal.Primitive
 import Prelude                  hiding (exp)
 import Tal.Constant
@@ -127,7 +126,7 @@ allocTalExp (A.ELet (A.BProj ty val idx) exp) = do
     val' <- allocTalVal val
     instrs <- withExtendReg reg $
         withExtendRegTy reg ty' $ allocTalExp exp
-    return $ T.IMove reg val' <| T.ILoad reg reg (idxToInt idx - 1) <| instrs
+    return $ T.IMove reg val' <| T.ILoad reg reg (pred (fromEnum idx)) <| instrs
 allocTalExp (A.ELet (A.BUnpack exty val) exp) | A.TExists ty <- exty = do
     reg <- freshReg
     ty' <- allocTalTy ty
@@ -151,7 +150,7 @@ allocTalExp (A.ELet (A.BUpdate ty var idx val) exp) = do
     val' <- allocTalVal val
     instrs <- withExtendReg reg $
         withExtendRegTy reg ty' $ allocTalExp exp
-    return $ T.IMove reg var' <| T.IMove reg' val' <| T.IStore reg (idxToInt idx) reg' <| instrs
+    return $ T.IMove reg var' <| T.IMove reg' val' <| T.IStore reg (fromEnum idx) reg' <| instrs
 allocTalExp (A.ECase val cases) = do
     mapM_ allocTalExp cases
     reg <- freshReg
