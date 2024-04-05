@@ -115,7 +115,7 @@ checkExp (ELet (BProj ann_ty val idx) body) = do
   where
     go :: Idx -> RowTy -> IO Ty
     go Idx1 (ty1 :> _) = return ty1
-    go i (_  :> row)   = go (idxPred i) row
+    go i (_  :> row)   = go (pred i) row
     go _ _             = error "impossible"
 checkExp (ELet (BUnpack ann_ty val) body) = do
     ty <- checkVal val

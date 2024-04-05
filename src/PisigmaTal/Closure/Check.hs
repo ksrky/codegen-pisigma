@@ -24,7 +24,7 @@ checkEqRowTys :: [(TyVar, TyVar)] -> RowTy -> RowTy -> IO ()
 checkEqRowTys _ REmpty REmpty = return ()
 checkEqRowTys _ (RVar x) (RVar y) | x == y = return ()
 checkEqRowTys cts (RVar x) (RVar y) | Just y' <- lookup x cts, y == y' = return ()
-checkEqRowTys cts (t1 :> r1) (t2 :> r2) = do
+checkEqRowTys cts (RSeq t1 r1) (RSeq t2 r2) = do
     checkEqTys cts t1 t2
     checkEqRowTys cts r1 r2
 checkEqRowTys _ r1 r2 = fail $ "type mismatch. expected: " ++ show r1 ++ ", got: " ++ show r2
@@ -46,9 +46,6 @@ checkVal cts (VFun f) = do
             return t
         Nothing -> fail $ "unbound global: " ++ show f
 checkVal _ (VLabel c _) = return $ TName c
-checkVal cts (VTuple vs) = do
-    ts <- mapM (checkVal cts) vs
-    return $ mkTTuple ts
 checkVal cts (VPack t1 v t2)
     | TExists{} <- t2 = do
         t <- checkVal cts v
@@ -101,6 +98,17 @@ checkBind cts (BUnpack tv1 x v2) = do
         TExists tv2 t -> do
             lift $ checkEqTys ((tv1, tv2) : cts) (snd x) t
         _             -> fail $ "required existential type, but got " ++ show t2
+checkBind cts (BMalloc x tys) = do
+    let row_ty = TRow $ foldr RSeq REmpty tys
+    lift $ checkEqTys cts (snd x) row_ty
+checkBind cts (BUpdate x v1 idx v2) = do
+    ty1 <- checkVal cts v1
+    lift $ checkEqTys cts (snd x) ty1
+    ty2 <- checkVal cts v2
+    case ty1 of
+        TRow row1 -> lift $  do
+            checkEqTys cts (row1 ^?! ix idx) ty2
+        _ -> fail $ "expected row type, but got " ++ show ty1
 
 checkExp :: [(TyVar, TyVar)] -> Exp -> ReaderT Env IO Ty
 checkExp cts (ELet b e) = do

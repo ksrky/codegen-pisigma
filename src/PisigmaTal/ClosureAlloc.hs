@@ -46,7 +46,7 @@ closureAllocTy = cata $ \case
 
 closureAllocRowTy :: C.RowTy -> CtxM A.RowTy
 closureAllocRowTy = cata $ \case
-    ty C.:>$ row -> do
+    C.RSeqF ty row -> do
         ty' <- closureAllocTy ty
         (ty' A.:>) <$> row
     C.RVarF x -> do
@@ -72,16 +72,7 @@ closureAllocVal (C.VLabel c l) = do
     case List.elemIndex l labs of
         Just i  -> return $ A.VConst (A.CInt i)
         Nothing -> fail $ "label not found: " ++ show l
-closureAllocVal (C.VTuple vals) = do
-    let n_vals = length vals
-    tys <- lift $ mapM (closureAllocTy . C.typeof) vals
-    let rowty = A.TRow $ foldr (A.:>) A.REmpty tys
-        bind0 = A.BMalloc rowty tys
-    binds <- forM [1 .. n_vals] $ \i -> do
-        val <- locally varScope (replicate i dummyId ++) $ closureAllocVal (vals !! (i - 1))
-        return $ A.BUpdate rowty (A.VVar 0 rowty) (intToIdx i) val
-    tell (bind0 : binds)
-    return $ A.VVar 0 rowty
+
 closureAllocVal (C.VPack t1 v t2) =
     A.VPack <$> lift (closureAllocTy t1) <*> closureAllocVal v <*> lift (closureAllocTy t2)
 closureAllocVal (C.VRoll v t) = do
@@ -140,7 +131,7 @@ closureAllocExp (C.ELetrec binds exp) = do
         let pack_tys = map (view _3) packs
             packs_ty = A.TRow $ foldr (A.:>) A.REmpty pack_tys
             binds'' = A.BVal packs_ty (A.VFixPack packs) :
-                map (\i -> A.BProj (pack_tys !! i) (A.VVar i packs_ty) (intToIdx (i + 1))) [0 .. length binds - 1]
+                map (\i -> A.BProj (pack_tys !! i) (A.VVar i packs_ty) (toEnum (i + 1))) [0 .. length binds - 1]
         return $ binds' ++ binds''
     exp' <- locally varScope ((dummyIds binds' ++ [dummyId] ++ reverse bindIds) ++) $ closureAllocExp exp
     return $ foldr A.ELet exp' binds'

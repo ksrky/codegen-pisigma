@@ -1,8 +1,6 @@
 module PisigmaTal.Idx (
     Idx(..),
-    idxToInt,
-    intToIdx,
-    idxPred
+    pattern Idx2
 ) where
 
 import Prettyprinter.Prec
@@ -12,11 +10,14 @@ data Idx
     | IdxS Idx
     deriving (Eq, Ord)
 
+pattern Idx2 :: Idx
+pattern Idx2 = IdxS Idx1
+
 instance Show Idx where
-    show idx = "#" ++ show (idxToInt idx)
+    show idx = "#" ++ show (fromEnum idx)
 
 instance PrettyPrec Idx where
-    pretty idx = pretty (idxToInt idx)
+    pretty idx = pretty (fromEnum idx)
 
 instance Num Idx where
     Idx1 + idx2      = idx2
@@ -32,17 +33,9 @@ instance Num Idx where
     negate Idx1       = Idx1
     negate (IdxS idx) = IdxS (negate idx)
 
-idxToInt :: Idx -> Int
-idxToInt Idx1       = 1
-idxToInt (IdxS idx) = 1 + idxToInt idx
-
-intToIdx :: Int -> Idx
-intToIdx n | n < 1 = error "non-positive index"
-intToIdx 1 = Idx1
-intToIdx n = IdxS (intToIdx (n - 1))
-
-
-
-idxPred :: Idx -> Idx
-idxPred Idx1       = Idx1
-idxPred (IdxS idx) = idx
+instance Enum Idx where
+    toEnum n | n < 1 = error "non-positive index"
+    toEnum 1 = Idx1
+    toEnum n = IdxS (toEnum (n - 1))
+    fromEnum Idx1       = 1
+    fromEnum (IdxS idx) = 1 + fromEnum idx
