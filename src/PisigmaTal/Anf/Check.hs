@@ -24,7 +24,7 @@ checkVal (VVar x) = do
             lift $ checkEqTys (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x
-checkVal (VLabel _ t) = return t
+checkVal (VLabel c _) = return $ TName c
 checkVal (VLam xs e) = do
     t <- local (flip (foldr extendBindEnv) xs) $ checkExp e
     return $ TFun (map snd xs) t
@@ -42,11 +42,11 @@ checkExp (ELetrec bs e) =
     local (flip (foldr (extendBindEnv . (\(RecBind x _ _) -> x))) bs) $ do
         mapM_ checkRecBind bs
         checkExp e
-checkExp (ECase v les)
+checkExp (ECase c v les)
     | (_, t1) : _ <- les = do
         ls <- checkVal v >>= \case
-            TName x -> lookupEnumEnv x =<< ask
-            _       -> fail "TName required"
+            TName c' | c == c' -> lookupEnumEnv c =<< ask
+            _ -> fail "TName required"
         guard $ all (\(l, _) -> l `elem` ls) les -- mapbe non-exhaustive
         ts <- mapM (checkExp . snd) les
         t1' <- checkExp t1

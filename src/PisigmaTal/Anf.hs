@@ -44,7 +44,7 @@ type Var = (Id, Ty)
 data Val
     = VLit Lit
     | VVar Var
-    | VLabel Label Ty
+    | VLabel EnumId Label
     | VLam [Var] Exp
     | VTuple [Val]
     | VAnnot Val Ty
@@ -67,13 +67,15 @@ data RecBind = RecBind Var [Var] Exp
 data Exp
     = ELet Bind Exp
     | ELetrec [RecBind] Exp
-    | ECase Val [(Label, Exp)]
+    | ECase EnumId Val [(Label, Exp)]
     | EReturn Val
     | EAnnot Exp Ty
     deriving (Eq, Show)
 
+type EnumId = Id
+
 data Dec
-    = DEnum Id [Label]
+    = DEnum EnumId [Label]
     | DBind Id Ty
     deriving (Eq, Show)
 
@@ -116,7 +118,7 @@ instance Typeable Val where
     typeof = cata $ \case
         VLitF l -> typeof l
         VVarF x -> typeof x
-        VLabelF _ t -> t
+        VLabelF c _ -> TName c
         VLamF xs e -> TFun (map typeof xs) (typeof e)
         VTupleF vs -> TTuple (map typeof vs)
         VAnnotF _ t -> t
@@ -125,12 +127,12 @@ instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ e ->  e
         ELetrecF _ e -> e
-        ECaseF _ lts | (_, t) : _ <- lts -> t
+        ECaseF _ _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
         EReturnF v -> typeof v
         EAnnotF _ t -> t
 
 bindVar :: Bind -> Var
-bindVar (BVal x _)          = x
-bindVar (BApp x _ _) = x
-bindVar (BFullApp x _ _)    = x
+bindVar (BVal x _)       = x
+bindVar (BApp x _ _)     = x
+bindVar (BFullApp x _ _) = x

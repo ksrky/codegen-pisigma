@@ -24,7 +24,7 @@ checkExp (EVar x) = do
             lift $ checkEqTys (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x
-checkExp (ELabel _ t) = return t
+checkExp (ELabel c _) = return $ TName c
 checkExp (EApp e1 e2) = do
     t1 <- checkExp e1
     t2 <- checkExp e2
@@ -61,7 +61,7 @@ checkExp (ELet (MutrecBinds xes) e2) =
             lift $ checkEqTys (snd x) t
         checkExp e2
 checkExp (ETuple es) = TTuple <$> mapM checkExp es
-checkExp (ECase e les)
+checkExp (ECase _ e les)
     | (_, t1) : _ <- les = do
         ls <- checkExp e >>= \case
             TName x -> lookupEnumEnv x =<< ask

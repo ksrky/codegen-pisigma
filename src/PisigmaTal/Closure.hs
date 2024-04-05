@@ -17,6 +17,7 @@ module PisigmaTal.Closure (
     Code(..),
     Defn,
     TopExp,
+    EnumId,
     Dec(..),
     Program,
     Env,
@@ -83,7 +84,7 @@ data Val
     = VLit Lit
     | VVar Var
     | VFun Var
-    | VLabel Label Ty
+    | VLabel EnumId Label
     | VTuple [Val]
     | VPack Ty Val Ty
     | VRoll Val Ty
@@ -103,7 +104,7 @@ data Bind
 data Exp
     = ELet Bind Exp
     | ELetrec [Bind] Exp
-    | ECase Val [(Label, Exp)]
+    | ECase EnumId Val [(Label, Exp)]
     | EReturn Val
     | EAnnot Exp Ty
     deriving (Eq, Show)
@@ -113,8 +114,10 @@ data Code = Code {args :: [Var], body :: Exp}
 
 type Defn = (Var, Code)
 
+type EnumId = Id
+
 data Dec
-    = DEnum Id [Label]
+    = DEnum EnumId [Label]
     | DBind Id Ty
     deriving (Eq, Show)
 
@@ -199,7 +202,7 @@ instance Typeable Val where
         VLitF l -> typeof l
         VVarF x -> typeof x
         VFunF f -> typeof f
-        VLabelF _ t -> t
+        VLabelF c _ -> TName c
         VTupleF vs -> TRow $ foldr ((:>) . typeof) REmpty vs
         VPackF _ _ t -> t
         VRollF _ t -> t
@@ -213,7 +216,7 @@ instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ t -> t
         ELetrecF _ t -> t
-        ECaseF _ lts | (_, t) : _ <- lts -> t
+        ECaseF _ _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
         EReturnF v -> typeof v
         EAnnotF _ t -> t
@@ -263,7 +266,7 @@ instance PrettyPrec Bind where
 instance PrettyPrec Exp where
     pretty (ELet b e)    = vsep [hang 2 ("let" <+> pretty b) <+> "in", pretty e]
     pretty (ELetrec bs e) = vsep [hang 2 ("letrec" <+> align (vsep (map pretty bs))), "in", pretty e]
-    pretty (ECase v les) = vsep [ "case" <+> pretty v <+> "of"
+    pretty (ECase _ v les) = vsep [ "case" <+> pretty v <+> "of"
                                 , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
     pretty (EReturn v)   = "ret" <+> prettyMax v
     pretty (EAnnot e t)  = parens $ hang 2 $ sep [pretty e, ":" <+> pretty t]
@@ -302,7 +305,7 @@ instance StripAnnot Exp where
     stripAnnot = cata $ \case
         ELetF b e -> ELet (stripAnnot b) e
         ELetrecF bs e -> ELetrec (map stripAnnot bs) e
-        ECaseF v lts -> ECase (stripAnnot v) lts
+        ECaseF c v lts -> ECase c (stripAnnot v) lts
         EReturnF v -> EReturn (stripAnnot v)
         EAnnotF e _ -> e
 

@@ -45,7 +45,7 @@ checkVal cts (VFun f) = do
             lift $ checkEqTys cts (snd f) t
             return t
         Nothing -> fail $ "unbound global: " ++ show f
-checkVal _ (VLabel _ t) = return t
+checkVal _ (VLabel c _) = return $ TName c
 checkVal cts (VTuple vs) = do
     ts <- mapM (checkVal cts) vs
     return $ mkTTuple ts
@@ -110,11 +110,11 @@ checkExp cts (ELetrec bs e) = do
     local (\env -> foldr (extendBindEnv . bindVar) env bs) $ do
         mapM_ (checkBind cts) bs
         checkExp cts e
-checkExp cts (ECase v les)
+checkExp cts (ECase c v les)
     | (_, t1) : _ <- les = do
         ls <- checkVal cts v >>= \case
-            TName x -> lookupEnumEnv x =<< ask
-            _       -> fail "TName required"
+            TName c' | c == c' -> lookupEnumEnv c =<< ask
+            _ -> fail "TName required"
         guard $ all (\(l, _) -> l `elem` ls) les -- mapbe non-exhaustive
         ts <- mapM (checkExp cts . snd) les
         t1' <- checkExp cts t1

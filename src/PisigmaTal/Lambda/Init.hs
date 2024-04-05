@@ -1,4 +1,5 @@
 module PisigmaTal.Lambda.Init (
+    idBool,
     tyBool,
     primOps,
     initCtx,
@@ -32,8 +33,8 @@ initCtx = Ctx
         [ ("==", (idEq, TFun TInt (TFun TInt tyBool)))
         ]
     , _labelScope =
-        [ ("True", TName idBool)
-        , ("False", TName idBool)
+        [ ("True", idBool)
+        , ("False", idBool)
         ]
     }
 

@@ -35,6 +35,7 @@ import Data.IORef
 import GHC.Stack
 import PisigmaTal.Id
 import PisigmaTal.Primitive
+import Prelude                  hiding (Enum)
 
 newtype Lit = LInt Int
     deriving (Eq, Show)
@@ -65,13 +66,13 @@ data Op
 data Exp
     = ELit Lit
     | EVar Var
-    | ELabel Label Ty
+    | ELabel EnumId Label
     | EApp Exp Exp
     | EFullApp Op [Exp]
     | ELam Var Exp
     | ETuple [Exp]
     | ELet BindBlock Exp
-    | ECase Exp [(Label, Exp)]
+    | ECase EnumId Exp [(Label, Exp)]
     | EAnnot Exp Ty
     deriving (Eq, Show)
 
@@ -92,8 +93,10 @@ pattern MutrecBinds xes <- Mutrec (map (\(Bind x e) -> (x, e)) -> xes) where
 
 {-# COMPLETE NonrecBind, MutrecBinds #-}
 
+type EnumId = Id
+
 data Dec
-    = DEnum Id [Label]
+    = DEnum EnumId [Label]
     | DBind Id Ty
     deriving (Eq, Show)
 
@@ -104,7 +107,7 @@ makeBaseFunctor ''Exp
 
 data Ctx = Ctx
     { _varScope   :: [(String, Var)]
-    , _labelScope :: [(String, Ty)]
+    , _labelScope :: [(String, EnumId)]
     }
 
 makeLenses ''Ctx
@@ -153,14 +156,14 @@ instance Typeable Exp where
     typeof = cata $ \case
         ELitF l -> typeof l
         EVarF v -> typeof v
-        ELabelF _ t -> t
+        ELabelF c _ -> TName c
         EAppF t1 _ | TFun _ t12 <- t1 -> t12
                    | otherwise        -> error "impossible"
         EFullAppF op _ -> snd $ splitTFun $ typeof op
         ELamF (_, t1) t2 -> TFun t1 t2
         ELetF _ t -> t
         ETupleF ts -> TTuple ts
-        ECaseF _ lts | (_, t) : _ <- lts -> t
+        ECaseF _ _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
         EAnnotF _ t -> t
 

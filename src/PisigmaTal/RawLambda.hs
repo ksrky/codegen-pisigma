@@ -82,9 +82,9 @@ tcExp (R.EVar x) exp_ty = do
 tcExp (R.ELabel l) exp_ty = do
     ctx <- view L.labelScope
     case lookup l ctx of
-        Just t -> do
-            lift $ unify exp_ty t
-            return $ L.ELabel l t
+        Just c -> do
+            lift $ unify exp_ty (L.TName c)
+            return $ L.ELabel c l
         Nothing      -> fail $ "unknown label: " ++ l
 tcExp (R.EApp e1 e2) exp_ty = do
     t2 <- newTyVar
@@ -136,7 +136,7 @@ tcExp (R.EIf e1 e2 e3) exp_ty = do
     e1' <- tcExp e1 tyBool
     e2' <- tcExp e2 exp_ty
     e3' <- tcExp e3 exp_ty
-    return $ L.EAnnot (L.ECase (L.EAnnot e1' tyBool) [("True", e2'), ("False", e3')]) exp_ty
+    return $ L.EAnnot (L.ECase idBool (L.EAnnot e1' tyBool) [("True", e2'), ("False", e3')]) exp_ty
 
 class Zonking a where
     zonk :: a -> IO a
@@ -171,7 +171,7 @@ instance Zonking L.Exp where
     zonk = cata $ \case
         L.ELitF l -> return $ L.ELit l
         L.EVarF x -> L.EVar <$> zonk x
-        L.ELabelF l t -> L.ELabel l <$> zonk t
+        L.ELabelF c l -> return $ L.ELabel c l
         L.EAppF e1 e2 -> L.EApp <$> e1 <*> e2
         L.EFullAppF op es -> L.EFullApp <$> zonk op <*> sequence es
         L.ELamF x e -> L.ELam <$> zonk x <*> e
@@ -182,7 +182,7 @@ instance Zonking L.Exp where
             bb <- L.MutrecBinds <$> mapM (\(x, e) -> (,) <$> zonk x <*> zonk e) xes
             L.ELet bb <$> e2
         L.ETupleF es -> L.ETuple <$> sequence es
-        L.ECaseF e les -> L.ECase <$> e <*> mapM (\(l, ei) -> (l,) <$> ei) les
+        L.ECaseF c e les -> L.ECase c <$> e <*> mapM (\(l, ei) -> (l,) <$> ei) les
         L.EAnnotF e t -> L.EAnnot <$> e <*> zonk t
 
 rawLambdaProgram :: R.Program -> IO L.Program

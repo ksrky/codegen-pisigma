@@ -27,7 +27,7 @@ lambdaAnfVar (x, t) = (x, lambdaAnfTy t)
 lambdaAnfExp :: L.Exp -> (A.Val -> A.Exp) -> A.Exp
 lambdaAnfExp (L.ELit l) kont = kont $ A.VLit (lambdaAnfLit l)
 lambdaAnfExp (L.EVar x) kont = kont $ A.VVar (lambdaAnfVar x)
-lambdaAnfExp (L.ELabel l t) kont = kont $ A.VLabel l (lambdaAnfTy t)
+lambdaAnfExp (L.ELabel c l) kont = kont $ A.VLabel c l
 lambdaAnfExp (L.EApp e1 e2) kont =
     lambdaAnfExp e1 $ \v1 ->
     lambdaAnfExp e2 $ \v2 ->
@@ -70,11 +70,11 @@ lambdaAnfExp (L.ETuple es) kont = go [] es
     go :: [A.Val] -> [L.Exp] -> A.Exp
     go acc []         = kont $ A.VTuple (reverse acc)
     go acc (e : rest) = lambdaAnfExp e $ \v -> go (v : acc) rest
-lambdaAnfExp (L.ECase e les) kont =
+lambdaAnfExp (L.ECase c e les) kont =
     lambdaAnfExp e $ \v ->
     -- [Note] Duplication of continuation is innefficient.
     --        Use join point to avoid this.
-    A.ECase v $ map (\(li, ei) -> (li, lambdaAnfExp ei kont)) les
+    A.ECase c v $ map (\(li, ei) -> (li, lambdaAnfExp ei kont)) les
 lambdaAnfExp (L.EAnnot e t) kont = lambdaAnfExp e $ \v -> kont $ A.VAnnot v (lambdaAnfTy t)
 
 lambdaAnfDec :: L.Dec -> A.Dec

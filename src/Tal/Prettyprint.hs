@@ -12,7 +12,7 @@ instance PprTal Reg where
     pprtal (SpecialReg s) = pretty s
 
 instance PprTal Name where
-    pprtal (Name s u) = pretty s <> "_" <> pretty u
+    pprtal (Name s _) = pretty s
 
 instance PprTal TyVar where
     pprtal = pretty

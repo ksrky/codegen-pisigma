@@ -64,7 +64,7 @@ anfClosureVal = cata $ \case
         let x' = anfClosureVar x
         findLocals x'
         return $ C.VVar x'
-    A.VLabelF l t -> return $ C.VLabel l (anfClosureTy t)
+    A.VLabelF c l -> return $ C.VLabel c l
     A.VLamF xs exp -> do
         let xs' = map anfClosureVar xs
             lcls = map fst xs
@@ -138,7 +138,7 @@ anfClosureExp = cata $ \case
         modify List.nub
         -- C.ELet (C.BFixpack closures) <$> mexp
         C.ELetrec binds' <$> mexp
-    A.ECaseF v les -> C.ECase <$> anfClosureVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
+    A.ECaseF c v les -> C.ECase c <$> anfClosureVal v <*> mapM (\(li, ei) -> (li,) <$> ei) les
     A.EReturnF v -> C.EReturn <$> anfClosureVal v
     A.EAnnotF mexp ty -> C.EAnnot <$> mexp <*> pure (anfClosureTy ty)
 

@@ -17,7 +17,7 @@ import Prelude                  hiding (exp)
 
 data Ctx = Ctx {
     _varScope    :: [Id],
-    _labelIndex  :: [(C.Label, Int)],
+    _enums       :: [(C.EnumId, [C.Label])],
     _typeAliases :: [(Id, A.Ty)]
 }
 
@@ -67,9 +67,9 @@ closureAllocVal (C.VVar (x, t)) = do
         Just i  -> lift $ A.VVar i <$> closureAllocTy t
         Nothing -> fail $ "unbound variable: " ++ show x
 closureAllocVal (C.VFun (f, t)) = lift $ A.VConst <$> (A.CGlobal f <$> closureAllocTy t)
-closureAllocVal (C.VLabel l _) = do
-    labix <- view labelIndex
-    case lookup l labix of
+closureAllocVal (C.VLabel c l) = do
+    Just labs <- views enums (lookup c)
+    case List.elemIndex l labs of
         Just i  -> return $ A.VConst (A.CInt i)
         Nothing -> fail $ "label not found: " ++ show l
 closureAllocVal (C.VTuple vals) = do
@@ -144,11 +144,11 @@ closureAllocExp (C.ELetrec binds exp) = do
         return $ binds' ++ binds''
     exp' <- locally varScope ((dummyIds binds' ++ [dummyId] ++ reverse bindIds) ++) $ closureAllocExp exp
     return $ foldr A.ELet exp' binds'
-closureAllocExp (C.ECase v les) = do
+closureAllocExp (C.ECase c v les) = do
     (v', bs) <- runWriterT $ closureAllocVal v
+    Just labs <- views enums (lookup c)
     ies' <- forM les $ \(l, e) -> do
-        labix <- view labelIndex
-        case lookup l labix of
+        case List.elemIndex l labs of
             Just i  -> (i,) <$> closureAllocExp e
             Nothing -> fail $ "label not found: " ++ show l
     es' <- forM [1..length les] $ \i -> case lookup i ies' of
@@ -164,9 +164,12 @@ closureAllocDecs :: [C.Dec] -> WriterT [(Id, A.Heap)] CtxM a -> WriterT [(Id, A.
 closureAllocDecs [] cont = cont
 closureAllocDecs (C.DEnum x ls : decs) cont = do
     tell [(x, A.HTypeAlias A.TInt)]
-    tell $ zipWith (\l i -> (x, A.HGlobal (A.TAlias (newIdUnsafe l) (Just A.TInt)) (A.VConst (A.CInt i)))) ls [0 ..]
+    tell $ zipWith (\l i -> do
+        let lid = newIdUnsafe (x ^. name ++ "." ++ l)
+        (lid, A.HGlobal (A.TAlias x (Just A.TInt)) (A.VConst (A.CInt i)))
+        ) ls [0 ..]
     locally typeAliases ((x, A.TInt) :)
-        $ locally labelIndex (zip ls [0 ..] ++) $ closureAllocDecs decs cont
+        $ locally enums ((x, ls) :) $ closureAllocDecs decs cont
 closureAllocDecs (C.DBind x t : decs) cont = do
     t' <- lift $ closureAllocTy t
     tell [(x, A.HExtern t')]
