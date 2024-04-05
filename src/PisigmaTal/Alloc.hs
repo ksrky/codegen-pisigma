@@ -61,7 +61,6 @@ data Val
     = VVar Int Ty
     | VConst Const
     | VPack Ty Val Ty
-    | VFixPack [(Ty, Val, Ty)]
     | VRoll Val Ty
     | VUnroll Val
     | VAnnot Val Ty
@@ -138,7 +137,6 @@ instance Typeable Val where
         VConst (CGlobal _ t) -> t
         VConst (CInt _) -> TInt
         VPack _ _ t -> t
-        VFixPack _ -> undefined
         VRoll _ t -> t
         VUnroll v ->
             case typeof v of
@@ -177,7 +175,6 @@ instance PrettyPrec Val where
     prettyPrec _ (VConst c)    = pretty c
     prettyPrec p (VPack t1 v t2) = parPrec p 0 $ hang 2 $
         hsep ["pack", brackets (pretty t1 <> "," <+> pretty v) <> softline <> "as", prettyPrec 2 t2]
-    prettyPrec _ (VFixPack _)  = error "prettyPrec Val: VFixPack"
     prettyPrec p (VRoll v t)   = parPrec p 0 $ hang 2 $ hsep ["roll", prettyMax v <> softline <> "as", prettyPrec 2 t]
     prettyPrec p (VUnroll v)   = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
     prettyPrec _ (VAnnot v t)  = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]

@@ -172,7 +172,8 @@ anfClosureExp (A.ELetrec binds body) = do
         return (binds1, binds2)
     modify List.nub
     let (binds1, binds2) = mconcat bindss
-    C.ELetrec (binds1 ++ binds2) <$> anfClosureExp body
+    body' <- anfClosureExp body
+    return $ foldr C.ELet body' (binds1 ++ binds2)
 anfClosureExp (A.ECase c val les) = do
     (val', binds) <- runWriterT $ anfClosureVal val
     body <- C.ECase c val' <$> mapM (\(li, ei) -> (li,) <$> anfClosureExp ei) les

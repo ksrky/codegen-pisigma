@@ -106,7 +106,6 @@ data Bind
 
 data Exp
     = ELet Bind Exp
-    | ELetrec [Bind] Exp
     | ECase EnumId Val [(Label, Exp)]
     | EReturn Val
     | EAnnot Exp Ty
@@ -212,7 +211,6 @@ instance Typeable Val where
 instance Typeable Exp where
     typeof = cata $ \case
         ELetF _ t -> t
-        ELetrecF _ t -> t
         ECaseF _ _ lts | (_, t) : _ <- lts -> t
                      | otherwise         -> error "impossible"
         EReturnF v -> typeof v
@@ -263,7 +261,6 @@ instance PrettyPrec Bind where
 
 instance PrettyPrec Exp where
     pretty (ELet b e)    = vsep [hang 2 ("let" <+> pretty b) <+> "in", pretty e]
-    pretty (ELetrec bs e) = vsep [hang 2 ("letrec" <+> align (vsep (map pretty bs))), "in", pretty e]
     pretty (ECase _ v les) = vsep [ "case" <+> pretty v <+> "of"
                                 , "  " <> align (vsep (map (\(li, ei) -> hang 2 $ sep [pretty li <+> "->", pretty ei]) les))]
     pretty (EReturn v)   = "ret" <+> prettyMax v
@@ -304,7 +301,6 @@ instance StripAnnot Bind where
 instance StripAnnot Exp where
     stripAnnot = cata $ \case
         ELetF b e -> ELet (stripAnnot b) e
-        ELetrecF bs e -> ELetrec (map stripAnnot bs) e
         ECaseF c v lts -> ECase c (stripAnnot v) lts
         EReturnF v -> EReturn (stripAnnot v)
         EAnnotF e _ -> e

@@ -113,10 +113,6 @@ checkExp :: [(TyVar, TyVar)] -> Exp -> ReaderT Env IO Ty
 checkExp cts (ELet b e) = do
     checkBind cts b
     local (extendBindEnv (bindVar b)) $ checkExp cts e
-checkExp cts (ELetrec bs e) = do
-    local (\env -> foldr (extendBindEnv . bindVar) env bs) $ do
-        mapM_ (checkBind cts) bs
-        checkExp cts e
 checkExp cts (ECase c v les)
     | (_, t1) : _ <- les = do
         ls <- checkVal cts v >>= \case

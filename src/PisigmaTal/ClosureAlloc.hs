@@ -128,23 +128,6 @@ closureAllocExp (C.ELet (C.BUpdate x y idx v) e) = do
     (v', binds) <- runWriterT $ closureAllocVal v
     e' <- locally varScope ((fst x : dummyIds binds) ++) $ closureAllocExp e
     return $ foldr A.ELet e' (binds ++ [A.BUpdate ty y' idx v'])
-closureAllocExp (C.ELetrec binds exp) = do
-    let bindIds = map (fst . C.bindVar) binds
-    binds' <- locally varScope (reverse bindIds ++) $ do
-        (packs, binds') <- runWriterT $ forM binds $ \case
-            C.BVal _ (C.VPack ty1 val ty2) -> do
-                ty1' <- lift $ closureAllocTy ty1
-                val' <- closureAllocVal val
-                ty2' <- lift $ closureAllocTy ty2
-                return (ty1', val', ty2')
-            _ -> fail "not supported yet"
-        let pack_tys = map (view _3) packs
-            packs_ty = A.TRow $ foldr (A.:>) A.REmpty pack_tys
-            binds'' = A.BVal packs_ty (A.VFixPack packs) :
-                map (\i -> A.BProj (pack_tys !! i) (A.VVar i packs_ty) (toEnum (i + 1))) [0 .. length binds - 1]
-        return $ binds' ++ binds''
-    exp' <- locally varScope ((dummyIds binds' ++ [dummyId] ++ reverse bindIds) ++) $ closureAllocExp exp
-    return $ foldr A.ELet exp' binds'
 closureAllocExp (C.ECase c v les) = do
     (v', bs) <- runWriterT $ closureAllocVal v
     Just labs <- views enums (lookup c)

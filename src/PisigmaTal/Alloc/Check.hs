@@ -60,14 +60,6 @@ checkVal (VPack ty1 val ann_ty)
         lift $ checkEqTys (substTop ty1 ty2) ty
         return ann_ty
     | otherwise = fail $ "expected existential type, but got " ++ show ann_ty
-checkVal (VFixPack packs) = do
-    ann_tys <- forM packs $ \(ty1, val, ann_ty) -> case ann_ty of
-        TExists ty2 -> do
-            ty <- checkVal val
-            lift $ checkEqTys (substTop ty1 ty2) ty
-            return ann_ty
-        _ -> fail $ "expected existential type, but got " ++ show ann_ty
-    return $ TRow (foldr (:>) REmpty ann_tys)
 checkVal (VRoll val ann_ty)
     | TRecurs ty <- ann_ty = do
         ty' <- checkVal val
