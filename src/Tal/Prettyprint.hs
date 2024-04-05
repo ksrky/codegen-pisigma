@@ -69,6 +69,7 @@ instance PprTal Aop where
     pprtal Add = "add"
     pprtal Sub = "sub"
     pprtal Mul = "mul"
+    pprtal Div = "div"
 
 instance PprTal Bop where
     pprtal Bz  = "bz"

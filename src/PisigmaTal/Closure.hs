@@ -98,7 +98,6 @@ data Bind
     | BOpCall Var PrimOp Ty [Val]
     | BProj Var Val Idx
     | BUnpack TyVar Var Val
-    -- | BFixpack [(Var, (Ty, Val, Ty))]
     deriving (Eq, Show)
 
 data Exp

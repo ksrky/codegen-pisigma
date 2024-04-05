@@ -135,7 +135,7 @@ type RegFile = M.Map Reg WordVal
 
 type Stack = [WordVal]
 
-data Aop = Add | Sub | Mul
+data Aop = Add | Sub | Mul | Div
     deriving (Eq, Show)
 
 data Bop = Bz | Bnz | Bgt | Blt

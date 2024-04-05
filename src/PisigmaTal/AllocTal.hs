@@ -88,7 +88,7 @@ allocTalNonVarVal = cata $ \case
 
 mapPrimop :: PrimOp -> T.Aop
 mapPrimop = \case
-    Add -> T.Add; Sub -> T.Sub; Mul -> T.Mul;
+    Add -> T.Add; Sub -> T.Sub; Mul -> T.Mul; Div -> T.Div
 
 buildMove :: (MonadTalBuilder m, MonadIO m) => T.SmallVal -> TalM m (Maybe T.Instr, T.Reg)
 buildMove (T.VReg reg) = return (Nothing, reg)
