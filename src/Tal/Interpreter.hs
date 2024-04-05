@@ -95,10 +95,12 @@ runInstr (ISstore rd i rs) = do
     writeSlot (Just ptr) i w
     undefined
 
-aopFun :: Num a => Aop -> a -> a -> a
-aopFun Add = (+)
-aopFun Sub = (-)
-aopFun Mul = (*)
+aopFun :: Aop -> WordVal -> WordVal -> WordVal
+aopFun Add (VInt m) (VInt n) = VInt (m + n)
+aopFun Sub (VInt m) (VInt n) = VInt (m - n)
+aopFun Mul (VInt m) (VInt n) = VInt (m * n)
+aopFun Div (VInt m) (VInt n) = VInt (m `div` n)
+aopFun _ _ _                 = error "int required"
 
 bopFun :: (Ord a, Num a) => Bop -> a -> Bool
 bopFun Bz  = (== 0)

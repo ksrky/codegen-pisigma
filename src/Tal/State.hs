@@ -1,6 +1,27 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tal.State where
+module Tal.State (
+    TalState,
+    HasTalState(..),
+    MonadTalState,
+    evalTalState,
+    defaultTalState,
+    extendHeap,
+    lookupHeap,
+    lookupRegFile,
+    getHeap,
+    freshName,
+    extendRegFile,
+    readReg,
+    wordize,
+    allocStack,
+    freeStack,
+    getStackSize,
+    readSlot,
+    writeSlot,
+    liftMetaWord,
+    
+) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators

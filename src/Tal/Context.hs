@@ -1,6 +1,21 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tal.Context where
+module Tal.Context (
+    TalContext,
+    HasTalContext(..),
+    MonadTalBuilder,
+    runTalBuilder,
+    findReg,
+    withExtendReg,
+    withExtendRegs,
+    withExtendRegTy,
+    freshReg,
+    freeReg,
+    freeAllRegs,
+    freeRegSet,
+    isInUseReg,
+    freshName,
+    ) where
 
 import Control.Lens.Combinators
 import Control.Monad.Reader

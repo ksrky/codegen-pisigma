@@ -106,19 +106,6 @@ deriving instance Show (Val a)
 
 type WordVal = Val NonReg
 
-instance Num WordVal where
-    VInt m + VInt n = VInt (m + n)
-    _ + _           = error "Int required"
-    VInt m - VInt n = VInt (m - n)
-    _ - _           = error "Int required"
-    VInt m * VInt n = VInt (m * n)
-    _ * _           = error "Int required"
-    abs (VInt n) = VInt (abs n)
-    abs _        = error "Int required"
-    signum (VInt n) = VInt (signum n)
-    signum _        = error "Int required"
-    fromInteger = VInt . fromInteger
-
 type SmallVal = Val Reg
 
 data Heap
