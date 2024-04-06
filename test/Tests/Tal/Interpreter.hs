@@ -31,8 +31,8 @@ interpreterTest = testGroup "Tal.Interpreter"
         let l1 = Name "l1" 0
             heaps = M.fromList [(l1, HCode [] M.empty (IMove rv (VWord (VInt (-10))) <| IHalt TInt))]
             instrs =
-                [ IMove reg1 (VWord (VInt 0))
-                , IBop Bnz reg1 (VWord (VLabel l1))
+                [ IMove Reg1 (VWord (VInt 0))
+                , IBop Bnz Reg1 (VWord (VLabel l1))
                 , IMove rv (VWord (VInt 10))
                 ] <>| IHalt TInt
         ret <- runProgram 1 (heaps, instrs)

@@ -74,9 +74,6 @@ anfClosureVal (A.VLam xs exp) = do
     let xs' = map anfClosureVar xs
         lcls = map fst xs
     (exp', escs) <- lift $ lift $ runStateT (local (const lcls) $ anfClosureExp exp) []
-    liftIO $ do
-        -- print exp
-        print $ "escs: " ++ show escs
     modify $ List.nub . (escs ++)
     let escs' = removeLocals escs lcls
         r_env = foldr (C.RSeq . snd) C.REmpty escs'

@@ -59,7 +59,7 @@ instance PprTal (Val a) where
 instance PprTal (Name, Heap) where
     pprtal (name, HGlobal word) = "global" <+> pprtal name <+> "=" <+> pprtal word
     pprtal (name, HCode tvs rfty instrs) = pprtal name <+> "=" <+> "code" <>
-        encloseSep "[" "]" ", " (map pprtal tvs) <> pprtal rfty <> "." <> line <> pprtal instrs
+        encloseSep "[" "]" ", " (map pprtal tvs) <> pprtal rfty <> "." <> line <> indent 2 (pprtal instrs)
     pprtal (name, HStruct ws) = "struct" <+> pprtal name <+> "=" <+>
         encloseSep "{" "}" ", " (map pprtal ws)
     pprtal (name, HExtern ty) = "extern" <+> pprtal name <+> "=" <+> pprtal ty

@@ -258,4 +258,5 @@ outputTalString  inp = do
 goldenTalTests :: TestTree
 goldenTalTests = testGroup "Golden TAL test"
   [ goldenVsString "42" ".golden/tal_42.txt" $ outputTalString "42"
+  , goldenVsString "(\\x -> x) 5fr" ".golden/tal_(\\x -> x) 5.txt" $ outputTalString "(\\x -> x) 5"
   ]

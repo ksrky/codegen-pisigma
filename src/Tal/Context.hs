@@ -22,6 +22,7 @@ import Control.Monad.Reader
 import Data.IORef
 import Data.Map.Strict          qualified as M
 import Data.Set                 qualified as S
+import Tal.Constant
 import Tal.Syntax
 
 data TalContext = TalContext
@@ -70,7 +71,7 @@ freshReg :: (HasTalContext r, MonadReader r m, MonadIO m) => m Reg
 freshReg = do
     ref <- view inUseRegSet
     regs <- liftIO $ readIORef ref
-    let reg = S.findMin regs
+    let reg = if null regs then Reg1 else S.findMin regs
     liftIO $ modifyIORef ref (S.insert reg)
     return reg
 

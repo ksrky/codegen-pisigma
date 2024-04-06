@@ -48,7 +48,7 @@ allocTalTy = cata $ \case
     A.TExistsF ty -> T.TExists <$> ty
     A.TRecursF ty -> T.TRecurs <$> ty
     A.TRowF row -> T.TRow <$> allocTalRowTy row
-    A.TAliasF x _ -> T.TAlias <$> freshName (x ^. name)
+    A.TAliasF x _ -> T.TAlias <$> freshName (x ^. name) -- TODO: freshName wrong
 
 allocTalRowTy :: (MonadTalBuilder m, MonadIO m) => A.RowTy -> m T.RowTy
 allocTalRowTy = cata $ \case
@@ -60,7 +60,7 @@ allocTalRowTy = cata $ \case
 
 allocTalConst :: (MonadTalBuilder m, MonadIO m) => A.Const -> m T.WordVal
 allocTalConst (A.CInt i)      = return $ T.VInt i
-allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name)
+allocTalConst (A.CGlobal x _) = T.VLabel <$> freshName (x ^. name) -- TODO: freshName wrong
 
 allocTalVal :: (MonadTalBuilder m, MonadIO m) => A.Val -> m T.SmallVal
 allocTalVal (A.VVar x _ty) = do
@@ -125,14 +125,13 @@ allocTalExp (A.ELet (A.BProj ty val idx) exp) = do
     instrs <- withExtendReg reg $
         withExtendRegTy reg ty' $ allocTalExp exp
     return $ T.IMove reg val' <| T.ILoad reg reg (pred (fromEnum idx)) <| instrs
-allocTalExp (A.ELet (A.BUnpack exty val) exp) | A.TExists ty <- exty = do
+allocTalExp (A.ELet (A.BUnpack ty val) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
     val' <- allocTalVal val
     instrs <- withExtendReg reg $ -- tmp: TyVar telescopes
         withExtendRegTy reg ty' $ allocTalExp exp
     return $ T.IUnpack reg val' <| instrs -- tmp: TyVar
-allocTalExp (A.ELet A.BUnpack{} _) = error "expected existential type"
 allocTalExp (A.ELet (A.BMalloc ty tys) exp) = do
     reg <- freshReg
     ty' <- allocTalTy ty
