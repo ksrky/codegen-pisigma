@@ -7,6 +7,7 @@ import PisigmaTal.ClosureAlloc
 import PisigmaTal.LambdaAnf
 import PisigmaTal.Parser
 import PisigmaTal.RawLambda
+import Prettyprinter.Prec
 
 compileToTal :: Text -> IO ()
 compileToTal inp = do
@@ -14,6 +15,7 @@ compileToTal inp = do
     lambda_prog  <- rawLambdaProgram raw_prog
     let anf_prog =  lambdaAnfProgram lambda_prog
     closure_prog <- anfClosureProgram anf_prog
+    print $ pretty closure_prog
     alloc_prog   <- closureAllocProgram closure_prog
     _tal_prog    <- allocTalProgram alloc_prog
     return ()

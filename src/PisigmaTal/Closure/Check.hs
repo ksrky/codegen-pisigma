@@ -34,7 +34,7 @@ checkVal _ (VLit (LInt _)) = return TInt
 checkVal cts (VVar x) = do
     env <- ask
     case lookupBindEnv (fst x) env of
-        Just t  -> do
+        Just t -> do
             lift $ checkEqTys cts (snd x) t
             return t
         Nothing -> fail $ "unbound variable: " ++ show x

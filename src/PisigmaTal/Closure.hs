@@ -230,9 +230,10 @@ instance PrettyPrec Ty where
     prettyPrec _ (TRow r) = braces $ pretty r
 
 instance PrettyPrec RowTy where
-    pretty REmpty     = "ε"
-    pretty (RVar tv)  = pretty tv
-    pretty (RSeq t r) = pretty t <> "," <+> pretty r
+    pretty REmpty          = "ε"
+    pretty (RVar tv)       = pretty tv
+    pretty (RSeq t REmpty) = pretty t
+    pretty (RSeq t r)      = pretty t <> "," <+> pretty r
 
 instance PrettyPrec Var where
     pretty (x, t) = pretty x <+> ":" <+> pretty t

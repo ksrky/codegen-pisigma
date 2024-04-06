@@ -71,29 +71,31 @@ anfClosureVal (A.VVar x) = do
     return $ C.VVar x'
 anfClosureVal (A.VLabel c l) = return $ C.VLabel c l
 anfClosureVal (A.VLam xs exp) = do
-        let xs' = map anfClosureVar xs
-            lcls = map fst xs
-        (exp', escs) <- lift $ runStateT (local (const lcls) $ lift $ anfClosureExp exp) []
-        modify $ List.nub . (escs ++)
-        let escs' = removeLocals escs lcls
-            r_env = foldr (C.RSeq . snd) C.REmpty escs'
-            t_env = C.TRow r_env
-            t_ucl = C.UClosTy (map snd xs') (C.typeof exp') r_env
-            t_cl = C.ClosTy (map snd xs') (C.typeof exp')
-            t_code = C.TFun (t_ucl : map snd xs') (C.typeof exp')
-        x_cl <- (,t_ucl) <$> newId "x_cl"
-        let binds = zipWith (\x i -> C.BProj x (C.VUnroll (C.VVar x_cl)) i) escs' [Idx2 ..]
-            v_code = C.Code {
-                C.args = x_cl : xs',
-                C.body = foldr C.ELet exp' binds
-            }
-        f_code <- (,t_code) <$> newId "f_code"
-        lift $ appendDefn (f_code, v_code)
-        f_record <- (,C.TRow (t_code <| r_env)) <$> newId "f_record"
-        tell [C.BMalloc f_record (t_code : map snd xs')]
-        f_record' <- buildUpdates f_record (C.VFun f_code : map C.VVar escs')
-        return $ C.VPack t_env (C.VRoll (C.VVar f_record') t_ucl) t_cl
-        -- return $ C.Clos t_env (C.VFun f_code : map C.VVar escs') t_cl
+    let xs' = map anfClosureVar xs
+        lcls = map fst xs
+    (exp', escs) <- lift $ lift $ runStateT (local (const lcls) $ anfClosureExp exp) []
+    liftIO $ do
+        -- print exp
+        print $ "escs: " ++ show escs
+    modify $ List.nub . (escs ++)
+    let escs' = removeLocals escs lcls
+        r_env = foldr (C.RSeq . snd) C.REmpty escs'
+        t_env = C.TRow r_env
+        t_ucl = C.UClosTy (map snd xs') (C.typeof exp') r_env
+        t_cl = C.ClosTy (map snd xs') (C.typeof exp')
+        t_code = C.TFun (t_ucl : map snd xs') (C.typeof exp')
+    x_cl <- (,t_ucl) <$> newId "x_cl"
+    let binds = zipWith (\x i -> C.BProj x (C.VUnroll (C.VVar x_cl)) i) escs' [Idx2 ..]
+        v_code = C.Code {
+            C.args = x_cl : xs',
+            C.body = foldr C.ELet exp' binds
+        }
+    f_code <- (,t_code) <$> newId "f_code"
+    lift $ appendDefn (f_code, v_code)
+    f_record <- (,C.TRow (t_code <| r_env)) <$> newId "f_record"
+    tell [C.BMalloc f_record (t_code : map snd escs')]
+    f_record' <- buildUpdates f_record (C.VFun f_code : map C.VVar escs')
+    return $ C.VPack t_env (C.VRoll (C.VVar f_record') t_ucl) t_cl
 anfClosureVal (A.VTuple vals) = do
     let tys = map (anfClosureTy . A.typeof) vals
         rowty = C.TRow $ foldr C.RSeq C.REmpty tys
@@ -148,7 +150,7 @@ anfClosureExp (A.ELetrec binds body) = do
         let f' = anfClosureVar f
         let vars' = map anfClosureVar vars
         (exp', escs) <- lift $ runStateT (local (const $ map fst (f : vars)) $ anfClosureExp exp) []
-        modify (escs ++)
+        modify $ List.nub . (escs ++)
         let r_env = foldr (C.RSeq . snd) C.REmpty escs
             t_env = C.TRow r_env
             var_tys = map snd vars'
@@ -168,8 +170,9 @@ anfClosureExp (A.ELetrec binds body) = do
         f_record <- (,C.TRow (t_code <| r_env)) <$> newId (fst f ^. name  ++ "_record")
         let binds1 = [ C.BMalloc f_record (t_code : map snd escs)
                      , C.BVal f' $ C.VPack t_env (C.VRoll (C.VVar f_record) t_ucl) t_cl]
-        (_, binds2) <- runWriterT $ buildUpdates f_record (C.VFun f_code : map C.VVar escs)
-        return (binds1, binds2)
+        (f_record', binds2) <- runWriterT $ buildUpdates f_record (C.VFun f_code : map C.VVar escs)
+        let binds2' = binds2 |> C.BVal f' (C.VPack t_env (C.VRoll (C.VVar f_record') t_ucl) t_cl)
+        return (binds1, binds2')
     modify List.nub
     let (binds1, binds2) = mconcat bindss
     body' <- anfClosureExp body
