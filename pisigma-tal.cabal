@@ -34,6 +34,7 @@ library
       PisigmaTal.Closure
       PisigmaTal.Closure.Check
       PisigmaTal.ClosureAlloc
+      PisigmaTal.ClosureTal
       PisigmaTal.Id
       PisigmaTal.Idx
       PisigmaTal.Lambda
@@ -46,6 +47,7 @@ library
       PisigmaTal.RawLambda
       PisigmaTal.Toplevel
       Prettyprinter.Prec
+      Tal.Builder
       Tal.Constant
       Tal.Constructors
       Tal.Context

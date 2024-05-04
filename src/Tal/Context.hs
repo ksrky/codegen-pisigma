@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Tal.Context (
-    TalContext,
     HasTalContext(..),
     MonadTalBuilder,
     runTalBuilder,
