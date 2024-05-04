@@ -6,7 +6,7 @@ module PisigmaTal.Id (
     name,
     uniq,
     newId,
-    newIdUnsafe,
+    unsafeNewId,
     dummyId
 ) where
 
@@ -17,14 +17,21 @@ import Data.IORef
 import GHC.IO.Unsafe
 import Prettyprinter.Prec
 
-type Uniq = IORef ()
+newtype Uniq = Uniq Int
+    deriving (Eq, Ord, Show, Num)
+
+{-# NOINLINE uniqSupply #-}
+uniqSupply :: IORef Uniq
+uniqSupply = unsafePerformIO $ newIORef 0
 
 newUniq :: MonadIO m => m Uniq
-newUniq = liftIO $ newIORef ()
+newUniq = liftIO $! do
+    modifyIORef uniqSupply (+ 1)
+    readIORef uniqSupply
 
 data Id = Id {_name :: String, _uniq :: Uniq}
 
-makeLensesFor [("_name", "name"), ("_uniq", "uniq")] ''Id
+makeLenses ''Id
 
 instance Eq Id where
     x == y = x ^. uniq == y ^. uniq
@@ -41,8 +48,8 @@ instance PrettyPrec Id where
 newId :: MonadIO m => String -> m Id
 newId s = Id s <$> newUniq
 
-newIdUnsafe :: String -> Id
-newIdUnsafe s = unsafePerformIO $ newId s
+unsafeNewId :: String -> Id
+unsafeNewId s = unsafePerformIO $ newId s
 
 dummyId :: Id
-dummyId = newIdUnsafe "dummy"
+dummyId = unsafeNewId "dummy"

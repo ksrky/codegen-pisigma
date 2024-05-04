@@ -149,7 +149,7 @@ closureAllocDecs [] cont = cont
 closureAllocDecs (C.DEnum x ls : decs) cont = do
     tell [(x, A.HTypeAlias A.TInt)]
     tell $ zipWith (\l i -> do
-        let lid = newIdUnsafe (x ^. name ++ "." ++ l)
+        let lid = unsafeNewId (x ^. name ++ "." ++ l)
         (lid, A.HGlobal (A.TAlias x (Just A.TInt)) (A.VConst (A.CInt i)))
         ) ls [0 ..]
     locally typeAliases ((x, A.TInt) :)

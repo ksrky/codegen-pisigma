@@ -11,13 +11,13 @@ import PisigmaTal.Lambda
 import PisigmaTal.Primitive
 
 idBool :: Id
-idBool = newIdUnsafe "Bool"
+idBool = unsafeNewId "Bool"
 
 tyBool :: Ty
 tyBool = TName idBool
 
 idEq :: Id
-idEq = newIdUnsafe "#eq"
+idEq = unsafeNewId "#eq"
 
 primOps :: [(String, (PrimOp, Ty))]
 primOps =

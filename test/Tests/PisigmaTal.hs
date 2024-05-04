@@ -69,6 +69,18 @@ scopeTests = testGroup "Scope tests"
       case Lambda.stripAnnot (snd e2) of
         Lambda.ScopeTest1 x0 x1 x2 -> do x0 @?= x1; x1 @?= x2
         e                          -> assertFailure $ "unexpected: " ++ show e
+  , testCase "\\x -> \\x -> x" $ do
+      e1 <- parseProgram "\\x -> \\x -> x"
+      e2 <- rawLambdaProgram e1
+      case Lambda.stripAnnot (snd e2) of
+        Lambda.ScopeTest2 x0 x1 x2 -> do x1 @?= x2; x0 /= x2 @? "x0 /= x2"
+        e                          -> assertFailure $ "unexpected: " ++ show e
+  , testCase "\\x -> \\y -> y" $ do
+      e1 <- parseProgram "\\x -> \\x -> x"
+      e2 <- rawLambdaProgram e1
+      case Lambda.stripAnnot (snd e2) of
+        Lambda.ScopeTest3 x y0 y1 -> do y0 @?= y1; x /= y0 @? "x /= y0"; x /= y1 @? "x /= y1"
+        e                         -> assertFailure $ "unexpected: " ++ show e
   ]
 
 stepTests :: TestTree

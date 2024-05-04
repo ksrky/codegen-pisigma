@@ -34,14 +34,14 @@ lambdaAnfExp (L.EApp e1 e2) kont =
     let t_call = case A.typeof v1 of
             A.TFun _ t2 -> t2
             _           -> error "impossible" in
-    let var = (newIdUnsafe "x_call", t_call) in
+    let var = (unsafeNewId "x_call", t_call) in
     let body = kont (A.VVar var) in
     A.ELet (A.BApp var v1 [v2]) body
 lambdaAnfExp (L.EFullApp op exps) kont =
     let go :: [A.Val] -> [L.Exp] -> A.Exp
         go acc [] =
             let (arg_tys, ret_ty) = L.splitTFun $ L.typeof op
-                var = (newIdUnsafe "x_ext", lambdaAnfTy ret_ty)
+                var = (unsafeNewId "x_ext", lambdaAnfTy ret_ty)
                 body = kont (A.VVar var)
                 ty' = A.TFun (map lambdaAnfTy arg_tys) (lambdaAnfTy ret_ty)
                 op' = case op of

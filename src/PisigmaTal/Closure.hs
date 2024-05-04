@@ -155,14 +155,14 @@ mkTTuple ts = TRow $ foldr (:<) REmpty ts
 pattern ClosTy :: [Ty] -> Ty -> Ty
 pattern ClosTy ts1 t2 <- TExists _ (TRecurs _ (TRow (TFun (_ : ts1) t2 :< RVar _))) where
     ClosTy ts1 t2 =
-        let t_env = newIdUnsafe "t_env"
-            t_cl  = newIdUnsafe "t_cl" in
+        let t_env = unsafeNewId "t_env"
+            t_cl  = unsafeNewId "t_cl" in
         TExists t_env $ TRecurs t_cl $ TRow $ TFun (TVar t_cl : ts1) t2 :< RVar t_env
 
 pattern UClosTy :: [Ty] -> Ty -> RowTy -> Ty
 pattern UClosTy ts1 t2 r <- TRecurs _ (TRow (TFun (_ : ts1) t2 :< r)) where
     UClosTy ts1 t2 r =
-        let t_cl = newIdUnsafe "t_cl" in
+        let t_cl = unsafeNewId "t_cl" in
         TRecurs t_cl $ TRow (TFun (TVar t_cl : ts1) t2 :< r)
 
 unpackClosTy :: Ty -> Ty -> Ty
