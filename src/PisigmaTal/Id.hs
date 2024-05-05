@@ -5,6 +5,7 @@ module PisigmaTal.Id (
     Id(..),
     name,
     uniq,
+    idInt,
     newId,
     unsafeNewId,
     dummyId
@@ -17,7 +18,7 @@ import Data.IORef
 import GHC.IO.Unsafe
 import Prettyprinter.Prec
 
-newtype Uniq = Uniq Int
+newtype Uniq = Uniq {unUniq :: Int}
     deriving (Eq, Ord, Show, Num)
 
 {-# NOINLINE uniqSupply #-}
@@ -32,6 +33,9 @@ newUniq = liftIO $! do
 data Id = Id {_name :: String, _uniq :: Uniq}
 
 makeLenses ''Id
+
+idInt :: Id -> Int
+idInt x = unUniq (x ^. uniq)
 
 instance Eq Id where
     x == y = x ^. uniq == y ^. uniq
