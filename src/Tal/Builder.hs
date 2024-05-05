@@ -35,7 +35,31 @@ makeClassy ''BuilderContext
 
 type TalBuilderT m = ReaderT BuilderContext (StateT BuilderState m)
 
+runTalBuilder :: Monad m => BuilderContext -> BuilderState -> TalBuilderT m a -> m a
+runTalBuilder c s b = evalStateT (runReaderT b c) s
+
+initBuilderContext :: BuilderContext
+initBuilderContext = BuilderContext
+    { _regTable   = IM.empty
+    , _regFileTy  = M.empty
+    , _tyVarScope = []
+    }
+
+initBuilderState :: BuilderState
+initBuilderState = BuilderState
+    { _instrStack   = []
+    , _heapsState   = M.empty
+    , _freeRegSet   = initialRegSet
+    , _inUseNameMap = M.empty
+    , _nextUniq     = 0
+    , _nameTable    = IM.empty
+    , _useCount     = IM.empty
+    }
+
 -- ** Heaps
+
+extendHeap :: Monad m => Name -> Heap -> TalBuilderT m ()
+extendHeap name heap = heapsState %= M.insert name heap
 
 extendHeaps :: Monad m => [(Name, Heap)] -> TalBuilderT m ()
 extendHeaps heaps = heapsState %= M.union (M.fromList heaps)
