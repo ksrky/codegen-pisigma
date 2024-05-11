@@ -84,7 +84,7 @@ runInstr (ISload rd sp i) | SPReg <- sp = do
 runInstr (ISload rd rs i) = do
     VPtr ptr <- readReg rs
     extendRegFile rd =<< readSlot (Just ptr) i
-    undefined
+    return id
 runInstr (ISstore sp i rs) | SPReg <- sp = do
     w <- readReg rs
     writeSlot Nothing i w
@@ -93,7 +93,7 @@ runInstr (ISstore rd i rs) = do
     VPtr ptr <- readReg rd
     w <- readReg rs
     writeSlot (Just ptr) i w
-    undefined
+    return id
 
 aopFun :: Aop -> Int -> Int -> Int
 aopFun Add = (+)

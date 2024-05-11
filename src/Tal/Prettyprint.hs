@@ -23,16 +23,15 @@ instance PprTal Ty where
     pprtal (TRegFile rfty) = pprtal rfty
     pprtal (TExists ty)    = "∃." <+> pprtal ty
     pprtal (TRecurs ty)    = "μ." <+> pprtal ty
-    pprtal (TRow rty)      = pprtal rty
+    pprtal (TRow rty)      = "⟨" <> pprtal rty <> "⟩"
     pprtal TNonsense       = "ns"
     pprtal (TPtr sty)      = "ptr" <+> pprtal sty
     pprtal (TAlias name)   = pprtal name
 
 instance PprTal RowTy where
-    pprtal REmpty                = "ε"
-    pprtal (RVar i)              = "#" <> pretty i
-    pprtal (RSeq ty rty) =
-        parens (pprtal ty) <> ", " <+> pprtal rty
+    pprtal REmpty        = "ε"
+    pprtal (RVar i)      = "#" <> pretty i
+    pprtal (RSeq ty rty) = pprtal ty <> "," <+> pprtal rty
 
 instance PprTal StackTy where
     pprtal SNil           = "nil"
@@ -44,17 +43,17 @@ instance PprTal RegFileTy where
         map (\(reg, ty) -> pprtal reg <> ":" <+> pprtal ty) (M.toList rfty)
 
 instance PprTal (Val a) where
-    pprtal (VReg r)   = pprtal r
-    pprtal (VWord w)  = pprtal w
+    pprtal (VReg r) = pprtal r
+    pprtal (VWord w) = pprtal w
     pprtal (VLabel l) = pprtal l
-    pprtal (VInt i)   = pretty i
+    pprtal (VInt i) = pretty i
     pprtal (VJunk ty) = "?" <> pprtal ty
     pprtal (VPack ty v ty') =
         "pack" <+> brackets (pprtal ty <> ", " <+> pprtal v) <+> "as" <+> pprtal ty'
     pprtal (VRoll v ty) = "roll" <+> parens (pprtal v) <+> "as" <+> pprtal ty
-    pprtal (VUnroll v)  = "unroll" <+> parens (pprtal v)
-    pprtal VNonsense     = "nonsense"
-    pprtal (VPtr i)      = "ptr" <> parens (pretty i)
+    pprtal (VUnroll v) = "unroll" <+> parens (pprtal v)
+    pprtal VNonsense = "nonsense"
+    pprtal (VPtr i) = "ptr" <> parens (pretty i)
 
 instance PprTal (Name, Heap) where
     pprtal (name, HGlobal word) = "global" <+> pprtal name <+> "=" <+> pprtal word

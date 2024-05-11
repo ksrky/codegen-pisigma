@@ -11,7 +11,7 @@ module Tal.Syntax (
     StackTy(..),
     HeapsTy,
     RegFileTy,
-    Telescopes,
+    Quants,
     Ptr,
     Val(..),
     WordVal,
@@ -24,7 +24,8 @@ module Tal.Syntax (
     Bop(..),
     Instr(..),
     Instrs(..),
-    Program
+    Program,
+    substTop,
 ) where
 
 import Control.Lens.Cons
@@ -82,7 +83,7 @@ type HeapsTy = M.Map Label Ty
 
 type RegFileTy = M.Map Reg Ty
 
-type Telescopes = [TyVar]
+type Quants = [TyVar]
 
 data NonReg
 
@@ -110,7 +111,7 @@ type SmallVal = Val Reg
 
 data Heap
     = HGlobal WordVal
-    | HCode Telescopes RegFileTy Instrs
+    | HCode Quants RegFileTy Instrs
     | HStruct [WordVal]
     | HExtern Ty
     | HTypeAlias Ty
@@ -166,25 +167,35 @@ type Program = (Heaps, Instrs)
 makeBaseFunctor ''Ty
 makeBaseFunctor ''RowTy
 
-{-
 mapTy :: (Int -> Int -> Ty) -> Int -> Ty -> Ty
-mapTy onvar = flip $ cata $ \case
-    TIntF -> const TInt
-    TVarF x -> onvar x
-    TRegFileF arg_tys -> \c -> TRegFile (M.map ($ c) arg_tys)
-    TExistsF ty -> \c -> TExists (ty (c + 1))
-    TRecursF ty -> \c -> TRecurs (ty (c + 1))
-    TRowF row_ty -> \c -> TRow $ mapRowTy onvar c row_ty
-    TNonsenseF -> const TNonsense
+mapTy onvar = go
+  where
+    go :: Int -> Ty -> Ty
+    go _ TInt               = TInt
+    go c (TVar x)           = onvar x c
+    go c (TRegFile arg_tys) = TRegFile (M.map (mapTy onvar c) arg_tys)
+    go c (TExists ty)       = TExists (go (c + 1) ty)
+    go c (TRecurs ty)       = TRecurs (go (c + 1) ty)
+    go c (TRow row_ty)      = TRow $ mapRowTy onvar c row_ty
+    go _ TNonsense          = TNonsense
+    go c (TPtr st_ty)       = TPtr $ mapStackTy onvar c st_ty
+    go _ (TAlias name)      = TAlias name
 
 mapRowTy :: (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
-mapRowTy onvar c = cata $ \case
-    REmptyF -> REmpty
-    RVarF x -> case onvar x c of
+mapRowTy _ _ REmpty = REmpty
+mapRowTy onvar c (RVar x) = case onvar x c of
         TRow row -> row
         TVar y   -> RVar y
         _        -> error "TRow or TVar required"
-    RSeqF (ty, flag) row -> RSeq (mapTy onvar c ty, flag) row
+mapRowTy onvar c (RSeq ty row) = RSeq (mapTy onvar c ty) row
+
+mapStackTy :: (Int -> Int -> Ty) -> Int -> StackTy -> StackTy
+mapStackTy _ _ SNil = SNil
+mapStackTy onvar c (SVar x) = case onvar x c of
+        TPtr st_ty -> st_ty
+        TVar y     -> SVar y
+        _          -> error "TPtr or TVar required"
+mapStackTy onvar c (SCons ty stack) = SCons (mapTy onvar c ty) stack
 
 shiftTy :: Int -> Ty -> Ty
 shiftTy d = mapTy (\x c -> TVar (if x < c then x else x + d)) 0
@@ -194,4 +205,3 @@ substTy s = mapTy (\x j -> if x == j then shiftTy j s else TVar x) 0
 
 substTop :: Ty -> Ty -> Ty
 substTop s t = shiftTy (-1) (substTy (shiftTy 1 s) t)
--}
