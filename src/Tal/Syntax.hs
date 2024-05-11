@@ -28,7 +28,9 @@ module Tal.Syntax (
     substTop,
 ) where
 
+import Control.Lens.At
 import Control.Lens.Cons
+import Control.Lens.Operators
 import Control.Lens.Prism
 import Data.Functor.Foldable.TH
 import Data.Map.Strict          qualified as M
@@ -71,6 +73,16 @@ instance Cons RowTy RowTy Ty Ty where
         RSeq ty row -> Right (ty, row)
         row                 -> Left row
 
+type instance Index RowTy = Int
+
+type instance IxValue RowTy = Ty
+instance Ixed RowTy where
+    ix _ _ REmpty        = pure REmpty
+    ix _ _ (RVar x)      = pure $ RVar x
+    ix 0 f (RSeq ty row) = f ty <&> (`RSeq` row)
+    ix k f (RSeq ty row) | k < 0     = error "negative index"
+                         | otherwise = RSeq ty <$> ix (k - 1) f row
+
 data StackTy = SNil | SVar Int | SCons Ty StackTy
     deriving (Eq, Show)
 
@@ -79,11 +91,21 @@ instance Cons StackTy StackTy Ty Ty where
         SCons ty stack -> Right (ty, stack)
         stack          -> Left stack
 
+type instance Index StackTy = Int
+
+type instance IxValue StackTy = Ty
+instance Ixed StackTy where
+    ix _ _ SNil          = pure SNil
+    ix _ _ (SVar x)      = pure $ SVar x
+    ix 0 f (SCons ty s) = f ty <&> (`SCons` s)
+    ix k f (SCons ty s) | k < 0     = error "negative index"
+                        | otherwise = SCons ty <$> ix (k - 1) f s
+
 type HeapsTy = M.Map Label Ty
 
 type RegFileTy = M.Map Reg Ty
 
-type Quants = [TyVar]
+type Quants = [()]
 
 data NonReg
 

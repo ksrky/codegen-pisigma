@@ -1,9 +1,8 @@
 module PisigmaTal.Toplevel (compileToTal) where
 
-import Data.Text               (Text)
-import PisigmaTal.AllocTal
+import Data.Text             (Text)
 import PisigmaTal.AnfClosure
-import PisigmaTal.ClosureAlloc
+import PisigmaTal.ClosureTal
 import PisigmaTal.LambdaAnf
 import PisigmaTal.Parser
 import PisigmaTal.RawLambda
@@ -16,6 +15,5 @@ compileToTal inp = do
     let anf_prog =  lambdaAnfProgram lambda_prog
     closure_prog <- anfClosureProgram anf_prog
     print $ pretty closure_prog
-    alloc_prog   <- closureAllocProgram closure_prog
-    _tal_prog    <- allocTalProgram alloc_prog
+    _tal_prog   <- closureTalProgram closure_prog
     return ()

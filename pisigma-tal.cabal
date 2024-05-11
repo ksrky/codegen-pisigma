@@ -48,6 +48,7 @@ library
       PisigmaTal.Toplevel
       Prettyprinter.Prec
       Tal.Builder
+      Tal.Check
       Tal.Constant
       Tal.Constructors
       Tal.Context
