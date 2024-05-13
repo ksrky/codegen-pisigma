@@ -56,7 +56,7 @@ type TyVar = Int
 data Ty
     = TInt
     | TVar TyVar
-    | TRegFile RegFileTy
+    | TRegFile Quants RegFileTy StackTy
     | TExists Ty
     | TRecurs Ty
     | TRow RowTy
@@ -104,6 +104,7 @@ instance Ixed StackTy where
 type HeapsTy = M.Map Label Ty
 
 type RegFileTy = M.Map Reg Ty
+-- newtype RegFileTy = RegFileTy { regTy :: M.Map Reg Ty, stackTy :: StackTy }
 
 type Quants = [()]
 
@@ -133,7 +134,7 @@ type SmallVal = Val Reg
 
 data Heap
     = HGlobal WordVal
-    | HCode Quants RegFileTy Instrs
+    | HCode Quants RegFileTy StackTy Instrs
     | HStruct [WordVal]
     | HExtern Ty
     | HTypeAlias Ty
@@ -193,15 +194,15 @@ mapTy :: (Int -> Int -> Ty) -> Int -> Ty -> Ty
 mapTy onvar = go
   where
     go :: Int -> Ty -> Ty
-    go _ TInt               = TInt
-    go c (TVar x)           = onvar x c
-    go c (TRegFile arg_tys) = TRegFile (M.map (mapTy onvar c) arg_tys)
-    go c (TExists ty)       = TExists (go (c + 1) ty)
-    go c (TRecurs ty)       = TRecurs (go (c + 1) ty)
-    go c (TRow row_ty)      = TRow $ mapRowTy onvar c row_ty
-    go _ TNonsense          = TNonsense
-    go c (TPtr st_ty)       = TPtr $ mapStackTy onvar c st_ty
-    go _ (TAlias name)      = TAlias name
+    go _ TInt                     = TInt
+    go c (TVar x)                 = onvar x c
+    go c (TRegFile qnts rfty sty) = TRegFile qnts (M.map (mapTy onvar c) rfty) (mapStackTy onvar c sty)
+    go c (TExists ty)             = TExists (go (c + 1) ty)
+    go c (TRecurs ty)             = TRecurs (go (c + 1) ty)
+    go c (TRow row_ty)            = TRow $ mapRowTy onvar c row_ty
+    go _ TNonsense                = TNonsense
+    go c (TPtr st_ty)             = TPtr $ mapStackTy onvar c st_ty
+    go _ (TAlias name)            = TAlias name
 
 mapRowTy :: (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
 mapRowTy _ _ REmpty = REmpty

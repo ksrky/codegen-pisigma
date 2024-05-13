@@ -9,7 +9,7 @@ class PprTal a where
 
 instance PprTal Reg where
     pprtal (GeneralReg i) = "r" <> pretty i
-    pprtal (SpecialReg s) = pretty s
+    pprtal (SpecialReg s) = viaShow s
 
 instance PprTal Name where
     pprtal (Name s _) = pretty s
@@ -18,15 +18,15 @@ instance PprTal TyVar where
     pprtal = pretty
 
 instance PprTal Ty where
-    pprtal TInt            = "int"
-    pprtal (TVar i)        = "#" <> pretty i
-    pprtal (TRegFile rfty) = pprtal rfty
-    pprtal (TExists ty)    = "∃." <+> pprtal ty
-    pprtal (TRecurs ty)    = "μ." <+> pprtal ty
-    pprtal (TRow rty)      = "⟨" <> pprtal rty <> "⟩"
-    pprtal TNonsense       = "ns"
-    pprtal (TPtr sty)      = "ptr" <+> pprtal sty
-    pprtal (TAlias name)   = pprtal name
+    pprtal TInt                 = "int"
+    pprtal (TVar i)             = "#" <> pretty i
+    pprtal (TRegFile qnts rfty sty) = "∀" <> brackets (encloseSep "[" "]" ", " (map (const "・") qnts)) <> pprtal (rfty, sty)
+    pprtal (TExists ty)         = "∃・." <+> pprtal ty
+    pprtal (TRecurs ty)         = "μ・." <+> pprtal ty
+    pprtal (TRow rty)           = "⟨" <> pprtal rty <> "⟩"
+    pprtal TNonsense            = "ns"
+    pprtal (TPtr sty)           = "ptr" <+> pprtal sty
+    pprtal (TAlias name)        = pprtal name
 
 instance PprTal RowTy where
     pprtal REmpty        = "ε"
@@ -41,6 +41,11 @@ instance PprTal StackTy where
 instance PprTal RegFileTy where
     pprtal rfty = encloseSep "{" "}" ", " $
         map (\(reg, ty) -> pprtal reg <> ":" <+> pprtal ty) (M.toList rfty)
+
+instance PprTal (RegFileTy, StackTy) where
+    pprtal (rfty, sty) = encloseSep "{" "}" ", " $
+        map (\(reg, ty) -> pprtal reg <> ":" <+> pprtal ty) (M.toList rfty)
+        ++ ["sp" <> ":" <+> pprtal sty]
 
 instance PprTal (Val a) where
     pprtal (VReg r) = pprtal r
@@ -57,8 +62,8 @@ instance PprTal (Val a) where
 
 instance PprTal (Name, Heap) where
     pprtal (name, HGlobal word) = "global" <+> pprtal name <+> "=" <+> pprtal word
-    pprtal (name, HCode tvs rfty instrs) = pprtal name <+> "=" <+> "code" <>
-        encloseSep "[" "]" ", " (map (const "・") tvs) <> pprtal rfty <> "." <> line <> indent 2 (pprtal instrs)
+    pprtal (name, HCode tvs rfty sty instrs) = pprtal name <+> "=" <+> "code" <>
+        encloseSep "[" "]" ", " (map (const "・") tvs) <> "." <+> pprtal (rfty, sty) <> "." <> line <> indent 2 (pprtal instrs)
     pprtal (name, HStruct ws) = "struct" <+> pprtal name <+> "=" <+>
         encloseSep "{" "}" ", " (map pprtal ws)
     pprtal (name, HExtern ty) = "extern" <+> pprtal name <+> "=" <+> pprtal ty

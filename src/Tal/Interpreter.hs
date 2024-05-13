@@ -22,7 +22,7 @@ runInstrs (ISeq ins rest) = do
     runInstrs $ f rest
 runInstrs (IJump v) = do
     VLabel l <- wordize v
-    HCode _ _ ins <- getHeap l
+    HCode _ _ _ ins <- getHeap l
     runInstrs ins
 runInstrs (IHalt _) = return ()
 
@@ -36,12 +36,12 @@ runInstr (IBop bop rd v) = do
     VInt i <- readReg rd
     if bopFun bop i then do
         VLabel l <- wordize v
-        HCode _ _ ins <- getHeap l
+        HCode _ _ _ ins <- getHeap l
         return $ const ins
     else return id
 runInstr (ICall v) = do
     VLabel l <- wordize v
-    HCode _ _ ins <- getHeap l
+    HCode _ _ _ ins <- getHeap l
     return $ const ins
 runInstr (ILoad rd rs i) = do
     VLabel l <- readReg rs

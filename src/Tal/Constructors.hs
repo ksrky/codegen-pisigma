@@ -1,5 +1,6 @@
 module Tal.Constructors (
     mkRegFileTy,
+    mkAbstractStackTy,
     mkArgumentRegs,
     (<>|),
     emptyHeaps,
@@ -14,6 +15,9 @@ import Tal.Syntax
 
 mkRegFileTy :: [Ty] -> RegFileTy
 mkRegFileTy = M.fromList . zip argumentRegs
+
+mkAbstractStackTy :: TyVar -> [Ty] -> StackTy
+mkAbstractStackTy rho = foldr SCons (SVar rho)
 
 mkArgumentRegs :: Int -> [Reg]
 mkArgumentRegs n

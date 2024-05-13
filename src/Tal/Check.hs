@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tal.Check where
+module Tal.Check (checkProgram) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
@@ -17,6 +17,12 @@ data TalState = TalState
     }
 
 makeLenses ''TalState
+
+refresh :: StateT TalState IO ()
+refresh = do
+    talRegFile .= M.empty
+    talStack .= SNil
+    talQuants .= []
 
 lookupHeap :: Name -> StateT TalState IO Ty
 lookupHeap name = do
@@ -49,7 +55,7 @@ instance TyEquiv a => TySubrel [a] where
 instance TyEquiv Ty where
     TInt =? TInt = return ()
     TVar x =? TVar y | x == y = return ()
-    TRegFile rf1 =? TRegFile rf2 = rf1 =? rf2
+    TRegFile qs1 rf1 st1 =? TRegFile qs2 rf2 st2 | length qs1 == length qs2 = rf1 =? rf2 >> st1 =? st2
     TExists t1 =? TExists t2 = t1 =? t2
     TRecurs t1 =? TRecurs t2 = t1 =? t2
     TRow r1 =? TRow r2 = r1 =? r2
@@ -59,8 +65,8 @@ instance TyEquiv Ty where
     t1 =? t2 = fail $ "type mismatch. expected: " ++ show t1 ++ ", got: " ++ show t2
 
 instance TySubrel Ty where
-    TRegFile rf1 <=? TRegFile rf2 = rf1 <=? rf2
-    ty1 <=? ty2                   = ty1 =? ty2
+    TRegFile _ rf1 st1 <=? TRegFile _ rf2 st2 = rf1 <=? rf2 >> st1 =? st2 -- TODO: is it OK to discard quantifiers?
+    ty1 <=? ty2                               = ty1 =? ty2
 
 instance TyEquiv RowTy where
     REmpty =? REmpty = return ()
@@ -88,7 +94,7 @@ checkReg reg =  do
         Nothing -> fail $ "register not found: " ++ show reg
 
 checkVal :: Val a -> StateT TalState IO Ty
-checkVal (VReg reg)   = checkReg reg
+checkVal (VReg reg) = checkReg reg
 checkVal (VWord wval) = checkVal wval
 checkVal (VLabel l) = lookupHeap l
 checkVal (VInt _) = return TInt
@@ -96,24 +102,24 @@ checkVal (VJunk ty) = return ty
 checkVal (VPack ty1 wval ann_ty)
     | TExists ty2 <- ann_ty = do
         ty <- checkVal wval
-        -- lift $ checkEqTys (substTop ty1 ty2) ty
+        substTop ty1 ty2 =? ty
         return ann_ty
     | otherwise = fail $ "expected existential type, but got " ++ show ann_ty
 checkVal (VRoll wval ann_ty)
     | TRecurs ty <- ann_ty = do
         ty' <- checkVal wval
-        -- lift $ checkEqTys (substTop ann_ty ty) ty'
+        substTop ann_ty ty =? ty'
         return ann_ty
     | otherwise = fail $ "expected recursive type, but got " ++ show ann_ty
 checkVal (VUnroll wval) = do
     ty <- checkVal wval
     case ty of
-        TRecurs ty' -> undefined -- return $ substTop ty ty'
+        TRecurs ty' -> return $ substTop ty ty'
         _           -> fail $ "expected recursive type, but got " ++ show ty
 checkVal VNonsense = return TNonsense
 checkVal (VPtr _) = do
     sty <- use talStack
-    return $ TPtr sty
+    return $ TPtr sty -- tmp
 
 checkInstr :: Instr -> StateT TalState IO ()
 checkInstr (IAop _ rd rs v) = do
@@ -124,9 +130,21 @@ checkInstr (IBop _ r v) = do
     checkReg r >>=? TInt
     vTy <- checkVal v
     case vTy of
-        TRegFile rfTy' -> use talRegFile >>=? rfTy'
-        _              -> fail "expected register file type"
-checkInstr (ICall v) = undefined
+        TRegFile [] rfTy' sty' -> do
+            rfty <- use talRegFile
+            rfty <=? rfTy'
+            sty <- use talStack
+            sty =? sty'
+        _ -> fail "expected register file type"
+checkInstr (ICall v) = do
+    vTy <- checkVal v
+    case vTy of
+        TRegFile [] rfTy' sty' -> do
+            rfty <- use talRegFile
+            rfty <=? rfTy'
+            sty <- use talStack
+            sty =? sty'
+        _ -> fail "expected register file type"
 checkInstr (ILoad rd rs i) = do
     rsTy <- checkReg rs
     case rsTy of
@@ -134,7 +152,6 @@ checkInstr (ILoad rd rs i) = do
         _        -> fail "expected pointer type"
 checkInstr (IMalloc rd tys) =
     talRegFile %= M.insert rd (TRow $ foldr RSeq REmpty tys)
-checkInstr (IMove rd v) | VReg SPReg <- v = undefined
 checkInstr (IMove rd v) = do
     vTy <- checkVal v
     talRegFile %= M.insert rd vTy
@@ -185,3 +202,43 @@ checkStackLength :: MonadFail m => Int -> StackTy -> m ()
 checkStackLength n _ | n <= 0 = return ()
 checkStackLength n (SCons _ xs) = checkStackLength (n - 1) xs
 checkStackLength _ _ = fail "stack underflow"
+
+checkInstrs :: Instrs -> StateT TalState IO ()
+checkInstrs (ISeq i is) = checkInstr i >> checkInstrs is
+checkInstrs (IJump v) = do
+    vTy <- checkVal v
+    case vTy of
+        TRegFile [] rfTy' sty' -> do
+            rfty <- use talRegFile
+            rfty <=? rfTy'
+            sty <- use talStack
+            sty =? sty'
+        _ -> fail "expected register file type"
+checkInstrs (IHalt ty) = checkReg RVReg >>=? ty
+
+checkHeap :: (Name, Heap) -> StateT TalState IO ()
+checkHeap (name, HGlobal wval) = do
+    ty <- checkVal wval
+    talHeaps %= M.insert name ty
+checkHeap (_, HCode qnts rfty sty instrs) = do
+    talQuants .= qnts
+    talRegFile .= rfty
+    talStack .= sty
+    checkInstrs instrs
+    refresh
+checkHeap (name, HStruct ws) = do
+    wTys <- mapM checkVal ws
+    talHeaps %= M.insert name (TRow $ foldr RSeq REmpty wTys)
+checkHeap (name, HExtern ty) = talHeaps %= M.insert name ty
+checkHeap (name, HTypeAlias ty) = talHeaps %= M.insert name ty
+
+initHeapsTy :: Heaps -> IO HeapsTy
+initHeapsTy heaps = do
+    let htys = [ (name, TRegFile qnts rfty sty) | (name, HCode qnts rfty sty _) <- M.toList heaps ]
+    return $ M.fromList htys
+
+checkProgram :: Program -> IO ()
+checkProgram (heaps, instrs) = do
+    hsty <- initHeapsTy heaps
+    let initState = TalState hsty M.empty SNil []
+    void $ runStateT (mapM_ checkHeap (M.toList heaps) >> checkInstrs instrs) initState

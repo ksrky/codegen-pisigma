@@ -29,6 +29,7 @@ data BuilderContext = BuilderContext
     { _regTable   :: IM.IntMap Reg
     , _regFileTy  :: RegFileTy
     , _tyVarScope :: [Int]
+    , _quants     :: Quants
     }
 
 makeClassy ''BuilderContext
@@ -43,6 +44,7 @@ initBuilderContext = BuilderContext
     { _regTable   = IM.empty
     , _regFileTy  = M.empty
     , _tyVarScope = []
+    , _quants     = []
     }
 
 initBuilderState :: BuilderState
@@ -85,20 +87,20 @@ buildInstrs term = foldl (flip ISeq) term <$> popInstrs
 
 buildMove :: Monad m => SmallVal -> TalBuilderT m Reg
 buildMove (VReg reg) = do
-    free <- isFreeReg reg
-    if free then do
+    yes_free <- isFreeReg reg
+    if yes_free then do
         setRegInUse reg
         return reg
-    else do
-        reg' <- freshReg
-        extInstr $ IMove reg' (VReg reg)
-        return reg'
-buildMove val = do
+    else buildMove' (VReg reg)
+buildMove val = buildMove' val
+
+buildMove' :: Monad m => SmallVal -> TalBuilderT m Reg
+buildMove' val = do
     reg <- freshReg
     extInstr $ IMove reg val
     return reg
 
-buildPush :: Monad m => Reg -> TalBuilderT m ()
+buildPush :: MonadFail m => Reg -> TalBuilderT m ()
 buildPush reg = extInstr $ IStore SPReg 0 reg
 
 buildPop :: Monad m => Reg -> TalBuilderT m ()
@@ -119,11 +121,6 @@ withExtRegTable i reg = locally regTable (IM.insert i reg)
 withExtRegFileTy :: Monad m => Reg -> Ty -> TalBuilderT m a -> TalBuilderT m a
 withExtRegFileTy reg ty = locally regFileTy (M.insert reg ty)
 
-withExtReg :: Monad m => Int -> Reg -> Ty -> TalBuilderT m a -> TalBuilderT m a
-withExtReg i reg ty = local (\ctx -> ctx
-    & regTable %~ IM.insert i reg
-    & regFileTy %~ M.insert reg ty)
-
 setRegInUse :: Monad m => Reg -> TalBuilderT m ()
 setRegInUse reg = freeRegSet %= S.delete reg
 
@@ -139,8 +136,8 @@ freshReg = do
     setRegInUse reg
     return reg
 
-freeReg :: Monad m => Reg -> TalBuilderT m ()
-freeReg reg = modifying freeRegSet (S.insert reg)
+setRegFree :: Monad m => Reg -> TalBuilderT m ()
+setRegFree reg = freeRegSet %= S.insert reg
 
 isFreeReg :: Monad m => Reg -> TalBuilderT m Bool
 isFreeReg reg = do
