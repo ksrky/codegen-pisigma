@@ -20,7 +20,7 @@ instance PprTal TyVar where
 instance PprTal Ty where
     pprtal TInt                 = "int"
     pprtal (TVar i)             = "#" <> pretty i
-    pprtal (TRegFile qnts rfty sty) = "∀" <> brackets (encloseSep "[" "]" ", " (map (const "・") qnts)) <> pprtal (rfty, sty)
+    pprtal (TRegFile qnts rfty sty) = "∀" <> encloseSep "[" "]" ", " (map (const "・") qnts) <> pprtal (rfty, sty)
     pprtal (TExists ty)         = "∃・." <+> pprtal ty
     pprtal (TRecurs ty)         = "μ・." <+> pprtal ty
     pprtal (TRow rty)           = "⟨" <> pprtal rty <> "⟩"

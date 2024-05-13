@@ -47,7 +47,6 @@ library
       Tal.Check
       Tal.Constant
       Tal.Constructors
-      Tal.Context
       Tal.Interpreter
       Tal.Prettyprint
       Tal.State

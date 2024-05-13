@@ -1,10 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module PisigmaTal.Id (
-    newUniq,
     Id(..),
     name,
-    uniq,
+    unique,
     idInt,
     newId,
     unsafeNewId,
@@ -14,31 +13,19 @@ module PisigmaTal.Id (
 import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad.IO.Class
-import Data.IORef
+import Data.Unique
 import GHC.IO.Unsafe
 import Prettyprinter.Prec
 
-newtype Uniq = Uniq {unUniq :: Int}
-    deriving (Eq, Ord, Show, Num)
-
-{-# NOINLINE uniqSupply #-}
-uniqSupply :: IORef Uniq
-uniqSupply = unsafePerformIO $ newIORef 0
-
-newUniq :: MonadIO m => m Uniq
-newUniq = liftIO $! do
-    modifyIORef uniqSupply (+ 1)
-    readIORef uniqSupply
-
-data Id = Id {_name :: String, _uniq :: Uniq}
+data Id = Id {_name :: String, _unique :: Unique}
 
 makeLenses ''Id
 
 idInt :: Id -> Int
-idInt x = unUniq (x ^. uniq)
+idInt x = hashUnique (x ^. unique)
 
 instance Eq Id where
-    x == y = x ^. uniq == y ^. uniq
+    x == y = x ^. unique == y ^. unique
 
 instance Ord Id where
     compare x y = compare (x ^. name) (y ^. name)
@@ -50,7 +37,7 @@ instance PrettyPrec Id where
     pretty = pretty . _name
 
 newId :: MonadIO m => String -> m Id
-newId s = Id s <$> newUniq
+newId s = Id s <$> liftIO newUnique
 
 unsafeNewId :: String -> Id
 unsafeNewId s = unsafePerformIO $ newId s

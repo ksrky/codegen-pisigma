@@ -20,20 +20,20 @@ module Tal.State (
     readSlot,
     writeSlot,
     liftMetaWord,
-    
+
 ) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad.State
 import Data.Map.Strict          qualified as M
+import Data.Unique
 import Tal.Syntax
 
 data TalState = TalState
     { _talHeaps   :: Heaps
     , _talRegFile :: RegFile
     , _talStack   :: Stack
-    , _nextUniq   :: Uniq
     -- , stack pointer?
     }
 
@@ -51,7 +51,6 @@ defaultTalState = TalState
     { _talHeaps    = M.empty
     , _talRegFile  = M.empty
     , _talStack    = []
-    , _nextUniq = 0
     }
 
 extendHeap  :: MonadTalState m => (Name, Heap) -> m ()
@@ -68,10 +67,8 @@ getHeap name = lookupHeap name >>= \case
     Just h -> return h
     Nothing -> fail "heap not found"
 
-freshName :: MonadTalState m => String -> m Name
-freshName str = do
-    uniq <- nextUniq <<%= (+ 1)
-    return $ Name str uniq
+freshName :: MonadIO m => String -> m Name
+freshName str = Name str <$> liftIO newUnique
 
 extendRegFile :: MonadTalState m => Reg -> WordVal -> m ()
 extendRegFile reg val = talRegFile %= M.insert reg val

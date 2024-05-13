@@ -7,16 +7,15 @@ import Tal.Constructors
 import Tal.State
 import Tal.Syntax
 
-runProgram :: (MonadIO m, MonadFail m) => Uniq -> Program -> m Word
-runProgram uniq (hs, instrs) = do
+runProgram :: (MonadIO m, MonadFail m) => Program -> m Word
+runProgram (hs, instrs) = do
     let st = defaultTalState
             & talHeaps .~ hs
             & talRegFile .~ emptyRegFile
-            & nextUniq .~ uniq
     ret <- evalTalState (runInstrs instrs >> readReg RVReg) st
     return $ liftMetaWord ret
 
-runInstrs :: (MonadTalState m, MonadFail m) => Instrs -> m ()
+runInstrs :: (MonadTalState m, MonadFail m, MonadIO m) => Instrs -> m ()
 runInstrs (ISeq ins rest) = do
     f <- runInstr ins
     runInstrs $ f rest
@@ -26,7 +25,7 @@ runInstrs (IJump v) = do
     runInstrs ins
 runInstrs (IHalt _) = return ()
 
-runInstr :: (MonadTalState m, MonadFail m) => Instr -> m (Instrs -> Instrs)
+runInstr :: (MonadTalState m, MonadFail m, MonadIO m) => Instr -> m (Instrs -> Instrs)
 runInstr (IAop aop rd rs v) = do
     VInt i1 <- readReg rs
     VInt i2 <- wordize v

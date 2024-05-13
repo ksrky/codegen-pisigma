@@ -2,7 +2,6 @@
 
 module Tal.Syntax (
     Reg(..),
-    Uniq,
     Name(..),
     Label,
     TyVar,
@@ -34,6 +33,7 @@ import Control.Lens.Operators
 import Control.Lens.Prism
 import Data.Functor.Foldable.TH
 import Data.Map.Strict          qualified as M
+import Data.Unique
 import Data.Word
 
 data Reg
@@ -41,13 +41,14 @@ data Reg
     | SpecialReg String
     deriving (Eq, Ord, Show)
 
-type Uniq = Word
-
 data Name = Name
     { nameText :: String
-    , nameUniq :: Uniq
+    , nameUniq :: Unique
     }
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord)
+
+instance Show Name where
+    show = nameText
 
 type Label = Name
 

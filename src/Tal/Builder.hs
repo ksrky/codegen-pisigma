@@ -22,7 +22,7 @@ module Tal.Builder
     , setRegFree
     , getInUseRegs
     , isFreeReg
-    , freshName
+    , newName
     , lookupName
     , withExtTyVarScope
     , getTyVar
@@ -41,17 +41,17 @@ import Data.IntMap              qualified as IM
 import Data.List                qualified as L
 import Data.Map.Strict          qualified as M
 import Data.Set                 qualified as S
+import Data.Unique
 import Tal.Constant
 import Tal.Syntax
 
 data BuilderState = BuilderState
-    { _instrStack   :: [Instr]
-    , _heapsState   :: Heaps
-    , _freeRegSet   :: S.Set Reg
-    , _inUseNameMap :: M.Map String Int
-    , _nextUniq     :: Word
-    , _nameTable    :: IM.IntMap Name
-    , _useCount     :: IM.IntMap Int
+    { _instrStack :: [Instr]
+    , _heapsState :: Heaps
+    , _freeRegSet :: S.Set Reg
+    , _nextUniq   :: Word
+    , _nameTable  :: IM.IntMap Name
+    , _useCount   :: IM.IntMap Int
     }
 
 makeClassy ''BuilderState
@@ -83,7 +83,6 @@ initBuilderState = BuilderState
     { _instrStack   = []
     , _heapsState   = M.empty
     , _freeRegSet   = initialRegSet
-    , _inUseNameMap = M.empty
     , _nextUniq     = 0
     , _nameTable    = IM.empty
     , _useCount     = IM.empty
@@ -135,18 +134,18 @@ buildPop reg = extInstr $ ILoad reg SPReg 0
 
 -- ** Regs
 
-withExtRegTable :: Monad m => Int -> Reg -> TalBuilderT m a -> TalBuilderT m a
-withExtRegTable i reg = locally regTable (IM.insert i reg)
+withExtRegTable :: Monad m => Unique -> Reg -> TalBuilderT m a -> TalBuilderT m a
+withExtRegTable u reg = locally regTable (IM.insert (hashUnique u) reg)
 
 withExtRegFileTy :: Monad m => Reg -> Ty -> TalBuilderT m a -> TalBuilderT m a
 withExtRegFileTy reg ty = locally regFileTy (M.insert reg ty)
 
-findReg :: MonadFail m => Int -> TalBuilderT m Reg
-findReg i = do
+findReg :: MonadFail m => Unique -> TalBuilderT m Reg
+findReg u = do
     regs <- view regTable
-    case IM.lookup i regs of
+    case IM.lookup (hashUnique u) regs of
         Just reg -> return reg
-        Nothing  -> error $ "findReg: " ++ show i
+        Nothing  -> error $ "findReg: " ++ show (hashUnique u)
 
 freshReg :: Monad m => TalBuilderT m Reg
 freshReg = do
@@ -173,12 +172,13 @@ isFreeReg reg = do
 
 -- ** Names
 
-newUniq :: Monad m => TalBuilderT m Uniq
-newUniq = do
-    nextUniq %= (+ 1)
-    use nextUniq
+newName :: Monad m => Unique -> String -> TalBuilderT m Name
+newName u hint = do
+    let name = Name hint u
+    nameTable %= IM.insert (hashUnique u) name
+    return name
 
-freshName :: Monad m => String -> TalBuilderT m Name
+{-freshName :: Monad m => String -> TalBuilderT m Name
 freshName str = do
     names <- use inUseNameMap
     case M.lookup str names of
@@ -186,7 +186,7 @@ freshName str = do
         Nothing -> do
             inUseNameMap %= M.insert str 1
             nameTable %= IM.insert 1 (Name str 1)
-            Name str <$> newUniq
+            Name str <$> newUniq -}
 
 lookupName :: MonadFail m => Int -> TalBuilderT m Name
 lookupName i = do
@@ -208,21 +208,21 @@ getTyVar i = do
 
 -- ** UseCount
 
-resetUseCount :: Monad m => Int -> TalBuilderT m ()
-resetUseCount i = useCount %= IM.insert i 0
+resetUseCount :: Monad m => Unique -> TalBuilderT m ()
+resetUseCount u = useCount %= IM.insert (hashUnique u) 0
 
-incUseCount :: Monad m => Int -> TalBuilderT m ()
-incUseCount i = useCount %= IM.update (Just . succ) i
+incUseCount :: Monad m => Unique -> TalBuilderT m ()
+incUseCount u = useCount %= IM.update (Just . succ) (hashUnique u)
 
-decUseCount :: Monad m => Int -> TalBuilderT m ()
-decUseCount i = useCount %= IM.update (Just . pred) i
+decUseCount :: Monad m => Unique -> TalBuilderT m ()
+decUseCount u = useCount %= IM.update (Just . pred) (hashUnique u)
 
-isUseCountZero :: Monad m => Int -> TalBuilderT m Bool
-isUseCountZero i = do
+isUseCountZero :: Monad m => Unique -> TalBuilderT m Bool
+isUseCountZero u = do
     cnt <- use useCount
-    return $ (Just 0 ==) $ IM.lookup i cnt
+    return $ (Just 0 ==) $ IM.lookup (hashUnique u) cnt
 
-whenUseCountZero :: Monad m => Int -> TalBuilderT m () -> TalBuilderT m ()
-whenUseCountZero i act = do
-    zero <- isUseCountZero i
-    when zero act
+whenUseCountZero :: Monad m => Unique -> TalBuilderT m () -> TalBuilderT m ()
+whenUseCountZero u act = do
+    yes_zero <- isUseCountZero u
+    when yes_zero act
