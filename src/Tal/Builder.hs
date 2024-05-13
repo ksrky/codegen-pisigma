@@ -1,6 +1,37 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tal.Builder where
+module Tal.Builder
+    ( HasBuilderState(..)
+    , HasBuilderContext(..)
+    , TalBuilderT
+    , runTalBuilderT
+    , initBuilderContext
+    , initBuilderState
+    , extendHeap
+    , extendHeaps
+    , extInstr
+    , buildInstrs
+    , buildMove
+    , buildPush
+    , buildPop
+    , withExtRegTable
+    , withExtRegFileTy
+    , findReg
+    , freshReg
+    , setRegInUse
+    , setRegFree
+    , getInUseRegs
+    , isFreeReg
+    , freshName
+    , lookupName
+    , withExtTyVarScope
+    , getTyVar
+    , resetUseCount
+    , incUseCount
+    , decUseCount
+    , isUseCountZero
+    , whenUseCountZero
+    ) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
@@ -36,8 +67,8 @@ makeClassy ''BuilderContext
 
 type TalBuilderT m = ReaderT BuilderContext (StateT BuilderState m)
 
-runTalBuilder :: Monad m => BuilderContext -> BuilderState -> TalBuilderT m a -> m a
-runTalBuilder c s b = evalStateT (runReaderT b c) s
+runTalBuilderT :: Monad m => BuilderContext -> BuilderState -> TalBuilderT m a -> m a
+runTalBuilderT c s b = evalStateT (runReaderT b c) s
 
 initBuilderContext :: BuilderContext
 initBuilderContext = BuilderContext
@@ -72,10 +103,6 @@ extendHeaps heaps = heapsState %= M.union (M.fromList heaps)
 extInstr :: Monad m => Instr -> TalBuilderT m ()
 extInstr instr = instrStack %= (instr :)
 
-{-# INLINE extInstrs #-}
-extInstrs :: Monad m => [Instr] -> TalBuilderT m ()
-extInstrs instrs = instrStack %= (\l -> foldl (flip (:)) l instrs)
-
 popInstrs :: Monad m => TalBuilderT m [Instr]
 popInstrs = do
     instrs <- use instrStack
@@ -108,26 +135,18 @@ buildPop reg = extInstr $ ILoad reg SPReg 0
 
 -- ** Regs
 
-findReg :: MonadFail m => Int -> TalBuilderT m Reg
-findReg i = do
-    regs <- view regTable
-    case IM.lookup i regs of
-        Just reg -> return reg
-        Nothing  -> error $ "findReg: " ++ show i
-
 withExtRegTable :: Monad m => Int -> Reg -> TalBuilderT m a -> TalBuilderT m a
 withExtRegTable i reg = locally regTable (IM.insert i reg)
 
 withExtRegFileTy :: Monad m => Reg -> Ty -> TalBuilderT m a -> TalBuilderT m a
 withExtRegFileTy reg ty = locally regFileTy (M.insert reg ty)
 
-setRegInUse :: Monad m => Reg -> TalBuilderT m ()
-setRegInUse reg = freeRegSet %= S.delete reg
-
-getInUseRegs :: Monad m => TalBuilderT m [Reg]
-getInUseRegs = do
-    regs <- use freeRegSet
-    return $ S.toList $ S.difference initialRegSet regs
+findReg :: MonadFail m => Int -> TalBuilderT m Reg
+findReg i = do
+    regs <- view regTable
+    case IM.lookup i regs of
+        Just reg -> return reg
+        Nothing  -> error $ "findReg: " ++ show i
 
 freshReg :: Monad m => TalBuilderT m Reg
 freshReg = do
@@ -136,20 +155,28 @@ freshReg = do
     setRegInUse reg
     return reg
 
+setRegInUse :: Monad m => Reg -> TalBuilderT m ()
+setRegInUse reg = freeRegSet %= S.delete reg
+
 setRegFree :: Monad m => Reg -> TalBuilderT m ()
 setRegFree reg = freeRegSet %= S.insert reg
+
+getInUseRegs :: Monad m => TalBuilderT m [Reg]
+getInUseRegs = do
+    regs <- use freeRegSet
+    return $ S.toList $ S.difference initialRegSet regs
 
 isFreeReg :: Monad m => Reg -> TalBuilderT m Bool
 isFreeReg reg = do
     regs <- use freeRegSet
     return $ S.member reg regs
 
+-- ** Names
+
 newUniq :: Monad m => TalBuilderT m Uniq
 newUniq = do
     nextUniq %= (+ 1)
     use nextUniq
-
--- ** Names
 
 freshName :: Monad m => String -> TalBuilderT m Name
 freshName str = do
@@ -180,6 +207,12 @@ getTyVar i = do
         Nothing  -> fail $ "getTyVar: " ++ show i
 
 -- ** UseCount
+
+resetUseCount :: Monad m => Int -> TalBuilderT m ()
+resetUseCount i = useCount %= IM.insert i 0
+
+incUseCount :: Monad m => Int -> TalBuilderT m ()
+incUseCount i = useCount %= IM.update (Just . succ) i
 
 decUseCount :: Monad m => Int -> TalBuilderT m ()
 decUseCount i = useCount %= IM.update (Just . pred) i

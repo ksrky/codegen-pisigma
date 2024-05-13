@@ -62,9 +62,10 @@ closureTalLit (C.LInt i) = T.VInt i
 
 closureTalVal :: C.Val -> TalBuilder T.SmallVal
 closureTalVal (C.VLit l) = return $ T.VWord $ closureTalLit l
-closureTalVal (C.VVar x) = do
-    reg <- findReg $ idInt $ fst x
-    whenUseCountZero (idInt (fst x)) $ setRegFree reg
+closureTalVal (C.VVar (x, _)) = do
+    reg <- findReg $ idInt x
+    yes_zero <- isUseCountZero $ idInt x
+    if yes_zero then setRegFree reg else decUseCount (idInt x)
     return $ T.VReg reg
 closureTalVal (C.VFun f) = do
     name' <- lookupName $ idInt $ fst f
@@ -183,11 +184,46 @@ closureTalDec (C.DBind x ty) = lift $ do
 
 closureTalProgram :: C.Program -> IO T.Program
 closureTalProgram (decs, (defns, exp)) = do
-    ctx <- runTalBuilder initBuilderContext initBuilderState (execWriterT $ mapM closureTalDec decs)
+    ctx <- runTalBuilderT initBuilderContext initBuilderState (execWriterT $ mapM closureTalDec decs)
     (`runReaderT` ctx) $
-        runTalBuilder initBuilderContext initBuilderState $ do
+        runTalBuilderT initBuilderContext initBuilderState $ do
             mapM_ (\((x, _), _) -> freshName $ x ^. name) defns
+            mapM_ countUse defns
             mapM_ closureTalDefn defns
+            countUse exp
             instrs <- closureTalExp exp
             heaps <- use heapsState
             return (heaps, instrs)
+
+class CountUse a where
+    countUse :: a -> TalBuilder ()
+
+instance CountUse C.Var where
+    countUse (x, _) = incUseCount $ idInt x
+
+instance CountUse C.Val where
+    countUse = cata $ \case
+        C.VVarF x -> countUse x
+        v -> sequence_ v
+
+instance CountUse C.Exp where
+    countUse = cata $ \case
+        C.ELetF b e -> countUse b >> e
+        C.ECaseF _ v les -> countUse v >> mapM_ snd les
+        C.EReturnF v -> countUse v
+        C.EAnnotF e _ -> e
+
+instance CountUse C.Bind where
+    countUse (C.BVal (x, _) v)         = resetUseCount (idInt x) >> countUse v
+    countUse (C.BCall (x, _) f vs)     = resetUseCount (idInt x) >> countUse f >> mapM_ countUse vs
+    countUse (C.BOpCall (x, _) _ _ vs) = resetUseCount (idInt x) >> mapM_ countUse vs
+    countUse (C.BProj (x, _) v _)      = resetUseCount (idInt x) >> countUse v
+    countUse (C.BUnpack _ (x, _) v)    = resetUseCount (idInt x) >> countUse v
+    countUse (C.BMalloc (x, _) _)      = resetUseCount (idInt x)
+    countUse (C.BUpdate (x, _) y _ v)  = resetUseCount (idInt x) >> countUse y >> countUse v
+
+instance CountUse C.Code where
+    countUse (C.Code args body) = mapM_ (resetUseCount . idInt . fst) args >> countUse body
+
+instance CountUse C.Defn where
+    countUse (_, c) = countUse c
