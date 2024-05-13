@@ -43,6 +43,7 @@ import Data.Map.Strict          qualified as M
 import Data.Set                 qualified as S
 import Data.Unique
 import Tal.Constant
+import Tal.Constructors
 import Tal.Syntax
 
 data BuilderState = BuilderState
@@ -59,7 +60,7 @@ makeClassy ''BuilderState
 data BuilderContext = BuilderContext
     { _regTable   :: IM.IntMap Reg
     , _regFileTy  :: RegFileTy
-    , _tyVarScope :: [Int]
+    , _tyVarScope :: [Unique]
     , _quants     :: Quants
     }
 
@@ -73,7 +74,7 @@ runTalBuilderT c s b = evalStateT (runReaderT b c) s
 initBuilderContext :: BuilderContext
 initBuilderContext = BuilderContext
     { _regTable   = IM.empty
-    , _regFileTy  = M.empty
+    , _regFileTy  = emptyRegFileTy
     , _tyVarScope = []
     , _quants     = []
     }
@@ -138,7 +139,7 @@ withExtRegTable :: Monad m => Unique -> Reg -> TalBuilderT m a -> TalBuilderT m 
 withExtRegTable u reg = locally regTable (IM.insert (hashUnique u) reg)
 
 withExtRegFileTy :: Monad m => Reg -> Ty -> TalBuilderT m a -> TalBuilderT m a
-withExtRegFileTy reg ty = locally regFileTy (M.insert reg ty)
+withExtRegFileTy reg ty = locally regFileTy (rfRegTy %~ M.insert reg ty)
 
 findReg :: MonadFail m => Unique -> TalBuilderT m Reg
 findReg u = do
@@ -178,33 +179,23 @@ newName u hint = do
     nameTable %= IM.insert (hashUnique u) name
     return name
 
-{-freshName :: Monad m => String -> TalBuilderT m Name
-freshName str = do
-    names <- use inUseNameMap
-    case M.lookup str names of
-        Just num -> freshName $ str ++ "." ++ show num
-        Nothing -> do
-            inUseNameMap %= M.insert str 1
-            nameTable %= IM.insert 1 (Name str 1)
-            Name str <$> newUniq -}
-
-lookupName :: MonadFail m => Int -> TalBuilderT m Name
-lookupName i = do
+lookupName :: MonadFail m => Unique -> TalBuilderT m Name
+lookupName u = do
     names <- use nameTable
-    case IM.lookup i names of
+    case IM.lookup (hashUnique u) names of
         Just name -> return name
-        Nothing   -> fail $ "lookupName: " ++ show i
+        Nothing   -> fail $ "lookupName: " ++ show (hashUnique u)
 
 -- * TyVars
-withExtTyVarScope :: Monad m => Int -> TalBuilderT m a -> TalBuilderT m a
-withExtTyVarScope i = locally tyVarScope (i :)
+withExtTyVarScope :: Monad m => Unique -> TalBuilderT m a -> TalBuilderT m a
+withExtTyVarScope u = locally tyVarScope (u :)
 
-getTyVar :: MonadFail m => Int -> TalBuilderT m TyVar
-getTyVar i = do
+getTyVar :: MonadFail m => Unique -> TalBuilderT m TyVar
+getTyVar u = do
     sc <- view tyVarScope
-    case L.elemIndex i sc of
+    case L.elemIndex u sc of
         Just idx -> return idx
-        Nothing  -> fail $ "getTyVar: " ++ show i
+        Nothing  -> fail $ "getTyVar: " ++ show (hashUnique u)
 
 -- ** UseCount
 

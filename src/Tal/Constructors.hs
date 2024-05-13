@@ -1,10 +1,10 @@
 module Tal.Constructors (
-    mkRegFileTy,
     mkAbstractStackTy,
     mkArgumentRegs,
     (<>|),
     emptyHeaps,
     emptyRegFile,
+    emptyRegFileTy,
     mkProgramFromInstrs
     ) where
 
@@ -12,9 +12,6 @@ import Control.Lens.Cons
 import Data.Map.Strict   qualified as M
 import Tal.Constant
 import Tal.Syntax
-
-mkRegFileTy :: [Ty] -> RegFileTy
-mkRegFileTy = M.fromList . zip argumentRegs
 
 mkAbstractStackTy :: TyVar -> [Ty] -> StackTy
 mkAbstractStackTy rho = foldr SCons (SVar rho)
@@ -35,6 +32,9 @@ emptyHeaps = M.empty
 emptyRegFile :: RegFile
 emptyRegFile = M.empty
 
+emptyRegFileTy :: RegFileTy
+emptyRegFileTy = RegFileTy { _rfRegTy = M.empty, _rfStackTy = Nothing }
+
 mkProgramFromInstrs :: Instrs -> Program
 mkProgramFromInstrs instrs = (emptyHeaps, instrs)
-
+ 

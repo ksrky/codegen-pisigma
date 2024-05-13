@@ -60,3 +60,4 @@
 
 - ignore: { name: Functor law }
 - ignore: { name: Use second }
+- ignore: { name: Redundant ^. }

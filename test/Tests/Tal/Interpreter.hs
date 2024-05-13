@@ -30,7 +30,7 @@ interpreterTest = testGroup "Tal.Interpreter"
     , testCase "mov r1, 0; bnz r1, l1; mov rv, 10; halt [int]; \
         \l1: mov rv, -10; halt [int]" $ do
         l1 <- Name "l1" <$> newUnique
-        let heaps = M.fromList [(l1, HCode [] M.empty SNil (IMove rv (VWord (VInt (-10))) <| IHalt TInt))]
+        let heaps = M.fromList [(l1, HCode [] emptyRegFileTy (IMove rv (VWord (VInt (-10))) <| IHalt TInt))]
             instrs =
                 [ IMove Reg1 (VWord (VInt 0))
                 , IBop Bnz Reg1 (VWord (VLabel l1))

@@ -9,7 +9,7 @@ class PprTal a where
 
 instance PprTal Reg where
     pprtal (GeneralReg i) = "r" <> pretty i
-    pprtal (SpecialReg s) = viaShow s
+    pprtal (SpecialReg s) = pretty s
 
 instance PprTal Name where
     pprtal (Name s _) = pretty s
@@ -20,7 +20,7 @@ instance PprTal TyVar where
 instance PprTal Ty where
     pprtal TInt                 = "int"
     pprtal (TVar i)             = "#" <> pretty i
-    pprtal (TRegFile qnts rfty sty) = "∀" <> encloseSep "[" "]" ", " (map (const "・") qnts) <> pprtal (rfty, sty)
+    pprtal (TRegFile qnts rfty) = "∀" <> encloseSep "[" "]" ", " (map (const "・") qnts) <> pprtal rfty
     pprtal (TExists ty)         = "∃・." <+> pprtal ty
     pprtal (TRecurs ty)         = "μ・." <+> pprtal ty
     pprtal (TRow rty)           = "⟨" <> pprtal rty <> "⟩"
@@ -39,13 +39,9 @@ instance PprTal StackTy where
     pprtal (SCons ty sty) = pprtal ty <+> "::" <+> pprtal sty
 
 instance PprTal RegFileTy where
-    pprtal rfty = encloseSep "{" "}" ", " $
+    pprtal (RegFileTy rfty mb_sty) = encloseSep "{" "}" ", " $
         map (\(reg, ty) -> pprtal reg <> ":" <+> pprtal ty) (M.toList rfty)
-
-instance PprTal (RegFileTy, StackTy) where
-    pprtal (rfty, sty) = encloseSep "{" "}" ", " $
-        map (\(reg, ty) -> pprtal reg <> ":" <+> pprtal ty) (M.toList rfty)
-        ++ ["sp" <> ":" <+> pprtal sty]
+        ++ maybe [] (\sty -> ["sp" <> ":" <+> pprtal sty]) mb_sty
 
 instance PprTal (Val a) where
     pprtal (VReg r) = pprtal r
@@ -62,8 +58,8 @@ instance PprTal (Val a) where
 
 instance PprTal (Name, Heap) where
     pprtal (name, HGlobal word) = "global" <+> pprtal name <+> "=" <+> pprtal word
-    pprtal (name, HCode tvs rfty sty instrs) = pprtal name <+> "=" <+> "code" <>
-        encloseSep "[" "]" ", " (map (const "・") tvs) <> "." <+> pprtal (rfty, sty) <> "." <> line <> indent 2 (pprtal instrs)
+    pprtal (name, HCode tvs rfty instrs) = pprtal name <+> "=" <+> "code" <>
+        encloseSep "[" "]" ", " (map (const "・") tvs) <> "." <+> pprtal rfty <> "." <> line <> indent 2 (pprtal instrs)
     pprtal (name, HStruct ws) = "struct" <+> pprtal name <+> "=" <+>
         encloseSep "{" "}" ", " (map pprtal ws)
     pprtal (name, HExtern ty) = "extern" <+> pprtal name <+> "=" <+> pprtal ty
@@ -101,4 +97,5 @@ instance PprTal Instrs where
     pprtal (IHalt ty)          = "halt" <+> brackets (pprtal ty)
 
 instance PprTal Program where
-    pprtal (heaps, instrs) = vsep (map pprtal (M.toList heaps)) <> line <> pprtal instrs
+    pprtal (heaps, instrs) = vsep (map pprtal (M.toList heaps)) <> line <>
+        "main =" <> line <> indent 2 (pprtal instrs)

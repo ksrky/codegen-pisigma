@@ -47,19 +47,21 @@ closureTalTy :: MonadFail m => C.Ty -> TalBuilderT m T.Ty
 closureTalTy = cata $ \case
     C.TIntF -> return T.TInt
     C.TVarF x -> do
-        tv <- getTyVar (idInt x)
+        tv <- getTyVar (x ^. unique)
         return $ T.TVar tv
-    C.TFunF tys _ -> T.TRegFile [()] <$> (mkRegFileTy <$> sequence tys) <*> pure (T.SVar 0)
-    C.TExistsF _ ty -> T.TExists <$> ty
-    C.TRecursF _ ty -> T.TRecurs <$> ty
+    C.TFunF tys _ -> do
+        sty <- mkAbstractStackTy 0 <$> sequence tys
+        return $ T.TRegFile [()] (emptyRegFileTy & T.rfStackTy ?~ sty)
+    C.TExistsF x ty -> T.TExists <$> withExtTyVarScope (x ^. unique) ty
+    C.TRecursF x ty -> T.TRecurs <$> withExtTyVarScope (x ^. unique) ty
     C.TRowF row -> T.TRow <$> closureTalRowTy row
-    C.TNameF x -> T.TAlias <$> lookupName (idInt x)
+    C.TNameF x -> T.TAlias <$> lookupName (x ^. unique)
 
 closureTalRowTy :: MonadFail m => C.RowTy -> TalBuilderT m T.RowTy
 closureTalRowTy = cata $ \case
     C.REmptyF -> return T.REmpty
     C.RVarF x -> do
-        tv <- getTyVar (idInt x)
+        tv <- getTyVar (x ^. unique)
         return $ T.RVar tv
     C.RSeqF ty rest -> T.RSeq <$> closureTalTy ty <*> rest
 
@@ -70,11 +72,11 @@ closureTalVal :: C.Val -> TalBuilder T.SmallVal
 closureTalVal (C.VLit l) = return $ T.VWord $ closureTalLit l
 closureTalVal (C.VVar (x, _)) = do
     reg <- findReg $ x ^. unique
-    yes_zero <- isUseCountZero $ x ^. unique
-    if yes_zero then setRegFree reg else decUseCount (x ^. unique)
+    decUseCount (x ^. unique)
+    whenUseCountZero (x ^. unique) $ setRegFree reg
     return $ T.VReg reg
 closureTalVal (C.VFun f) = do
-    name' <- lookupName $ idInt $ fst f
+    name' <- lookupName $ fst f ^. unique
     return $ T.VWord $ T.VLabel name'
 closureTalVal (C.VLabel c l) = do
     labs <- getEnumLabels c
@@ -133,7 +135,7 @@ closureTalExp (C.ELet (C.BUnpack tv var val) exp) = do
     reg <- freshReg
     val' <- closureTalVal val
     extInstr $ T.IUnpack reg val'
-    withExtReg var reg $ withExtTyVarScope (idInt tv) $ closureTalExp exp
+    withExtTyVarScope (tv ^. unique) $ withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BMalloc var tys) exp) = do
     reg <- freshReg
     tys' <- mapM closureTalTy tys
@@ -148,9 +150,10 @@ closureTalExp (C.ECase con val cases) = do
     reg <- buildMove =<< closureTalVal val
     labs <- getEnumLabels con
     heaps <- forM cases $ \(lab, exp) -> do
+        qnts <- view quants
         rfty <- view regFileTy
         instrs <- closureTalExp exp
-        return (lab, T.HCode [()] rfty (T.SVar 0) instrs)
+        return (lab, T.HCode qnts rfty instrs)
     heaps' <- sequence [ (,heap) <$> freshNameFromString l1 | l1 <- labs, (l2, heap) <- heaps, l1 == l2 ]
     extendHeaps heaps'
     let closureTalCases :: [T.Label] -> TalBuilder T.Instrs
@@ -169,14 +172,14 @@ closureTalExp (C.EAnnot exp _) = closureTalExp exp
 
 closureTalDefn :: C.Defn -> TalBuilder ()
 closureTalDefn (var, C.Code args body) = do
-    name' <- lookupName $ idInt $ fst var
-    rfty <- mkRegFileTy <$> mapM (closureTalTy . snd) args
+    name' <- lookupName (fst var ^. unique)
+    arg_tys <- mapM (closureTalTy . snd) args
     arg_regs <- mapM (const freshReg) args
     mapM_ buildPop arg_regs
     mapM_ setRegInUse arg_regs
     instrs <- withExtRegs args arg_regs $ closureTalExp body
-    sty <- mkAbstractStackTy 0 <$> mapM (closureTalTy . snd) args
-    extendHeap name' $ T.HCode [()] rfty sty instrs
+    let rfty = emptyRegFileTy & T.rfStackTy ?~ mkAbstractStackTy 0 arg_tys
+    extendHeap name' $ T.HCode [()] rfty instrs
 
 closureTalDec :: C.Dec -> WriterT UserContext (TalBuilderT IO) (T.Name, T.Heap)
 closureTalDec (C.DEnum con labs) = do

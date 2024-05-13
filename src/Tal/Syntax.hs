@@ -9,7 +9,8 @@ module Tal.Syntax (
     RowTy(..),
     StackTy(..),
     HeapsTy,
-    RegFileTy,
+    RegFileTy(..),
+    rfRegTy, rfStackTy,
     Quants,
     Ptr,
     Val(..),
@@ -28,9 +29,8 @@ module Tal.Syntax (
 ) where
 
 import Control.Lens.At
-import Control.Lens.Cons
+import Control.Lens.Combinators
 import Control.Lens.Operators
-import Control.Lens.Prism
 import Data.Functor.Foldable.TH
 import Data.Map.Strict          qualified as M
 import Data.Unique
@@ -54,10 +54,12 @@ type Label = Name
 
 type TyVar = Int
 
+type Quants = [()]
+
 data Ty
     = TInt
     | TVar TyVar
-    | TRegFile Quants RegFileTy StackTy
+    | TRegFile Quants RegFileTy
     | TExists Ty
     | TRecurs Ty
     | TRow RowTy
@@ -104,10 +106,13 @@ instance Ixed StackTy where
 
 type HeapsTy = M.Map Label Ty
 
-type RegFileTy = M.Map Reg Ty
--- newtype RegFileTy = RegFileTy { regTy :: M.Map Reg Ty, stackTy :: StackTy }
+data RegFileTy = RegFileTy
+    { _rfRegTy   :: M.Map Reg Ty
+    , _rfStackTy :: Maybe StackTy
+    }
+    deriving (Eq, Show)
 
-type Quants = [()]
+makeLenses ''RegFileTy
 
 data NonReg
 
@@ -135,7 +140,7 @@ type SmallVal = Val Reg
 
 data Heap
     = HGlobal WordVal
-    | HCode Quants RegFileTy StackTy Instrs
+    | HCode Quants RegFileTy Instrs
     | HStruct [WordVal]
     | HExtern Ty
     | HTypeAlias Ty
@@ -195,15 +200,17 @@ mapTy :: (Int -> Int -> Ty) -> Int -> Ty -> Ty
 mapTy onvar = go
   where
     go :: Int -> Ty -> Ty
-    go _ TInt                     = TInt
-    go c (TVar x)                 = onvar x c
-    go c (TRegFile qnts rfty sty) = TRegFile qnts (M.map (mapTy onvar c) rfty) (mapStackTy onvar c sty)
-    go c (TExists ty)             = TExists (go (c + 1) ty)
-    go c (TRecurs ty)             = TRecurs (go (c + 1) ty)
-    go c (TRow row_ty)            = TRow $ mapRowTy onvar c row_ty
-    go _ TNonsense                = TNonsense
-    go c (TPtr st_ty)             = TPtr $ mapStackTy onvar c st_ty
-    go _ (TAlias name)            = TAlias name
+    go _ TInt                 = TInt
+    go c (TVar x)             = onvar x c
+    go c (TRegFile qnts rfty) = TRegFile qnts $ rfty
+                                    & rfRegTy %~ M.map (mapTy onvar c)
+                                    & rfStackTy %~ (mapStackTy onvar c <$>)
+    go c (TExists ty)         = TExists (go (c + 1) ty)
+    go c (TRecurs ty)         = TRecurs (go (c + 1) ty)
+    go c (TRow row_ty)        = TRow $ mapRowTy onvar c row_ty
+    go _ TNonsense            = TNonsense
+    go c (TPtr st_ty)         = TPtr $ mapStackTy onvar c st_ty
+    go _ (TAlias name)        = TAlias name
 
 mapRowTy :: (Int -> Int -> Ty) -> Int -> RowTy -> RowTy
 mapRowTy _ _ REmpty = REmpty
