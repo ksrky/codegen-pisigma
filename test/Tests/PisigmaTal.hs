@@ -4,12 +4,10 @@ import Data.ByteString.Lazy      qualified as BL
 import Data.Map.Strict           qualified as Map
 import Data.Text                 (Text)
 import Data.Text.Encoding
-import PisigmaTal.Alloc.Check    qualified as Alloc
-import PisigmaTal.AllocTal
 import PisigmaTal.Anf.Check      qualified as Anf
 import PisigmaTal.AnfClosure
 import PisigmaTal.Closure.Check  qualified as Closure
-import PisigmaTal.ClosureAlloc
+import PisigmaTal.ClosureTal
 import PisigmaTal.Lambda         qualified as Lambda
 import PisigmaTal.Lambda.Check   qualified as Lambda
 import PisigmaTal.LambdaAnf
@@ -116,9 +114,6 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Alloc.Check"
-      e5 <- closureAllocProgram e4
-      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let x = 42 in x" $ \step -> do
       e1 <- parseProgram "let x = 42 in x"
@@ -131,9 +126,6 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Alloc.Check"
-      e5 <- closureAllocProgram e4
-      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
       e1 <- parseProgram "(\\x -> x) 5"
@@ -146,9 +138,6 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Alloc.Check"
-      e5 <- closureAllocProgram e4
-      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "2 * 3 == 6" $ \step -> do
       e1 <- parseProgram "2 * 3 == 6"
@@ -161,9 +150,6 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Alloc.Check"
-      e5 <- closureAllocProgram e4
-      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
       e1 <- parseProgram "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
@@ -176,9 +162,6 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Alloc.Check"
-      e5 <- closureAllocProgram e4
-      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
       e1 <- parseProgram "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
@@ -191,9 +174,6 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Alloc.Check"
-      e5 <- closureAllocProgram e4
-      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5" $ \step -> do
       e1 <- parseProgram "let a = 10 in let rec f = \\x -> x + id a and id = \\x -> x in f 5"
@@ -206,9 +186,6 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
-      step "Alloc.Check"
-      e5 <- closureAllocProgram e4
-      Alloc.checkProgram e5
       step "Done"
   , testCaseSteps "let rec iseven = \\n -> if n == 0 then True else odd (n - 1)\
                     \and isodd = \\n -> if n == 0 then False else even (n - 1) in iseven 7" $ \step -> do
@@ -261,8 +238,7 @@ outputTalString  inp = do
   lambda_prog <- rawLambdaProgram raw_prog
   let anf_prog = lambdaAnfProgram lambda_prog
   closure_prog <- anfClosureProgram anf_prog
-  alloc_prog <- closureAllocProgram closure_prog
-  tal_prog <- allocTalProgram alloc_prog
+  tal_prog <- closureTalProgram closure_prog
   let layoutOptions = defaultLayoutOptions{layoutPageWidth = AvailablePerLine 80 1.0}
   let out = renderStrict $ layoutPretty layoutOptions $ pprtal tal_prog
   return $ BL.fromStrict $ encodeUtf8 out

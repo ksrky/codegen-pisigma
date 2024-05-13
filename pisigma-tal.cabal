@@ -25,15 +25,11 @@ source-repository head
 
 library
   exposed-modules:
-      PisigmaTal.Alloc
-      PisigmaTal.Alloc.Check
-      PisigmaTal.AllocTal
       PisigmaTal.Anf
       PisigmaTal.Anf.Check
       PisigmaTal.AnfClosure
       PisigmaTal.Closure
       PisigmaTal.Closure.Check
-      PisigmaTal.ClosureAlloc
       PisigmaTal.ClosureTal
       PisigmaTal.Id
       PisigmaTal.Idx
