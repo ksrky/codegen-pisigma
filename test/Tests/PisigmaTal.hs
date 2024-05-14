@@ -173,6 +173,10 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Tal.Check"
+      e5 <- closureTalProgram e4
+      print $ pprtal e5
+      Tal.checkProgram e5
       step "Done"
   , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
       e1 <- parseProgram "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
@@ -258,4 +262,7 @@ goldenTalTests :: TestTree
 goldenTalTests = testGroup "Golden TAL test"
   [ goldenVsString "42" ".golden/tal_42.txt" $ outputTalString "42"
   , goldenVsString "(\\x -> x) 5" ".golden/tal_(\\x -> x) 5.txt" $ outputTalString "(\\x -> x) 5"
+  , goldenVsString "let f = \\x -> x * 2  in f 5"
+    ".golden/tal_let f = \\x -> x * 2  in f 5"
+    $ outputTalString "let f = \\x -> x * 2  in f 5"
   ]

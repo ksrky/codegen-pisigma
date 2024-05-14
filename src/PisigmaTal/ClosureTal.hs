@@ -50,9 +50,7 @@ freshNameFromString hint = freshName =<< newId hint
 closureTalTy :: MonadFail m => C.Ty -> TalBuilderT m T.Ty
 closureTalTy = cata $ \case
     C.TIntF -> return T.TInt
-    C.TVarF x -> do
-        tv <- getTyVar (x ^. unique)
-        return $ T.TVar tv
+    C.TVarF x -> T.TVar <$> getTyVar (x ^. unique)
     C.TFunF tys _ -> T.TRegFile [] . mkArgRegFileTy <$> sequence tys
     C.TExistsF x ty -> T.TExists <$> withExtTyVarScope (x ^. unique) ty
     C.TRecursF x ty -> T.TRecurs <$> withExtTyVarScope (x ^. unique) ty
@@ -62,9 +60,7 @@ closureTalTy = cata $ \case
 closureTalRowTy :: MonadFail m => C.RowTy -> TalBuilderT m T.RowTy
 closureTalRowTy = cata $ \case
     C.REmptyF -> return T.REmpty
-    C.RVarF x -> do
-        tv <- getTyVar (x ^. unique)
-        return $ T.RVar tv
+    C.RVarF x -> T.RVar <$> getTyVar (x ^. unique)
     C.RSeqF ty rest -> T.RSeq <$> closureTalTy ty <*> rest
 
 closureTalLit :: C.Lit -> T.WordVal
@@ -106,8 +102,7 @@ withExtReg (x, ty) reg cont = do
 
 withExtRegs :: [C.Var] -> [T.Reg] -> TalBuilder a -> TalBuilder a
 withExtRegs [] [] cont = cont
-withExtRegs (var : vars) (reg : regs) cont = do
-    withExtReg var reg $ withExtRegs vars regs cont
+withExtRegs (var : vars) (reg : regs) cont = withExtReg var reg $ withExtRegs vars regs cont
 withExtRegs _ _ _ = error "impossible"
 
 closureTalExp :: C.Exp -> TalBuilder T.Instrs
@@ -208,7 +203,7 @@ closureTalDec (C.DBind x ty) = do
     extendHeap name' (T.HExtern ty')
 
 closureTalProgram :: C.Program -> IO T.Program
-closureTalProgram (decs, (defns, exp)) = do
+closureTalProgram (decs, (defns, exp)) =
     (`evalStateT` emptyUserState) $
         runTalBuilderT initBuilderContext initBuilderState $ do
             mapM_ closureTalDec decs
@@ -239,13 +234,13 @@ instance CountUse C.Exp where
         C.EAnnotF e _ -> e
 
 instance CountUse C.Bind where
-    countUse (C.BVal (x, _) v)         = resetUseCount (x ^. unique) >> countUse v
-    countUse (C.BCall (x, _) f vs)     = resetUseCount (x ^. unique) >> countUse f >> mapM_ countUse vs
-    countUse (C.BOpCall (x, _) _ vs) = resetUseCount (x ^. unique) >> mapM_ countUse vs
-    countUse (C.BProj (x, _) v _)      = resetUseCount (x ^. unique) >> countUse v
-    countUse (C.BUnpack _ (x, _) v)    = resetUseCount (x ^. unique) >> countUse v
-    countUse (C.BMalloc (x, _) _)      = resetUseCount (x ^. unique)
-    countUse (C.BUpdate (x, _) y _ v)  = resetUseCount (x ^. unique) >> countUse y >> countUse v
+    countUse (C.BVal (x, _) v)        = resetUseCount (x ^. unique) >> countUse v
+    countUse (C.BCall (x, _) f vs)    = resetUseCount (x ^. unique) >> countUse f >> mapM_ countUse vs
+    countUse (C.BOpCall (x, _) _ vs)  = resetUseCount (x ^. unique) >> mapM_ countUse vs
+    countUse (C.BProj (x, _) v _)     = resetUseCount (x ^. unique) >> countUse v
+    countUse (C.BUnpack _ (x, _) v)   = resetUseCount (x ^. unique) >> countUse v
+    countUse (C.BMalloc (x, _) _)     = resetUseCount (x ^. unique)
+    countUse (C.BUpdate (x, _) y _ v) = resetUseCount (x ^. unique) >> countUse y >> countUse v
 
 instance CountUse C.Code where
     countUse (C.Code args body) = mapM_ (resetUseCount . view unique . fst) args >> countUse body

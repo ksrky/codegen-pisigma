@@ -119,9 +119,10 @@ checkVal (VUnroll wval) = do
         TRecurs ty' -> return $ substTop ty ty'
         _           -> fail $ "expected recursive type, but got " ++ show ty
 checkVal VNonsense = return TNonsense
-checkVal (VPtr _) = do
+checkVal (VPtr i) = do
     Just sty <- use $ talRegFile . rfStackTy
-    return $ TPtr sty -- tmp
+    checkStackLength (i + 1) sty
+    return $ TPtr sty
 
 checkInstr :: Instr -> StateT TalState IO ()
 checkInstr (IAop _ rd rs v) = do
@@ -169,7 +170,7 @@ checkInstr (IUnpack rd v) = do
         TExists ty -> do
             talRegFile . rfRegTy %= M.insert rd ty
             talQuants %= (() :)
-        _ -> fail "expected row type"
+        _ -> fail $ "expected existential type, but got " ++ show vTy
 checkInstr (ISalloc n) =
     talRegFile . rfStackTy %= \case
         Nothing -> Just $ foldr SCons SNil (replicate n TNonsense)
