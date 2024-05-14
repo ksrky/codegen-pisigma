@@ -115,9 +115,9 @@ closureTalExp (C.ELet (C.BCall var fun vals) exp) = do
     vals' <- mapM closureTalVal vals
     zipWithM_ buildMoveWithDst argumentRegs vals'
     tmp_regs <- getInUseRegs
-    mapM_ buildPush tmp_regs
+    buildStores tmp_regs
     extInstr $ T.ICall val'
-    mapM_ buildPop tmp_regs
+    buildLoads tmp_regs
     withExtReg var RVReg $ closureTalExp exp
 closureTalExp (C.ELet (C.BOpCall var prim _ vals) exp) | [val1, val2] <- vals = do
     reg1 <- buildMove =<< closureTalVal val1

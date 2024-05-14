@@ -13,8 +13,8 @@ module Tal.Builder
     , buildInstrs
     , buildMove
     , buildMoveWithDst
-    , buildPush
-    , buildPop
+    , buildStores
+    , buildLoads
     , withExtRegTable
     , withExtRegFileTy
     , findReg
@@ -132,11 +132,23 @@ buildMoveWithDst :: Monad m => Reg -> SmallVal -> TalBuilderT m ()
 buildMoveWithDst reg (VReg reg') | reg == reg' = return ()
 buildMoveWithDst reg val = extInstr $ IMove reg val
 
-buildPush :: MonadFail m => Reg -> TalBuilderT m ()
-buildPush reg = extInstr $ IStore SPReg 0 reg
+buildStackOp :: Monad m => (Int -> Reg -> Instr) -> [Reg] -> TalBuilderT m ()
+buildStackOp _ [] = return ()
+buildStackOp stld (r : rs) = do
+        extInstr $ stld (length rs) r
+        buildStackOp stld rs
 
-buildPop :: Monad m => Reg -> TalBuilderT m ()
-buildPop reg = extInstr $ ILoad reg SPReg 0
+buildStores :: Monad m => [Reg] -> TalBuilderT m ()
+buildStores [] = return ()
+buildStores regs = do
+    extInstr $ ISalloc (length regs)
+    buildStackOp (IStore SPReg) regs
+
+buildLoads :: Monad m => [Reg] -> TalBuilderT m ()
+buildLoads [] = return ()
+buildLoads regs = do
+    buildStackOp (\i r -> ISload r SPReg i) regs
+    extInstr $ ISfree (length regs)
 
 -- ** Regs
 
