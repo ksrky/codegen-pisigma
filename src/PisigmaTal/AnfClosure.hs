@@ -57,9 +57,6 @@ anfClosureTy = cata $ \case
     A.TFunF ts1 t2 -> C.ClosTy ts1 t2
     A.TTupleF ts   -> C.TRow $ foldr C.RSeq C.REmpty ts
 
-anfClosureKnownVar :: A.Var -> C.Var
-anfClosureKnownVar (x, t) = (x, anfClosureKnownTy t)
-
 anfClosureVar :: A.Var -> C.Var
 anfClosureVar (x, t) = (x, anfClosureTy t)
 
@@ -133,9 +130,9 @@ anfClosureBind (A.BApp x v1 vs2)
     return $ binds1 ++ [bind2] ++ binds3
     | otherwise = error "impossible"
 anfClosureBind (A.BFullApp x (A.KnownOp f ty) vs2) =
-    runBindWriter $ C.BCall (anfClosureVar x) (anfClosureKnownVar (f, ty)) <$> mapM anfClosureVal vs2
+    runBindWriter $ C.BOpCall (anfClosureVar x) (C.KnownOp f (anfClosureKnownTy ty)) <$> mapM anfClosureVal vs2
 anfClosureBind (A.BFullApp x (A.PrimOp op ty) vs2) =
-    runBindWriter $ C.BOpCall (anfClosureVar x) op (anfClosureKnownTy ty) <$> mapM anfClosureVal vs2
+    runBindWriter $ C.BOpCall (anfClosureVar x) (C.PrimOp op (anfClosureKnownTy ty)) <$> mapM anfClosureVal vs2
 
 anfClosureExp :: A.Exp -> CCM C.Exp
 anfClosureExp (A.ELet bind body) =

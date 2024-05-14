@@ -2,13 +2,15 @@
 
 module PisigmaTal.ClosureTal (closureTalProgram) where
 
-import Control.Lens.Combinators
+import Control.Lens.Combinators hiding (op)
 import Control.Lens.Operators
 import Control.Monad.Reader
+import Control.Monad.State
 import Control.Monad.Writer
 import Data.Functor.Foldable
 import Data.List                qualified as L
 import Data.Map.Strict          qualified as M
+import GHC.Stack
 import PisigmaTal.Closure       qualified as C
 import PisigmaTal.Id
 import PisigmaTal.Primitive
@@ -18,22 +20,25 @@ import Tal.Constant
 import Tal.Constructors
 import Tal.Syntax               qualified as T
 
-newtype UserContext = UserContext
-    { _enums :: M.Map Id [C.Label]
+newtype UserState = UserState
+    { _user_enums :: M.Map Id [C.Label]
     }
     deriving (Monoid)
 
-instance Semigroup UserContext where
-    UserContext {_enums = e1} <> UserContext {_enums = e2} =
-        UserContext {_enums = e1 <> e2}
+instance Semigroup UserState where
+    UserState e1 <> UserState e2 = UserState {_user_enums = e1 <> e2}
 
-makeLenses ''UserContext
+makeLenses ''UserState
 
-type TalBuilder = TalBuilderT (ReaderT UserContext IO)
+emptyUserState :: UserState
+emptyUserState = UserState M.empty
+
+type TalBuilder = TalBuilderT (StateT UserState IO)
 
 getEnumLabels :: Id -> TalBuilder [C.Label]
-getEnumLabels x = lift $
-    views enums (M.lookup x) >>= \case
+getEnumLabels x = lift $ lift $ do
+    enums <- use user_enums
+    case M.lookup x enums of
         Just ls -> return ls
         Nothing -> fail "enum not found"
 
@@ -66,7 +71,7 @@ closureTalRowTy = cata $ \case
 closureTalLit :: C.Lit -> T.WordVal
 closureTalLit (C.LInt i) = T.VInt i
 
-closureTalVar :: C.Var -> TalBuilder T.Reg
+closureTalVar :: HasCallStack => C.Var -> TalBuilder T.Reg
 closureTalVar (x, _) = do
     reg <- findReg $ x ^. unique
     decUseCount (x ^. unique)
@@ -116,15 +121,25 @@ closureTalExp (C.ELet (C.BCall var fun vals) exp) = do
     zipWithM_ buildMoveWithDst argumentRegs vals'
     tmp_regs <- getInUseRegs
     buildStores tmp_regs
-    extInstr $ T.ICall (T.VReg reg)
+    ret_ty <- closureTalTy (C.typeof var)
+    extInstr $ T.ICall ret_ty (T.VReg reg)
     buildLoads tmp_regs
     withExtReg var RVReg $ closureTalExp exp
-closureTalExp (C.ELet (C.BOpCall var prim _ vals) exp) | [val1, val2] <- vals = do
-    reg1 <- buildMove =<< closureTalVal val1
+closureTalExp (C.ELet (C.BOpCall var (C.KnownOp f _) vals) exp) = do
+    vals' <- mapM closureTalVal vals
+    zipWithM_ buildMoveWithDst argumentRegs vals'
+    tmp_regs <- getInUseRegs
+    buildStores tmp_regs
+    lab <- freshName f
+    ret_ty <- closureTalTy (C.typeof var)
+    extInstr $ T.ICall ret_ty (T.VWord (T.VLabel lab))
+    buildLoads tmp_regs
+    withExtReg var RVReg $ closureTalExp exp
+closureTalExp (C.ELet (C.BOpCall var (C.PrimOp op _) vals) exp) | [val1, val2] <- vals = do
+    reg <- freshReg
+    buildMoveWithDst reg =<< closureTalVal val1
     val2' <- closureTalVal val2
-    yes_free <- isFreeReg reg1
-    reg <- if yes_free then setRegInUse reg1 >> return reg1 else freshReg
-    extInstr $ T.IAop (mapPrimop prim) reg reg1 val2'
+    extInstr $ T.IAop (mapPrimop op) reg reg val2'
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet C.BOpCall{} _) = error "impossible" -- tmp
 closureTalExp (C.ELet (C.BProj var val idx) exp) = do
@@ -183,21 +198,21 @@ closureTalDefn (var, C.Code args body) = do
     instrs <- withExtRegs args tmp_regs $ closureTalExp body
     extendHeap name' $ T.HCode [] (mkArgRegFileTy arg_tys) instrs
 
-closureTalDec :: C.Dec -> WriterT UserContext (TalBuilderT IO) (T.Name, T.Heap)
-closureTalDec (C.DEnum con labs) = do
-    scribe enums (M.singleton con labs)
-    name' <- lift $ freshName con
-    return (name', T.HTypeAlias T.TInt)
-closureTalDec (C.DBind x ty) = lift $ do
+closureTalDec :: C.Dec -> TalBuilder ()
+closureTalDec (C.DEnum con labs) =  do
+    lift $ lift $ user_enums %= M.insert con labs
+    name' <- freshName con
+    extendHeap name' (T.HTypeAlias T.TInt)
+closureTalDec (C.DBind x ty) = do
     name' <- freshName x
     ty' <- closureTalTy ty
-    return (name', T.HExtern ty')
+    extendHeap name' (T.HExtern ty')
 
 closureTalProgram :: C.Program -> IO T.Program
 closureTalProgram (decs, (defns, exp)) = do
-    (heaps, user_ctx) <- runTalBuilderT initBuilderContext initBuilderState $ runWriterT $ mapM closureTalDec decs
-    (`runReaderT` user_ctx) $
-        runTalBuilderT initBuilderContext (initBuilderState & heapsState .~ M.fromList heaps) $ do
+    (`evalStateT` emptyUserState) $
+        runTalBuilderT initBuilderContext initBuilderState $ do
+            mapM_ closureTalDec decs
             mapM_ (\((x, _), _) -> freshName x) defns
             mapM_ countUse defns
             mapM_ closureTalDefn defns
@@ -227,7 +242,7 @@ instance CountUse C.Exp where
 instance CountUse C.Bind where
     countUse (C.BVal (x, _) v)         = resetUseCount (x ^. unique) >> countUse v
     countUse (C.BCall (x, _) f vs)     = resetUseCount (x ^. unique) >> countUse f >> mapM_ countUse vs
-    countUse (C.BOpCall (x, _) _ _ vs) = resetUseCount (x ^. unique) >> mapM_ countUse vs
+    countUse (C.BOpCall (x, _) _ vs) = resetUseCount (x ^. unique) >> mapM_ countUse vs
     countUse (C.BProj (x, _) v _)      = resetUseCount (x ^. unique) >> countUse v
     countUse (C.BUnpack _ (x, _) v)    = resetUseCount (x ^. unique) >> countUse v
     countUse (C.BMalloc (x, _) _)      = resetUseCount (x ^. unique)

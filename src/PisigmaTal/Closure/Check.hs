@@ -80,13 +80,16 @@ checkBind cts (BCall x fun args) = do
             zipWithM_ (checkEqTys cts) ts1 ts
             checkEqTys cts (snd x) t2
         _ -> fail $ "required function type, but got " ++ show fun_ty
-checkBind cts (BOpCall x _ ty vs) = do
+checkBind cts (BOpCall x op vs) = do
     ts <- mapM (checkVal cts) vs
-    case ty of
+    fun_ty <- case op of
+        KnownOp _ ty -> return ty
+        PrimOp _ ty  -> return ty
+    case fun_ty of
         TFun ts1 t2 -> lift $ do
             zipWithM_ (checkEqTys cts) ts1 ts
             checkEqTys cts (snd x) t2
-        _ -> fail $ "required function type, but got " ++ show ty
+        _ -> fail $ "required function type, but got " ++ show fun_ty
 checkBind cts (BProj x v idx) = do
     t <- checkVal cts v
     case t of

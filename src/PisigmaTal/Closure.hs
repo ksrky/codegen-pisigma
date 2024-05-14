@@ -11,6 +11,7 @@ module PisigmaTal.Closure (
     Label,
     Val (..),
     ValF (..),
+    Op(..),
     Bind (..),
     Exp (..),
     ExpF (..),
@@ -94,10 +95,15 @@ data Val
     | VAnnot Val Ty
     deriving (Eq, Show)
 
+data Op
+    = KnownOp Id Ty
+    | PrimOp PrimOp Ty
+    deriving (Eq, Show)
+
 data Bind
     = BVal Var Val
     | BCall Var Var [Val]
-    | BOpCall Var PrimOp Ty [Val]
+    | BOpCall Var Op [Val]
     | BProj Var Val Idx
     | BUnpack TyVar Var Val
     | BMalloc Var [Ty]
@@ -176,7 +182,7 @@ unrollUClosTy _                    = error "recursive type required"
 bindVar :: Bind -> Var
 bindVar (BVal x _)        = x
 bindVar (BCall x _ _)     = x
-bindVar (BOpCall x _ _ _) = x
+bindVar (BOpCall x _ _)   = x
 bindVar (BProj x _ _)     = x
 bindVar (BUnpack _ x _)   = x
 bindVar (BMalloc x _)     = x
@@ -250,6 +256,10 @@ instance PrettyPrec Val where
     prettyPrec p (VUnroll v) = parPrec p 0 $ "unroll" <+> prettyPrec 1 v
     prettyPrec _ (VAnnot v t) = parens $ hang 2 $ sep [pretty v, ":" <+> pretty t]
 
+instance PrettyPrec Op where
+    pretty (KnownOp x _) = pretty x
+    pretty (PrimOp op _) = pretty op
+
 instance PrettyPrec Bind where
     pretty (BVal x v) = hang 2 $ pretty x <+> "=" <> softline <> pretty v
     pretty (BCall x (f, _) vs2) =
@@ -258,7 +268,7 @@ instance PrettyPrec Bind where
                 <> softline
                 <> pretty f
                 <> parens (hsep (punctuate "," (map prettyMax vs2)))
-    pretty (BOpCall x op _ vs) =
+    pretty (BOpCall x op vs) =
         hang 2 $
             pretty x <+> "="
                 <> softline
@@ -308,13 +318,13 @@ instance StripAnnot Val where
         v -> embed v
 
 instance StripAnnot Bind where
-    stripAnnot (BVal x v)           = BVal x (stripAnnot v)
-    stripAnnot (BCall x f vs)       = BCall x f (map stripAnnot vs)
-    stripAnnot (BOpCall x op ty vs) = BOpCall x op ty (map stripAnnot vs)
-    stripAnnot (BProj x v i)        = BProj x (stripAnnot v) i
-    stripAnnot (BUnpack tv x v)     = BUnpack tv x (stripAnnot v)
-    stripAnnot (BMalloc x ts)       = BMalloc x ts
-    stripAnnot (BUpdate x y i v)    = BUpdate x y i (stripAnnot v)
+    stripAnnot (BVal x v)        = BVal x (stripAnnot v)
+    stripAnnot (BCall x f vs)    = BCall x f (map stripAnnot vs)
+    stripAnnot (BOpCall x op vs) = BOpCall x op (map stripAnnot vs)
+    stripAnnot (BProj x v i)     = BProj x (stripAnnot v) i
+    stripAnnot (BUnpack tv x v)  = BUnpack tv x (stripAnnot v)
+    stripAnnot (BMalloc x ts)    = BMalloc x ts
+    stripAnnot (BUpdate x y i v) = BUpdate x y i (stripAnnot v)
 
 instance StripAnnot Exp where
     stripAnnot = cata $ \case

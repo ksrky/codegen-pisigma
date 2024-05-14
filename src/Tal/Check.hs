@@ -85,9 +85,8 @@ instance TyEquiv StackTy where
     s1 =? s2 = fail $ "stack type mismatch. expected: " ++ show s1 ++ ", got: " ++ show s2
 
 instance TyEquiv (Maybe StackTy) where
-    Nothing =? Nothing = return ()
     Just s1 =? Just s2 = s1 =? s2
-    s1 =? s2             = fail $ "stack type mismatch, expected: " ++ show s1 ++ ", got: " ++ show s2
+    _ =? _             = return ()
 
 checkReg :: Reg -> StateT TalState IO Ty
 checkReg reg =  do
@@ -137,12 +136,13 @@ checkInstr (IBop _ r v) = do
             rfty <- use talRegFile
             rfty <=? rfTy'
         _ -> fail "expected register file type"
-checkInstr (ICall v) = do
+checkInstr (ICall ty v) = do
     vTy <- checkVal v
     case vTy of
         TRegFile [] rfty' -> do
             rfty <- use talRegFile
             rfty <=? rfty'
+            talRegFile . rfRegTy %= M.insert RVReg ty
         _ -> fail "expected register file type"
 checkInstr (ILoad rd rs i) = do
     guard $ i >= 0
@@ -238,9 +238,7 @@ checkHeap (_, HCode qnts rfty instrs) = do
     talQuants .= qnts
     talRegFile .= rfty
     checkInstrs instrs
-    rvTy <- checkReg RVReg
     refresh
-    talRegFile . rfRegTy %= M.insert RVReg rvTy
 checkHeap (name, HStruct ws) = do
     wTys <- mapM checkVal ws
     talHeaps %= M.insert name (TRow $ foldr RSeq REmpty wTys)

@@ -166,7 +166,7 @@ data Bop = Bz | Bnz | Bgt | Blt
 data Instr
     = IAop Aop Reg Reg SmallVal
     | IBop Bop Reg SmallVal
-    | ICall SmallVal
+    | ICall Ty SmallVal
     -- | ICoerce _ Reg
     | ILoad Reg Reg Int
     | IMalloc Reg [Ty]

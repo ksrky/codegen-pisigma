@@ -43,6 +43,7 @@ import Data.List                qualified as L
 import Data.Map.Strict          qualified as M
 import Data.Set                 qualified as S
 import Data.Unique
+import GHC.Stack
 import Tal.Constant
 import Tal.Constructors
 import Tal.Syntax
@@ -116,9 +117,7 @@ buildInstrs term = foldl (flip ISeq) term <$> popInstrs
 buildMove :: Monad m => SmallVal -> TalBuilderT m Reg
 buildMove (VReg reg) = do
     yes_free <- isFreeReg reg
-    if yes_free then do
-        setRegInUse reg
-        return reg
+    if yes_free then return reg
     else buildMove' (VReg reg)
 buildMove val = buildMove' val
 
@@ -158,17 +157,22 @@ withExtRegTable u reg = locally regTable (IM.insert (hashUnique u) reg)
 withExtRegFileTy :: Monad m => Reg -> Ty -> TalBuilderT m a -> TalBuilderT m a
 withExtRegFileTy reg ty = locally regFileTy (rfRegTy %~ M.insert reg ty)
 
-findReg :: MonadFail m => Unique -> TalBuilderT m Reg
+findReg :: (HasCallStack, MonadFail m) => Unique -> TalBuilderT m Reg
 findReg u = do
     regs <- view regTable
     case IM.lookup (hashUnique u) regs of
         Just reg -> return reg
         Nothing  -> error $ "findReg: " ++ show (hashUnique u)
 
-freshReg :: Monad m => TalBuilderT m Reg
-freshReg = do
+nextReg :: Monad m => TalBuilderT m Reg
+nextReg = do
     regs <- use freeRegSet
     let reg = if null regs then error "no available registers" else S.findMin regs
+    return reg
+
+freshReg :: Monad m => TalBuilderT m Reg
+freshReg = do
+    reg <- nextReg
     setRegInUse reg
     return reg
 

@@ -63,7 +63,7 @@ instance PprTal (Name, Heap) where
         encloseSep "[" "]" ", " (map (const "・") tvs) <> "." <+> pprtal rfty <> "." <> line <> indent 2 (pprtal instrs)
     pprtal (name, HStruct ws) = "struct" <+> pprtal name <+> "=" <+>
         encloseSep "{" "}" ", " (map pprtal ws)
-    pprtal (name, HExtern ty) = "extern" <+> pprtal name <+> "=" <+> pprtal ty
+    pprtal (name, HExtern ty) = "extern" <+> pprtal name <+> ":" <+> pprtal ty
     pprtal (name, HTypeAlias ty) = "type" <+> pprtal name <+> "=" <+> pprtal ty
 
 instance PprTal Aop where
@@ -81,7 +81,7 @@ instance PprTal Bop where
 instance PprTal Instr where
     pprtal (IAop aop r1 r2 v) = pprtal aop <+> pprtal r1 <> "," <+> pprtal r2 <> "," <+> pprtal v
     pprtal (IBop bop r v) = pprtal bop <+> pprtal r <> "," <+> pprtal v
-    pprtal (ICall v) = "call" <+> pprtal v
+    pprtal (ICall ty v) = "call" <+> pprtal ty  <> "," <+> pprtal v
     pprtal (ILoad r1 r2 i) = "ld" <+> pprtal r1 <> "," <+> pprtal r2 <> parens (pretty i)
     pprtal (IMalloc r tys) = "malloc" <+> pprtal r <+> encloseSep "[" "]" "," (map pprtal tys)
     pprtal (IMove r v) = "mv" <+> pprtal r <> "," <+> pprtal v

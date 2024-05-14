@@ -38,7 +38,7 @@ runInstr (IBop bop rd v) = do
         HCode _ _ ins <- getHeap l
         return $ const ins
     else return id
-runInstr (ICall v) = do
+runInstr (ICall _ v) = do
     VLabel l <- wordize v
     HCode _ _ ins <- getHeap l
     return $ const ins

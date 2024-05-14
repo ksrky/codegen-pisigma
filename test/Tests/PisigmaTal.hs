@@ -157,6 +157,10 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Tal.Check"
+      e5 <- closureTalProgram e4
+      print $ pprtal e5
+      Tal.checkProgram e5
       step "Done"
   , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
       e1 <- parseProgram "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
