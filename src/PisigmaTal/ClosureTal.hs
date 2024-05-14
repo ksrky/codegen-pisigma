@@ -49,9 +49,7 @@ closureTalTy = cata $ \case
     C.TVarF x -> do
         tv <- getTyVar (x ^. unique)
         return $ T.TVar tv
-    C.TFunF tys _ -> do
-        sty <- mkAbstractStackTy 0 <$> sequence tys
-        return $ T.TRegFile [()] (emptyRegFileTy & T.rfStackTy ?~ sty)
+    C.TFunF tys _ -> T.TRegFile [] . mkArgRegFileTy <$> sequence tys
     C.TExistsF x ty -> T.TExists <$> withExtTyVarScope (x ^. unique) ty
     C.TRecursF x ty -> T.TRecurs <$> withExtTyVarScope (x ^. unique) ty
     C.TRowF row -> T.TRow <$> closureTalRowTy row
@@ -68,13 +66,16 @@ closureTalRowTy = cata $ \case
 closureTalLit :: C.Lit -> T.WordVal
 closureTalLit (C.LInt i) = T.VInt i
 
-closureTalVal :: C.Val -> TalBuilder T.SmallVal
-closureTalVal (C.VLit l) = return $ T.VWord $ closureTalLit l
-closureTalVal (C.VVar (x, _)) = do
+closureTalVar :: C.Var -> TalBuilder T.Reg
+closureTalVar (x, _) = do
     reg <- findReg $ x ^. unique
     decUseCount (x ^. unique)
     whenUseCountZero (x ^. unique) $ setRegFree reg
-    return $ T.VReg reg
+    return reg
+
+closureTalVal :: C.Val -> TalBuilder T.SmallVal
+closureTalVal (C.VLit l) = return $ T.VWord $ closureTalLit l
+closureTalVal (C.VVar var) = T.VReg <$> closureTalVar var
 closureTalVal (C.VFun f) = do
     name' <- lookupName $ fst f ^. unique
     return $ T.VWord $ T.VLabel name'
@@ -96,6 +97,7 @@ mapPrimop = \case Add -> T.Add; Sub -> T.Sub; Mul -> T.Mul; Div -> T.Div
 withExtReg :: C.Var -> T.Reg ->  TalBuilder a -> TalBuilder a
 withExtReg (x, ty) reg cont = do
     ty' <- closureTalTy ty
+    whenUseCountZero (x ^. unique) $ setRegFree reg
     withExtRegTable (x ^. unique) reg $ withExtRegFileTy reg ty' cont
 
 withExtRegs :: [C.Var] -> [T.Reg] -> TalBuilder a -> TalBuilder a
@@ -111,11 +113,9 @@ closureTalExp (C.ELet (C.BVal var val) exp) = do
 closureTalExp (C.ELet (C.BCall var fun vals) exp) = do
     val' <- closureTalVal $ C.VVar fun
     vals' <- mapM closureTalVal vals
-    arg_regs <- mapM buildMove vals'
-    mapM_ setRegFree arg_regs
+    zipWithM_ buildMoveWithDst argumentRegs vals'
     tmp_regs <- getInUseRegs
     mapM_ buildPush tmp_regs
-    mapM_ buildPush arg_regs
     extInstr $ T.ICall val'
     mapM_ buildPop tmp_regs
     withExtReg var RVReg $ closureTalExp exp
@@ -128,8 +128,9 @@ closureTalExp (C.ELet (C.BOpCall var prim _ vals) exp) | [val1, val2] <- vals = 
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet C.BOpCall{} _) = error "impossible" -- tmp
 closureTalExp (C.ELet (C.BProj var val idx) exp) = do
-    reg <- buildMove =<< closureTalVal val
-    extInstr $ T.ILoad reg reg (pred (fromEnum idx))
+    reg' <- buildMove =<< closureTalVal val
+    reg <- freshReg
+    extInstr $ T.ILoad reg reg' (pred (fromEnum idx))
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BUnpack tv var val) exp) = do
     reg <- freshReg
@@ -142,9 +143,10 @@ closureTalExp (C.ELet (C.BMalloc var tys) exp) = do
     extInstr $ T.IMalloc reg tys'
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BUpdate var var' idx val) exp) = do
-    reg <- buildMove =<< closureTalVal (C.VVar var')
+    reg <- closureTalVar var'
     reg' <- buildMove =<< closureTalVal val
     extInstr $ T.IStore reg (pred (fromEnum idx)) reg'
+    setRegFree reg'
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ECase con val cases) = do
     reg <- buildMove =<< closureTalVal val
@@ -166,20 +168,20 @@ closureTalExp (C.ECase con val cases) = do
 closureTalExp (C.EReturn val) = do
     val' <- closureTalVal val
     ty <- closureTalTy (C.typeof val)
-    extInstr $ T.IMove RVReg val'
+    buildMoveWithDst RVReg val'
     buildInstrs $ T.IHalt ty
 closureTalExp (C.EAnnot exp _) = closureTalExp exp
 
 closureTalDefn :: C.Defn -> TalBuilder ()
 closureTalDefn (var, C.Code args body) = do
+    when (length args >= length argumentRegs) $ fail "too many arguments" -- TODO: splilling
     name' <- lookupName (fst var ^. unique)
     arg_tys <- mapM (closureTalTy . snd) args
-    arg_regs <- mapM (const freshReg) args
-    mapM_ buildPop arg_regs
-    mapM_ setRegInUse arg_regs
-    instrs <- withExtRegs args arg_regs $ closureTalExp body
-    let rfty = emptyRegFileTy & T.rfStackTy ?~ mkAbstractStackTy 0 arg_tys
-    extendHeap name' $ T.HCode [()] rfty instrs
+    tmp_regs <- mapM (const freshReg) args
+    mapM_ setRegInUse tmp_regs
+    zipWithM_ (\t a -> buildMoveWithDst t (T.VReg a)) tmp_regs argumentRegs
+    instrs <- withExtRegs args tmp_regs $ closureTalExp body
+    extendHeap name' $ T.HCode [] (mkArgRegFileTy arg_tys) instrs
 
 closureTalDec :: C.Dec -> WriterT UserContext (TalBuilderT IO) (T.Name, T.Heap)
 closureTalDec (C.DEnum con labs) = do

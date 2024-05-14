@@ -12,6 +12,7 @@ module Tal.Builder
     , extInstr
     , buildInstrs
     , buildMove
+    , buildMoveWithDst
     , buildPush
     , buildPop
     , withExtRegTable
@@ -126,6 +127,10 @@ buildMove' val = do
     reg <- freshReg
     extInstr $ IMove reg val
     return reg
+
+buildMoveWithDst :: Monad m => Reg -> SmallVal -> TalBuilderT m ()
+buildMoveWithDst reg (VReg reg') | reg == reg' = return ()
+buildMoveWithDst reg val = extInstr $ IMove reg val
 
 buildPush :: MonadFail m => Reg -> TalBuilderT m ()
 buildPush reg = extInstr $ IStore SPReg 0 reg
