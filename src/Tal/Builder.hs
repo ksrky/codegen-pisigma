@@ -142,7 +142,7 @@ buildStores :: Monad m => [Reg] -> TalBuilderT m ()
 buildStores [] = return ()
 buildStores regs = do
     extInstr $ ISalloc (length regs)
-    buildStackOp (IStore SPReg) regs
+    buildStackOp (ISstore SPReg) regs
 
 buildLoads :: Monad m => [Reg] -> TalBuilderT m ()
 buildLoads [] = return ()

@@ -16,6 +16,7 @@ import PisigmaTal.RawLambda
 import Prettyprinter             hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text
+import Tal.Check                 qualified as Tal
 import Tal.Prettyprint
 import Test.Tasty
 import Test.Tasty.Golden
@@ -126,6 +127,9 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Tal.Check"
+      e5 <- closureTalProgram e4
+      Tal.checkProgram e5
       step "Done"
   , testCaseSteps "(\\x -> x) 5" $ \step -> do
       e1 <- parseProgram "(\\x -> x) 5"
@@ -138,6 +142,9 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+      step "Tal.Check"
+      e5 <- closureTalProgram e4
+      Tal.checkProgram e5
       step "Done"
   , testCaseSteps "2 * 3 == 6" $ \step -> do
       e1 <- parseProgram "2 * 3 == 6"

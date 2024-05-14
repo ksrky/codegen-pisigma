@@ -183,7 +183,7 @@ bindVar (BMalloc x _)     = x
 bindVar (BUpdate x _ _ _) = x
 
 class Typeable a where
-    typeof :: (HasCallStack) => a -> Ty
+    typeof :: HasCallStack => a -> Ty
 
 instance Typeable Lit where
     typeof _ = TInt

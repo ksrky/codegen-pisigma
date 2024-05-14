@@ -111,30 +111,30 @@ closureTalExp (C.ELet (C.BVal var val) exp) = do
     reg <- buildMove =<< closureTalVal val
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BCall var fun vals) exp) = do
-    val' <- closureTalVal $ C.VVar fun
+    reg <- closureTalVar fun
     vals' <- mapM closureTalVal vals
     zipWithM_ buildMoveWithDst argumentRegs vals'
     tmp_regs <- getInUseRegs
     buildStores tmp_regs
-    extInstr $ T.ICall val'
+    extInstr $ T.ICall (T.VReg reg)
     buildLoads tmp_regs
     withExtReg var RVReg $ closureTalExp exp
 closureTalExp (C.ELet (C.BOpCall var prim _ vals) exp) | [val1, val2] <- vals = do
     reg1 <- buildMove =<< closureTalVal val1
+    val2' <- closureTalVal val2
     yes_free <- isFreeReg reg1
     reg <- if yes_free then setRegInUse reg1 >> return reg1 else freshReg
-    val2' <- closureTalVal val2
     extInstr $ T.IAop (mapPrimop prim) reg reg1 val2'
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet C.BOpCall{} _) = error "impossible" -- tmp
 closureTalExp (C.ELet (C.BProj var val idx) exp) = do
-    reg' <- buildMove =<< closureTalVal val
     reg <- freshReg
-    extInstr $ T.ILoad reg reg' (pred (fromEnum idx))
+    buildMoveWithDst reg =<< closureTalVal val
+    extInstr $ T.ILoad reg reg (pred (fromEnum idx))
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BUnpack tv var val) exp) = do
-    reg <- freshReg
     val' <- closureTalVal val
+    reg <- freshReg
     extInstr $ T.IUnpack reg val'
     withExtTyVarScope (tv ^. unique) $ withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BMalloc var tys) exp) = do
@@ -143,8 +143,8 @@ closureTalExp (C.ELet (C.BMalloc var tys) exp) = do
     extInstr $ T.IMalloc reg tys'
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BUpdate var var' idx val) exp) = do
-    reg <- closureTalVar var'
     reg' <- buildMove =<< closureTalVal val
+    reg <- closureTalVar var'
     extInstr $ T.IStore reg (pred (fromEnum idx)) reg'
     setRegFree reg'
     withExtReg var reg $ closureTalExp exp

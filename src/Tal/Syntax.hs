@@ -86,7 +86,11 @@ instance Ixed RowTy where
     ix k f (RSeq ty row) | k < 0     = error "negative index"
                          | otherwise = RSeq ty <$> ix (k - 1) f row
 
-data StackTy = SNil | SVar Int | SCons Ty StackTy
+data StackTy
+    = SNil
+    | SVar Int
+    | SCons Ty StackTy
+    | SComp StackTy StackTy
     deriving (Eq, Show)
 
 instance Cons StackTy StackTy Ty Ty where
@@ -103,6 +107,7 @@ instance Ixed StackTy where
     ix 0 f (SCons ty s) = f ty <&> (`SCons` s)
     ix k f (SCons ty s) | k < 0     = error "negative index"
                         | otherwise = SCons ty <$> ix (k - 1) f s
+    ix _ _ SComp{} = error "composition of stack"
 
 type HeapsTy = M.Map Label Ty
 
@@ -203,8 +208,8 @@ mapTy onvar = go
     go _ TInt                 = TInt
     go c (TVar x)             = onvar x c
     go c (TRegFile qnts rfty) = TRegFile qnts $ rfty
-                                    & rfRegTy %~ M.map (mapTy onvar c)
-                                    & rfStackTy %~ (mapStackTy onvar c <$>)
+                                    & rfRegTy %~ M.map (mapTy onvar (c + length qnts))
+                                    & rfStackTy %~ (mapStackTy onvar (c + length qnts) <$>)
     go c (TExists ty)         = TExists (go (c + 1) ty)
     go c (TRecurs ty)         = TRecurs (go (c + 1) ty)
     go c (TRow row_ty)        = TRow $ mapRowTy onvar c row_ty
@@ -218,7 +223,7 @@ mapRowTy onvar c (RVar x) = case onvar x c of
         TRow row -> row
         TVar y   -> RVar y
         _        -> error "TRow or TVar required"
-mapRowTy onvar c (RSeq ty row) = RSeq (mapTy onvar c ty) row
+mapRowTy onvar c (RSeq ty row) = RSeq (mapTy onvar c ty) (mapRowTy onvar c row)
 
 mapStackTy :: (Int -> Int -> Ty) -> Int -> StackTy -> StackTy
 mapStackTy _ _ SNil = SNil
@@ -226,7 +231,8 @@ mapStackTy onvar c (SVar x) = case onvar x c of
         TPtr st_ty -> st_ty
         TVar y     -> SVar y
         _          -> error "TPtr or TVar required"
-mapStackTy onvar c (SCons ty stack) = SCons (mapTy onvar c ty) stack
+mapStackTy onvar c (SCons ty st) = SCons (mapTy onvar c ty) st
+mapStackTy onvar c (SComp st1 st2) = SComp (mapStackTy onvar c st1) (mapStackTy onvar c st2)
 
 shiftTy :: Int -> Ty -> Ty
 shiftTy d = mapTy (\x c -> TVar (if x < c then x else x + d)) 0

@@ -14,7 +14,6 @@ import Tal.Syntax
 data TalState = TalState
     { _talHeaps   :: HeapsTy
     , _talRegFile :: RegFileTy
-    , _talStack   :: StackTy
     , _talQuants  :: Quants
     }
 
@@ -23,7 +22,6 @@ makeLenses ''TalState
 refresh :: StateT TalState IO ()
 refresh = do
     talRegFile .= emptyRegFileTy
-    talStack .= SNil
     talQuants .= []
 
 lookupHeap :: Name -> StateT TalState IO Ty
@@ -42,15 +40,6 @@ class TyEquiv a where
 class TySubrel a where
     infixl 2 <=?
     (<=?) :: MonadFail m => a -> a -> m ()
-
-instance (Traversable t, TyEquiv a) => TyEquiv (t a) where
-    t1 =? t2 | length t1 == length t2 = zipWithM_ (=?) (toList t1) (toList t2)
-    _ =? _ = fail "type mismatch."
-
-instance TyEquiv a => TySubrel [a] where
-    [] <=? _              = return ()
-    (x : xs) <=? (y : ys) = x =? y >> xs <=? ys
-    _ <=? []              = fail "not subtype"
 
 instance TyEquiv Ty where
     TInt =? TInt = return ()
@@ -76,12 +65,17 @@ instance TyEquiv RowTy where
 
 instance TyEquiv RegFileTy where
     rf1 =? rf2 = do
-        M.elems (rf1 ^. rfRegTy) =? M.elems (rf2 ^. rfRegTy)
+        sequence_ [ ty1 =? ty2
+            | (r1, ty1) <- M.toList (rf1 ^. rfRegTy)
+            , (r2, ty2) <- M.toList (rf2 ^. rfRegTy)
+            , r1 == r2 ]
         rf1 ^. rfStackTy =? rf2 ^. rfStackTy
 
 instance TySubrel RegFileTy where
     rf1 <=? rf2 = do
-        M.elems (rf1 ^. rfRegTy) <=? M.elems (rf2 ^. rfRegTy)
+        sequence_ [ ty1 =? ty2
+            | (r2, ty2) <- M.toList (rf2 ^. rfRegTy)
+            , ty1 <- toList $ M.lookup r2 (rf1 ^. rfRegTy) ]
         rf1 ^. rfStackTy =? rf2 ^. rfStackTy
 
 instance TyEquiv StackTy where
@@ -89,6 +83,11 @@ instance TyEquiv StackTy where
     SVar x =? SVar y | x == y = return ()
     SCons t1 s1 =? SCons t2 s2 = t1 =? t2 >> s1 =? s2
     s1 =? s2 = fail $ "stack type mismatch. expected: " ++ show s1 ++ ", got: " ++ show s2
+
+instance TyEquiv (Maybe StackTy) where
+    Nothing =? Nothing = return ()
+    Just s1 =? Just s2 = s1 =? s2
+    s1 =? s2             = fail $ "stack type mismatch, expected: " ++ show s1 ++ ", got: " ++ show s2
 
 checkReg :: Reg -> StateT TalState IO Ty
 checkReg reg =  do
@@ -122,7 +121,7 @@ checkVal (VUnroll wval) = do
         _           -> fail $ "expected recursive type, but got " ++ show ty
 checkVal VNonsense = return TNonsense
 checkVal (VPtr _) = do
-    sty <- use talStack
+    Just sty <- use $ talRegFile . rfStackTy
     return $ TPtr sty -- tmp
 
 checkInstr :: Instr -> StateT TalState IO ()
@@ -141,27 +140,29 @@ checkInstr (IBop _ r v) = do
 checkInstr (ICall v) = do
     vTy <- checkVal v
     case vTy of
-        TRegFile [] rfTy' -> do
+        TRegFile [] rfty' -> do
             rfty <- use talRegFile
-            rfty <=? rfTy'
+            rfty <=? rfty'
         _ -> fail "expected register file type"
 checkInstr (ILoad rd rs i) = do
+    guard $ i >= 0
     rsTy <- checkReg rs
     case rsTy of
         TRow rty -> talRegFile . rfRegTy %= M.insert rd (rty ^?! ix i)
-        _        -> fail "expected pointer type"
+        _        -> fail $ "expected row type, but got " ++ show rsTy
 checkInstr (IMalloc rd tys) =
     talRegFile . rfRegTy %= M.insert rd (TRow $ foldr RSeq REmpty tys)
 checkInstr (IMove rd v) = do
     vTy <- checkVal v
     talRegFile . rfRegTy %= M.insert rd vTy
 checkInstr (IStore rd i rs) = do
+    guard $ i >= 0
     rdTy <- checkReg rd
     case rdTy of
         TRow rty -> do
             checkReg rs >>=? rty ^?! ix i
             talRegFile . rfRegTy %= M.insert rd rdTy
-        _ -> fail "expected pointer type"
+        _ -> fail $ "expected row type, but got " ++ show rdTy
 checkInstr (IUnpack rd v) = do
     vTy <- checkVal v
     case vTy of
@@ -170,33 +171,46 @@ checkInstr (IUnpack rd v) = do
             talQuants %= (() :)
         _ -> fail "expected row type"
 checkInstr (ISalloc n) =
-    talStack %= (\s -> foldr SCons s (replicate n TNonsense))
+    talRegFile . rfStackTy %= \case
+        Nothing -> Just $ foldr SCons SNil (replicate n TNonsense)
+        Just s -> Just $ foldr SCons s (replicate n TNonsense)
 checkInstr (ISfree n) = do
-    checkStackLength n =<< use talStack
-    talStack %= popN n
+    Just sty <- use $ talRegFile . rfStackTy
+    checkStackLength n sty
+    talRegFile . rfStackTy ?= popN n sty
   where
     popN :: Int -> StackTy -> StackTy
     popN m s | m <= 0 = s
     popN m (SCons _ xs) = popN (m + 1) xs
     popN _ _ = error "stack underflow"
 checkInstr (ISload rd sp i) | SPReg <- sp = do
-    sty <- use talStack
+    guard $ i >= 0
+    Just sty <- use $ talRegFile . rfStackTy
     checkStackLength (i + 1) sty
     talRegFile . rfRegTy %= M.insert rd (sty ^?! ix i)
 checkInstr (ISload rd rs i) = do
-    checkStackLength (i + 1) =<< use talStack
-    TPtr sty <- checkReg rs
-    talRegFile . rfRegTy %= M.insert rd (sty ^?! ix i)
+    guard $ i >= 0
+    Just sty@(SComp _ sty2) <- use $ talRegFile . rfStackTy
+    checkStackLength (i + 1) sty
+    TPtr sty2' <- checkReg rs
+    sty2 =? sty2'
+    talRegFile . rfRegTy %= M.insert rd (sty2 ^?! ix i)
 checkInstr (ISstore sp i rs) | SPReg <- sp = do
-    checkStackLength (i + 1) =<< use talStack
-    tyi <- checkReg rs
-    talStack %= (ix i .~ tyi)
-checkInstr (ISstore rd i rs) = do
-    TPtr sty <- checkReg rd
+    guard $ i >= 0
+    Just sty <- use $ talRegFile . rfStackTy
     checkStackLength (i + 1) sty
     tyi <- checkReg rs
-    talStack %= (ix i .~ tyi) -- tmp
-    talRegFile . rfRegTy %= M.insert rd (TPtr (sty & ix i .~ tyi))
+    talRegFile . rfStackTy ?= (sty & ix i .~ tyi)
+checkInstr (ISstore rd i rs) = do
+    guard $ i >= 0
+    TPtr sty2' <- checkReg rd
+    checkStackLength (i + 1) sty2'
+    Just (SComp sty1 sty2) <- use $ talRegFile .rfStackTy
+    sty2 =? sty2'
+    tyi <- checkReg rs
+    let sty3 = sty2 & ix i .~ tyi
+    talRegFile . rfStackTy ?= SComp sty1 sty3
+    talRegFile . rfRegTy %= M.insert rd (TPtr sty3)
 
 checkStackLength :: MonadFail m => Int -> StackTy -> m ()
 checkStackLength n _ | n <= 0 = return ()
@@ -212,7 +226,9 @@ checkInstrs (IJump v) = do
             rfty <- use talRegFile
             rfty <=? rfTy'
         _ -> fail "expected register file type"
-checkInstrs (IHalt ty) = checkReg RVReg >>=? ty
+checkInstrs (IHalt ty) = do
+    checkReg RVReg >>=? ty
+    talRegFile . rfRegTy %= M.insert RVReg ty
 
 checkHeap :: (Name, Heap) -> StateT TalState IO ()
 checkHeap (name, HGlobal wval) = do
@@ -222,7 +238,9 @@ checkHeap (_, HCode qnts rfty instrs) = do
     talQuants .= qnts
     talRegFile .= rfty
     checkInstrs instrs
+    rvTy <- checkReg RVReg
     refresh
+    talRegFile . rfRegTy %= M.insert RVReg rvTy
 checkHeap (name, HStruct ws) = do
     wTys <- mapM checkVal ws
     talHeaps %= M.insert name (TRow $ foldr RSeq REmpty wTys)
@@ -237,5 +255,5 @@ initHeapsTy heaps = do
 checkProgram :: Program -> IO ()
 checkProgram (heaps, instrs) = do
     hsty <- initHeapsTy heaps
-    let initState = TalState hsty emptyRegFileTy SNil []
+    let initState = TalState hsty emptyRegFileTy []
     void $ runStateT (mapM_ checkHeap (M.toList heaps) >> checkInstrs instrs) initState

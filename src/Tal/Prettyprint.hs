@@ -34,9 +34,10 @@ instance PprTal RowTy where
     pprtal (RSeq ty rty) = pprtal ty <> "," <+> pprtal rty
 
 instance PprTal StackTy where
-    pprtal SNil           = "nil"
-    pprtal (SVar i)       = "#" <> pretty i
-    pprtal (SCons ty sty) = pprtal ty <+> "::" <+> pprtal sty
+    pprtal SNil              = "nil"
+    pprtal (SVar i)          = "#" <> pretty i
+    pprtal (SCons ty sty)    = pprtal ty <+> "::" <+> pprtal sty
+    pprtal (SComp sty1 sty2) = pprtal sty1 <+> "∘" <+> pprtal sty2
 
 instance PprTal RegFileTy where
     pprtal (RegFileTy rfty mb_sty) = encloseSep "{" "}" ", " $
@@ -92,7 +93,7 @@ instance PprTal Instr where
     pprtal (ISstore r1 i r2) = "sst" <+> pprtal r1 <> parens (pretty i) <> "," <+> pprtal r2
 
 instance PprTal Instrs where
-    pprtal (ISeq instr instrs) = vsep [pprtal instr, pprtal instrs]
+    pprtal (ISeq instr instrs) = vsep [hang 2 (pprtal instr), pprtal instrs]
     pprtal (IJump v)           = "jmp" <+> pprtal v
     pprtal (IHalt ty)          = "halt" <+> brackets (pprtal ty)
 
