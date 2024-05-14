@@ -10,7 +10,6 @@ import Control.Monad.Writer
 import Data.Functor.Foldable
 import Data.List                qualified as L
 import Data.Map.Strict          qualified as M
-import GHC.Stack
 import PisigmaTal.Closure       qualified as C
 import PisigmaTal.Id
 import PisigmaTal.Primitive
@@ -71,7 +70,7 @@ closureTalRowTy = cata $ \case
 closureTalLit :: C.Lit -> T.WordVal
 closureTalLit (C.LInt i) = T.VInt i
 
-closureTalVar :: HasCallStack => C.Var -> TalBuilder T.Reg
+closureTalVar :: C.Var -> TalBuilder T.Reg
 closureTalVar (x, _) = do
     reg <- findReg $ x ^. unique
     decUseCount (x ^. unique)
