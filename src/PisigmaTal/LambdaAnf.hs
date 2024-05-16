@@ -7,9 +7,6 @@ import PisigmaTal.Id
 import PisigmaTal.Lambda     qualified as L
 import Prelude               hiding (exp)
 
--- TODO: optimization
--- curried functions may create unnecessary closures
-
 lambdaAnfLit :: L.Lit -> A.Lit
 lambdaAnfLit (L.LInt i) = A.LInt i
 
