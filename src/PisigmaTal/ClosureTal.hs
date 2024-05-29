@@ -4,9 +4,9 @@ module PisigmaTal.ClosureTal (closureTalProgram) where
 
 import Control.Lens.Combinators hiding (op)
 import Control.Lens.Operators
+import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Writer
 import Data.Functor.Foldable
 import Data.List                qualified as L
 import Data.Map.Strict          qualified as M

@@ -13,6 +13,7 @@ import PisigmaTal.Lambda.Check   qualified as Lambda
 import PisigmaTal.LambdaAnf
 import PisigmaTal.Parser
 import PisigmaTal.RawLambda
+import PisigmaTal.Toplevel
 import Prettyprinter             hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text
@@ -27,7 +28,7 @@ import Tests.PisigmaTal.Lambda   qualified as Lambda
 import Tests.PisigmaTal.Raw      qualified as Raw
 
 testsPisigmaTal :: TestTree
-testsPisigmaTal = testGroup "pisigma-tal" [parserTests, scopeTests, stepTests, goldenTests]
+testsPisigmaTal = testGroup "pisigma-tal" [parserTests, scopeTests, stepTests, compileTests, goldenTests]
 
 parserTests :: TestTree
 parserTests = testGroup "Parser tests"
@@ -159,7 +160,6 @@ stepTests = testGroup "Step tests"
       Closure.checkProgram e4
       step "Tal.Check"
       e5 <- closureTalProgram e4
-      print $ pprtal e5
       Tal.checkProgram e5
       step "Done"
   , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
@@ -175,7 +175,6 @@ stepTests = testGroup "Step tests"
       Closure.checkProgram e4
       step "Tal.Check"
       e5 <- closureTalProgram e4
-      print $ pprtal e5
       Tal.checkProgram e5
       step "Done"
   , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
@@ -215,6 +214,20 @@ stepTests = testGroup "Step tests"
       step "Closure.Check"
       e4 <- anfClosureProgram e3
       Closure.checkProgram e4
+  ]
+
+compileTests :: TestTree
+compileTests = testGroup "Compile tests"
+  [ testCaseSteps "1 + 2 * 3 / 4" $ \step -> do
+      step "Compile to Tal"
+      e <- compileToTal "1 + 2 * 3 / 4"
+      step "Type check Tal"
+      Tal.checkProgram e
+  {- , testCaseSteps "let iszero = \\x -> if x == 0 then 0 else x in izero 1" $ \step -> do
+      step "Compile to Tal"
+      e <- compileToTal "let iszero = \\x -> if x == 0 then 0 else x in iszero 1"
+      step "Type check Tal"
+      Tal.checkProgram e -}
   ]
 
 goldenTests :: TestTree

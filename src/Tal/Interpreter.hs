@@ -4,7 +4,7 @@ import Control.Lens.Operators
 import Control.Monad.IO.Class
 import Tal.Constant
 import Tal.Constructors
-import Tal.State
+import Tal.Interpreter.State
 import Tal.Syntax
 
 runProgram :: (MonadIO m, MonadFail m) => Program -> m Word

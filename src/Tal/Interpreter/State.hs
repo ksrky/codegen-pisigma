@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tal.State (
+module Tal.Interpreter.State (
     TalState,
     HasTalState(..),
     MonadTalState,

@@ -50,8 +50,8 @@ library
       Tal.Constant
       Tal.Constructors
       Tal.Interpreter
+      Tal.Interpreter.State
       Tal.Prettyprint
-      Tal.State
       Tal.Syntax
   other-modules:
       Paths_pisigma_tal
