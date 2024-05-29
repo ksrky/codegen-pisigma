@@ -27,6 +27,7 @@ library
   exposed-modules:
       PisigmaTal.Anf
       PisigmaTal.Anf.Check
+      PisigmaTal.Anf.Monad
       PisigmaTal.Anf.Opt
       PisigmaTal.AnfClosure
       PisigmaTal.Closure
