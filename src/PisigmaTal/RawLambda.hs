@@ -2,7 +2,7 @@ module PisigmaTal.RawLambda (rawLambdaProgram) where
 
 import Control.Lens.Combinators hiding (op)
 import Control.Lens.Operators
-import Control.Monad.Except
+import Control.Monad
 import Control.Monad.Reader
 import Data.Functor.Foldable
 import Data.IORef

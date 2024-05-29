@@ -36,6 +36,7 @@ module Tal.Builder
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
+import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.IntMap              qualified as IM

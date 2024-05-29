@@ -4,6 +4,7 @@ module Tal.Check (checkProgram) where
 
 import Control.Lens.Combinators
 import Control.Lens.Operators
+import Control.Monad
 import Control.Monad.State
 import Data.Foldable
 import Data.Map.Strict          qualified as M
