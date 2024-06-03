@@ -172,7 +172,7 @@ data Instr
     | IMalloc Reg [Ty]
     | IMove Reg SmallVal
     | IStore Reg Int Reg
-    | IUnpack Reg SmallVal
+    | IUnpack Reg
     -- | @salloc n@
     | ISalloc Int
     -- | @sfree n@

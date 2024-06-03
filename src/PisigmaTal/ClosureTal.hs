@@ -142,9 +142,8 @@ closureTalExp (C.ELet (C.BProj var val idx) exp) = do
     extInstr $ T.ILoad reg reg (pred (fromEnum idx))
     withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BUnpack tv var val) exp) = do
-    val' <- closureTalVal val
-    reg <- freshReg
-    extInstr $ T.IUnpack reg val'
+    reg <- buildMove =<< closureTalVal val
+    extInstr $ T.IUnpack reg
     withExtTyVarScope (tv ^. unique) $ withExtReg var reg $ closureTalExp exp
 closureTalExp (C.ELet (C.BMalloc var tys) exp) = do
     reg <- freshReg
