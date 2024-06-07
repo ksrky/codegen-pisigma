@@ -86,7 +86,7 @@ instance PprTal Instr where
     pprtal (IMalloc r tys) = "malloc" <+> pprtal r <+> encloseSep "[" "]" "," (map pprtal tys)
     pprtal (IMove r v) = "mv" <+> pprtal r <> "," <+> pprtal v
     pprtal (IStore r1 i r2) = "st" <+> pprtal r1 <> parens (pretty i) <> "," <+> pprtal r2
-    pprtal (IUnpack r v) = "unpack" <+> pprtal r <> "," <+> pprtal v
+    pprtal (IUnpack r) = "unpack" <+> pprtal r
     pprtal (ISalloc n) = "salloc" <+> pretty n
     pprtal (ISfree n) = "sfree" <+> pretty n
     pprtal (ISload r1 r2 i) = "sld" <+> pprtal r1 <> "," <+> pprtal r2 <> parens (pretty i)

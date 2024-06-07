@@ -165,8 +165,8 @@ checkInstr (IStore rd i rs) = do
             checkReg rs >>=? rty ^?! ix i
             talRegFile . rfRegTy %= M.insert rd rdTy
         _ -> fail $ "expected row type, but got " ++ show rdTy
-checkInstr (IUnpack rd v) = do
-    vTy <- checkVal v
+checkInstr (IUnpack rd) = do
+    vTy <- checkReg rd
     case vTy of
         TExists ty -> do
             talRegFile . rfRegTy %= M.insert rd ty

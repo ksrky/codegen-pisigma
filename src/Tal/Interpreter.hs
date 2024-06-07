@@ -14,7 +14,7 @@ runProgram (hs, instrs) = do
             & talRegFile .~ emptyRegFile
     ret <- evalTalState (runInstrs instrs >> readReg RVReg) st
     return $ liftMetaWord ret
-
+ 
 runInstrs :: (MonadTalState m, MonadFail m, MonadIO m) => Instrs -> m ()
 runInstrs (ISeq ins rest) = do
     f <- runInstr ins
@@ -67,8 +67,8 @@ runInstr (IStore rd i rs) = do
     let ws' = take i ws ++ [w] ++ drop (i + 1) ws
     extendHeap (l, HStruct ws')
     return id
-runInstr (IUnpack rd v) = do
-    VPack _ w _ <- wordize v
+runInstr (IUnpack rd) = do
+    VPack _ w _ <- readReg rd
     extendRegFile rd w
     return id
 runInstr (ISalloc n) = do
