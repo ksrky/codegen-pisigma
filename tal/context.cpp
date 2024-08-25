@@ -4,11 +4,12 @@
 
 class TalContext {
         word memory[MEM_SIZE];
+        word stack[MEM_SIZE];
         word register_file[REG_SIZE];
 public:
         const word *bp = memory;
 
-        word *sp = &memory[MEM_SIZE - 1]; /* the stack pointer */
+        word *sp = &stack[MEM_SIZE - 1]; /* the stack pointer */
 
         word *pc; /* the program counter */
 

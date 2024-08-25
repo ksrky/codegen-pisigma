@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "interpreter.hpp"
 #include "context.hpp"
@@ -32,7 +33,9 @@ int load_instructions() {
 
 void interpreter(word c) {
         switch (c >> OP_OFFSET) {
-        case OP_ADD:
+        case OP_HALT:
+                exit(REG(0));
+        case OP_ADD: 
                 REG(c >> RD_OFFSET) = REG(c >> RS_OFFSET) + REG(c >> RT_OFFSET);
         case OP_SUB:
                 REG(c >> RD_OFFSET) = REG(c >> RS_OFFSET) - REG(c >> RT_OFFSET);

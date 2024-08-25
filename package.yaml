@@ -53,6 +53,10 @@ default-extensions:
 
 library:
   source-dirs: src
+  include-dirs: # Where to look for C header files?
+    - include
+  c-sources:
+    - c-source/my-library.cpp
 
 tests:
   pisigma-tal-test:
