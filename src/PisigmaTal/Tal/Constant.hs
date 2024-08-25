@@ -1,4 +1,4 @@
-module Tal.Constant
+module PisigmaTal.Tal.Constant
     ( initialRegSet
     , pattern Reg1
     , pattern A1Reg, pattern A2Reg, pattern A3Reg, pattern A4Reg
@@ -7,8 +7,8 @@ module Tal.Constant
     , pattern SPReg
     ) where
 
-import Data.Set   qualified as S
-import Tal.Syntax
+import Data.Set       qualified as S
+import PisigmaTal.Tal
 
 -- * Registers
 -- ** General registers

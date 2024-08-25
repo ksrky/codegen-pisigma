@@ -25,7 +25,6 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
       PisigmaTal.Anf
       PisigmaTal.Anf.Check
       PisigmaTal.Anf.Monad
@@ -34,6 +33,7 @@ library
       PisigmaTal.Closure
       PisigmaTal.Closure.Check
       PisigmaTal.ClosureTal
+      PisigmaTal.ClosureTal.Builder
       PisigmaTal.Id
       PisigmaTal.Idx
       PisigmaTal.Lambda
@@ -44,16 +44,16 @@ library
       PisigmaTal.Primitive
       PisigmaTal.Raw
       PisigmaTal.RawLambda
+      PisigmaTal.Tal
+      PisigmaTal.Tal.Check
+      PisigmaTal.Tal.Constant
+      PisigmaTal.Tal.Constructors
+      PisigmaTal.Tal.Prettyprint
       PisigmaTal.Toplevel
       Prettyprinter.Prec
-      Tal.Builder
-      Tal.Check
-      Tal.Constant
-      Tal.Constructors
+      Tal.Context
+      Tal.Instruction
       Tal.Interpreter
-      Tal.Interpreter.State
-      Tal.Prettyprint
-      Tal.Syntax
   other-modules:
       Paths_pisigma_tal
   autogen-modules:
@@ -68,9 +68,11 @@ library
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   include-dirs:
-      include
-  c-sources:
-      c-source/my-library.cpp
+      src
+  cxx-sources:
+      src/Tal/context.cpp
+      src/Tal/instruction.cpp
+      src/Tal/interpreter.cpp
   build-depends:
       base >=4.7 && <5
     , containers
@@ -93,7 +95,6 @@ test-suite pisigma-tal-test
       Tests.PisigmaTal.Closure
       Tests.PisigmaTal.Lambda
       Tests.PisigmaTal.Raw
-      Tests.Tal.Interpreter
       Paths_pisigma_tal
   autogen-modules:
       Paths_pisigma_tal

@@ -1,31 +1,31 @@
 module Tests.PisigmaTal (testsPisigmaTal) where
 
-import Data.ByteString.Lazy      qualified as BL
-import Data.Map.Strict           qualified as Map
-import Data.Text                 (Text)
+import Data.ByteString.Lazy       qualified as BL
+import Data.Map.Strict            qualified as Map
+import Data.Text                  (Text)
 import Data.Text.Encoding
-import PisigmaTal.Anf.Check      qualified as Anf
+import PisigmaTal.Anf.Check       qualified as Anf
 import PisigmaTal.AnfClosure
-import PisigmaTal.Closure.Check  qualified as Closure
+import PisigmaTal.Closure.Check   qualified as Closure
 import PisigmaTal.ClosureTal
-import PisigmaTal.Lambda         qualified as Lambda
-import PisigmaTal.Lambda.Check   qualified as Lambda
+import PisigmaTal.Lambda          qualified as Lambda
+import PisigmaTal.Lambda.Check    qualified as Lambda
 import PisigmaTal.LambdaAnf
 import PisigmaTal.Parser
 import PisigmaTal.RawLambda
+import PisigmaTal.Tal.Check       qualified as Tal
+import PisigmaTal.Tal.Prettyprint
 import PisigmaTal.Toplevel
-import Prettyprinter             hiding (pretty)
+import Prettyprinter              hiding (pretty)
 import Prettyprinter.Prec
 import Prettyprinter.Render.Text
-import Tal.Check                 qualified as Tal
-import Tal.Prettyprint
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.HUnit
-import Tests.PisigmaTal.Anf      qualified as Anf
-import Tests.PisigmaTal.Closure  qualified as Closure
-import Tests.PisigmaTal.Lambda   qualified as Lambda
-import Tests.PisigmaTal.Raw      qualified as Raw
+import Tests.PisigmaTal.Anf       qualified as Anf
+import Tests.PisigmaTal.Closure   qualified as Closure
+import Tests.PisigmaTal.Lambda    qualified as Lambda
+import Tests.PisigmaTal.Raw       qualified as Raw
 
 testsPisigmaTal :: TestTree
 testsPisigmaTal = testGroup "pisigma-tal" [parserTests, scopeTests, stepTests, compileTests, goldenTests]

@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tal.Syntax (
+module PisigmaTal.Tal (
     Reg(..),
     Name(..),
     Label,

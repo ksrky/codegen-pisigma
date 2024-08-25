@@ -1,4 +1,4 @@
-module Tal.Constructors
+module PisigmaTal.Tal.Constructors
     ( emptyHeaps
     , emptyRegFile
     , emptyRegFileTy
@@ -10,9 +10,9 @@ module Tal.Constructors
 
 import Control.Lens.Cons
 import Control.Lens.Operators
-import Data.Map.Strict        qualified as M
-import Tal.Constant
-import Tal.Syntax
+import Data.Map.Strict         qualified as M
+import PisigmaTal.Tal
+import PisigmaTal.Tal.Constant
 
 emptyHeaps :: Heaps
 emptyHeaps = M.empty

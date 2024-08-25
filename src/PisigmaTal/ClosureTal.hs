@@ -2,22 +2,22 @@
 
 module PisigmaTal.ClosureTal (closureTalProgram) where
 
-import Control.Lens.Combinators hiding (op)
+import Control.Lens.Combinators      hiding (op)
 import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Functor.Foldable
-import Data.List                qualified as L
-import Data.Map.Strict          qualified as M
-import PisigmaTal.Closure       qualified as C
+import Data.List                     qualified as L
+import Data.Map.Strict               qualified as M
+import PisigmaTal.Closure            qualified as C
+import PisigmaTal.ClosureTal.Builder
 import PisigmaTal.Id
 import PisigmaTal.Primitive
-import Prelude                  hiding (exp)
-import Tal.Builder
-import Tal.Constant
-import Tal.Constructors
-import Tal.Syntax               qualified as T
+import PisigmaTal.Tal                qualified as T
+import PisigmaTal.Tal.Constant
+import PisigmaTal.Tal.Constructors
+import Prelude                       hiding (exp)
 
 newtype UserState = UserState
     { _user_enums :: M.Map Id [C.Label]

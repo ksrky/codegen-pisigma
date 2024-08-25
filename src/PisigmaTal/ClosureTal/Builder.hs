@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tal.Builder
+module PisigmaTal.ClosureTal.Builder
     ( HasBuilderState(..)
     , HasBuilderContext(..)
     , TalBuilderT
@@ -39,14 +39,14 @@ import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
-import Data.IntMap              qualified as IM
-import Data.List                qualified as L
-import Data.Map.Strict          qualified as M
-import Data.Set                 qualified as S
+import Data.IntMap                 qualified as IM
+import Data.List                   qualified as L
+import Data.Map.Strict             qualified as M
+import Data.Set                    qualified as S
 import Data.Unique
-import Tal.Constant
-import Tal.Constructors
-import Tal.Syntax
+import PisigmaTal.Tal
+import PisigmaTal.Tal.Constant
+import PisigmaTal.Tal.Constructors
 
 data BuilderState = BuilderState
     { _instrStack :: [Instr]

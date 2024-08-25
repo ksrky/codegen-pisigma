@@ -1,8 +1,8 @@
-module Tal.Prettyprint (PprTal(..)) where
+module PisigmaTal.Tal.Prettyprint (PprTal(..)) where
 
 import Data.Map.Strict qualified as M
+import PisigmaTal.Tal
 import Prettyprinter
-import Tal.Syntax
 
 class PprTal a where
     pprtal :: a -> Doc ann

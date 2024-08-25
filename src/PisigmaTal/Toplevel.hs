@@ -6,7 +6,7 @@ import PisigmaTal.ClosureTal
 import PisigmaTal.LambdaAnf
 import PisigmaTal.Parser
 import PisigmaTal.RawLambda
-import Tal.Syntax            as Tal
+import PisigmaTal.Tal        as Tal
 
 compileToTal :: Text -> IO Tal.Program
 compileToTal inp = do
