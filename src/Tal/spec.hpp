@@ -1,7 +1,11 @@
 /*
- * Machine specification
+ * Memory segmentation
  */
-#define MEM_SIZE (1 << 18)
+
+#define MEM_SIZE (1 << 20)
+#define TEXT_SEG_SIZE (1 << 18)
+#define DATA_SEG_SIZE (1 << 18)
+
 #define REG_SIZE 16
 
 /*

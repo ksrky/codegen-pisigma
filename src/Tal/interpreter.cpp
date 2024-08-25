@@ -6,7 +6,21 @@
 
 #define REG(r) (ctx.register_file[r]) 
 
-void step(TalContext &ctx, word c) {
+class RuntimeContext : public TalContext {
+public:
+        int *pc;
+        int *hp;
+        int *sp;
+        word register_file[REG_SIZE];
+
+        RuntimeContext() {
+                pc = prog_base;
+                hp = heap_base;
+                sp = stack_base;
+        }
+};
+
+void step(RuntimeContext &ctx, word c) {
         switch (c >> OP_OFFSET) {
         case OP_HALT:
                 exit(REG(0));

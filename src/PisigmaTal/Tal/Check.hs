@@ -232,28 +232,28 @@ checkInstrs (IHalt ty) = do
     checkReg RVReg >>=? ty
     talRegFile . rfRegTy %= M.insert RVReg ty
 
-checkHeap :: (Name, Heap) -> StateT TalState IO ()
-checkHeap (name, HGlobal wval) = do
+checkHeap :: Heap -> StateT TalState IO ()
+checkHeap (HGlobal name wval) = do
     ty <- checkVal wval
     talHeaps %= M.insert name ty
-checkHeap (_, HCode qnts rfty instrs) = do
+checkHeap (HCode _ qnts rfty instrs) = do
     talQuants .= qnts
     talRegFile .= rfty
     checkInstrs instrs
     refresh
-checkHeap (name, HStruct ws) = do
+checkHeap (HStruct name ws) = do
     wTys <- mapM checkVal ws
     talHeaps %= M.insert name (TRow $ foldr RSeq REmpty wTys)
-checkHeap (name, HExtern ty) = talHeaps %= M.insert name ty
-checkHeap (name, HTypeAlias ty) = talHeaps %= M.insert name ty
+checkHeap (HExtern name ty) = talHeaps %= M.insert name ty
+checkHeap (HTypeAlias name ty) = talHeaps %= M.insert name ty
 
 initHeapsTy :: Heaps -> IO HeapsTy
 initHeapsTy heaps = do
-    let htys = [ (name, TRegFile qnts rfty) | (name, HCode qnts rfty _) <- M.toList heaps ]
+    let htys = [ (name, TRegFile qnts rfty) | HCode name qnts rfty _ <- heaps ]
     return $ M.fromList htys
 
 checkProgram :: Program -> IO ()
 checkProgram (heaps, instrs) = do
     hsty <- initHeapsTy heaps
     let initState = TalState hsty emptyRegFileTy []
-    void $ runStateT (mapM_ checkHeap (M.toList heaps) >> checkInstrs instrs) initState
+    void $ runStateT (mapM_ checkHeap heaps >> checkInstrs instrs) initState

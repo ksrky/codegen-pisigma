@@ -188,3 +188,11 @@ public:
         SstoreInst(TalContext &ctx, int rs, int rd, int16_t imm)
         : IFormat(ctx, OP_SSTORE, rs, rd, imm) {}
 };
+
+class IntegerData {
+        int data_;
+public:
+        IntegerData(TalContext &ctx, int data) : data_(data) {
+                ctx.addData(data);
+        }
+};

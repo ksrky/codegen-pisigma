@@ -12,7 +12,6 @@ module PisigmaTal.Tal (
     RegFileTy(..),
     rfRegTy, rfStackTy,
     Quants,
-    Ptr,
     Val(..),
     WordVal,
     SmallVal,
@@ -121,9 +120,6 @@ makeLenses ''RegFileTy
 
 data NonReg
 
--- | One-based index from the beginning of a stack.
-type Ptr = Int
-
 data Val a where
     VReg      :: Reg -> Val Reg
     VWord     :: Val NonReg -> Val Reg
@@ -134,7 +130,7 @@ data Val a where
     VRoll     :: Val a -> Ty -> Val a
     VUnroll   :: Val a -> Val a
     VNonsense :: Val NonReg
-    VPtr      :: Ptr -> Val NonReg
+    VPtr      :: Int -> Val NonReg
 
 deriving instance Eq (Val a)
 deriving instance Show (Val a)
@@ -144,15 +140,14 @@ type WordVal = Val NonReg
 type SmallVal = Val Reg
 
 data Heap
-    = HGlobal WordVal
-    | HCode Quants RegFileTy Instrs
-    | HStruct [WordVal]
-    | HExtern Ty
-    | HTypeAlias Ty
+    = HGlobal Name WordVal
+    | HCode Name Quants RegFileTy Instrs
+    | HStruct Name [WordVal]
+    | HExtern Name Ty
+    | HTypeAlias Name Ty
     deriving (Eq, Show)
 
-type Heaps = M.Map Name Heap
-
+type Heaps = [Heap]
 type RegFile = M.Map Reg WordVal
 
 type Stack = [WordVal]

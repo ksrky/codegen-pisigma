@@ -1,6 +1,5 @@
 module PisigmaTal.Tal.Constructors
-    ( emptyHeaps
-    , emptyRegFile
+    ( emptyRegFile
     , emptyRegFileTy
     , mkArgRegFileTy
     , mkAbstractStackTy
@@ -13,9 +12,6 @@ import Control.Lens.Operators
 import Data.Map.Strict         qualified as M
 import PisigmaTal.Tal
 import PisigmaTal.Tal.Constant
-
-emptyHeaps :: Heaps
-emptyHeaps = M.empty
 
 emptyRegFile :: RegFile
 emptyRegFile = M.empty
@@ -32,7 +28,7 @@ mkAbstractStackTy :: TyVar -> [Ty] -> StackTy
 mkAbstractStackTy rho = foldr SCons (SVar rho)
 
 mkProgramFromInstrs :: Instrs -> Program
-mkProgramFromInstrs instrs = (emptyHeaps, instrs)
+mkProgramFromInstrs instrs = ([], instrs)
 
 infixr 5 <>|
 

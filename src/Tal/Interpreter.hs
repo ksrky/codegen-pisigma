@@ -1,10 +1,12 @@
 module Tal.Interpreter
-    ( step
+    ( RuntimeContext
+    , step
     ) where
 
 import Foreign.C.Types
 import Foreign.Ptr
-import Tal.Context
 import Tal.Instruction
 
-foreign import ccall unsafe "step" step :: Ptr Context -> Instruction -> IO ()
+data RuntimeContext
+
+foreign import ccall unsafe "step" step :: Ptr RuntimeContext -> Instruction -> IO ()

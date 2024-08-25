@@ -45,6 +45,7 @@ library
       PisigmaTal.Raw
       PisigmaTal.RawLambda
       PisigmaTal.Tal
+      PisigmaTal.Tal.Builder
       PisigmaTal.Tal.Check
       PisigmaTal.Tal.Constant
       PisigmaTal.Tal.Constructors

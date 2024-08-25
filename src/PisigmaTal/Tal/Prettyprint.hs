@@ -57,14 +57,14 @@ instance PprTal (Val a) where
     pprtal VNonsense = "nonsense"
     pprtal (VPtr i) = "ptr" <> parens (pretty i)
 
-instance PprTal (Name, Heap) where
-    pprtal (name, HGlobal word) = "global" <+> pprtal name <+> "=" <+> pprtal word
-    pprtal (name, HCode tvs rfty instrs) = pprtal name <+> "=" <+> "code" <>
+instance PprTal Heap where
+    pprtal (HGlobal name word) = "global" <+> pprtal name <+> "=" <+> pprtal word
+    pprtal (HCode name tvs rfty instrs) = pprtal name <+> "=" <+> "code" <>
         encloseSep "[" "]" ", " (map (const "・") tvs) <> "." <+> pprtal rfty <> "." <> line <> indent 2 (pprtal instrs)
-    pprtal (name, HStruct ws) = "struct" <+> pprtal name <+> "=" <+>
+    pprtal (HStruct name ws) = "struct" <+> pprtal name <+> "=" <+>
         encloseSep "{" "}" ", " (map pprtal ws)
-    pprtal (name, HExtern ty) = "extern" <+> pprtal name <+> ":" <+> pprtal ty
-    pprtal (name, HTypeAlias ty) = "type" <+> pprtal name <+> "=" <+> pprtal ty
+    pprtal (HExtern name ty) = "extern" <+> pprtal name <+> ":" <+> pprtal ty
+    pprtal (HTypeAlias name ty) = "type" <+> pprtal name <+> "=" <+> pprtal ty
 
 instance PprTal Aop where
     pprtal Add = "add"
@@ -98,5 +98,5 @@ instance PprTal Instrs where
     pprtal (IHalt ty)          = "halt" <+> brackets (pprtal ty)
 
 instance PprTal Program where
-    pprtal (heaps, instrs) = vsep (map pprtal (M.toList heaps)) <> line <>
+    pprtal (heaps, instrs) = vsep (map pprtal heaps) <> line <>
         "main =" <> line <> indent 2 (pprtal instrs)

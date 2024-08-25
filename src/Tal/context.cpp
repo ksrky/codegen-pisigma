@@ -4,28 +4,24 @@
 #include "context.hpp"
 
 TalContext::TalContext() {
-        pc = bp;
-        heap_base = bp;
-        hp = heap_base;
-        stack_base = bp + MEM_SIZE;
-        sp = stack_base;
+        pr = prog_base;
+        dr = data_base;
 }
 
 void TalContext::addInstruction(word instr) {
-        *heap_base = instr;
-        heap_base++;
+        *pr = instr;
+        pr++;
 }
 
-extern "C" {
-        TalContext* TalContext_new() {
-                return new TalContext();
-        }
+void TalContext::addData(word data) {
+        *dr = data;
+        dr++;
+}
 
-        void TalContext_addInstruction(TalContext* ctx, word instr) {
-                ctx->addInstruction(instr);
-        }
+int TalContext::getProgramEnd() {
+        return pr - bp;
+}
 
-        void TalContext_delete(TalContext* ctx) {
-                delete ctx;
-        }
+int TalContext::getDataEnd() {
+        return dr - bp;
 }

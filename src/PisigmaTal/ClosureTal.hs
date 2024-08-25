@@ -160,11 +160,12 @@ closureTalExp (C.ECase con val cases) = do
     reg <- buildMove =<< closureTalVal val
     labs <- getEnumLabels con
     heaps <- forM cases $ \(lab, exp) -> do
+        name' <- freshNameFromString lab
         qnts <- view quants
         rfty <- view regFileTy
         instrs <- closureTalExp exp
-        return (lab, T.HCode qnts rfty instrs)
-    heaps' <- sequence [ (,heap) <$> freshNameFromString l1 | l1 <- labs, (l2, heap) <- heaps, l1 == l2 ]
+        return (lab, T.HCode name' qnts rfty instrs)
+    let heaps' = [ heap | l1 <- labs, (l2, heap) <- heaps, l1 == l2 ]
     extendHeaps heaps'
     let closureTalCases :: [T.Label] -> TalBuilder T.Instrs
         closureTalCases [] = buildInstrs $ T.IHalt T.TNonsense -- tmp: exception or default
@@ -172,7 +173,7 @@ closureTalExp (C.ECase con val cases) = do
             extInstr $ T.IBop T.Bz reg (T.VWord (T.VLabel lab))
             extInstr $ T.IAop T.Add reg reg (T.VWord (T.VInt 1))
             closureTalCases rest
-    closureTalCases (map fst heaps')
+    closureTalCases (map heapName heaps')
 closureTalExp (C.EReturn val) = do
     val' <- closureTalVal val
     ty <- closureTalTy (C.typeof val)
@@ -189,17 +190,17 @@ closureTalDefn (var, C.Code args body) = do
     mapM_ setRegInUse tmp_regs
     zipWithM_ (\t a -> buildMoveWithDst t (T.VReg a)) tmp_regs argumentRegs
     instrs <- withExtRegs args tmp_regs $ closureTalExp body
-    extendHeap name' $ T.HCode [] (mkArgRegFileTy arg_tys) instrs
+    extendHeap $ T.HCode name'  [] (mkArgRegFileTy arg_tys) instrs
 
 closureTalDec :: C.Dec -> TalBuilder ()
 closureTalDec (C.DEnum con labs) =  do
     lift $ lift $ user_enums %= M.insert con labs
     name' <- freshName con
-    extendHeap name' (T.HTypeAlias T.TInt)
+    extendHeap $ T.HTypeAlias name' T.TInt
 closureTalDec (C.DBind x ty) = do
     name' <- freshName x
     ty' <- closureTalTy ty
-    extendHeap name' (T.HExtern ty')
+    extendHeap $ T.HExtern name' ty'
 
 closureTalProgram :: C.Program -> IO T.Program
 closureTalProgram (decs, (defns, exp)) =

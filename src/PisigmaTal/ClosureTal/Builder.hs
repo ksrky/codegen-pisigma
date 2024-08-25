@@ -7,6 +7,7 @@ module PisigmaTal.ClosureTal.Builder
     , runTalBuilderT
     , initBuilderContext
     , initBuilderState
+    , heapName
     , extendHeap
     , extendHeaps
     , extInstr
@@ -84,7 +85,7 @@ initBuilderContext = BuilderContext
 initBuilderState :: BuilderState
 initBuilderState = BuilderState
     { _instrStack   = []
-    , _heapsState   = M.empty
+    , _heapsState   = []
     , _freeRegSet   = initialRegSet
     , _nextUniq     = 0
     , _nameTable    = IM.empty
@@ -93,11 +94,18 @@ initBuilderState = BuilderState
 
 -- ** Heaps
 
-extendHeap :: Monad m => Name -> Heap -> TalBuilderT m ()
-extendHeap name heap = heapsState %= M.insert name heap
+heapName :: Heap -> Name
+heapName (HGlobal name _)    = name
+heapName (HCode name _ _ _)  = name
+heapName (HStruct name _)    = name
+heapName (HExtern name _)    = name
+heapName (HTypeAlias name _) = name
 
-extendHeaps :: Monad m => [(Name, Heap)] -> TalBuilderT m ()
-extendHeaps heaps = heapsState %= M.union (M.fromList heaps)
+extendHeap :: Monad m => Heap -> TalBuilderT m ()
+extendHeap heap = heapsState %= (heap :)
+
+extendHeaps :: Monad m => Heaps -> TalBuilderT m ()
+extendHeaps heaps = heapsState %= (heaps ++)
 
 -- ** Instrs
 
