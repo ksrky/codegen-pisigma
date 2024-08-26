@@ -19,6 +19,7 @@ module Tal.Instruction
     , createBgeInst
     , createCallInst
     , createJumpInst
+    , createJumpRInst
     , createLoadInst
     , createLoadiInst
     , createMallocInst
@@ -43,24 +44,27 @@ type Imm = CInt
 
 type Addr = CInt
 
-foreign import ccall unsafe "ZR" zr :: Reg
-foreign import ccall unsafe "RA" ra :: Reg
-foreign import ccall unsafe "SP" sp :: Reg
-foreign import ccall unsafe "rv" rv :: Reg
+zr, ra, sp, rv :: Reg
+zr = 0
+ra = 1
+sp = 2
+rv = 3
 
-foreign import ccall unsafe "a0" a0 :: Reg
-foreign import ccall unsafe "a1" a1 :: Reg
-foreign import ccall unsafe "a2" a2 :: Reg
-foreign import ccall unsafe "a3" a3 :: Reg
+a0, a1, a2, a3 :: Reg
+a0 = 4
+a1 = 5
+a2 = 6
+a3 = 7
 
-foreign import ccall unsafe "r0" r0 :: Reg
-foreign import ccall unsafe "r1" r1 :: Reg
-foreign import ccall unsafe "r2" r2 :: Reg
-foreign import ccall unsafe "r3" r3 :: Reg
-foreign import ccall unsafe "r4" r4 :: Reg
-foreign import ccall unsafe "r5" r5 :: Reg
-foreign import ccall unsafe "r6" r6 :: Reg
-foreign import ccall unsafe "r7" r7 :: Reg
+r0, r1, r2, r3, r4, r5, r6, r7 :: Reg
+r0 = 8
+r1 = 9
+r2 = 10
+r3 = 11
+r4 = 12
+r5 = 13
+r6 = 14
+r7 = 15
 
 foreign import ccall unsafe "HaltInst" createHaltInst :: Ptr Context -> IO ()
 
@@ -87,6 +91,8 @@ foreign import ccall unsafe "BgeInst" createBgeInst :: Ptr Context -> Reg -> Reg
 foreign import ccall unsafe "CallInst" createCallInst :: Ptr Context -> Addr -> IO ()
 
 foreign import ccall unsafe "JumpInst" createJumpInst :: Ptr Context -> Addr -> IO ()
+
+foreign import ccall unsafe "JumpRInst" createJumpRInst :: Ptr Context -> Addr -> IO ()
 
 foreign import ccall unsafe "LoadInst" createLoadInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 

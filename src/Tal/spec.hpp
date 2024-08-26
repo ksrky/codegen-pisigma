@@ -58,7 +58,7 @@
 #define R7 15
 
 /*
- * Instructions
+ * Opcodes
  */
 
 #define OPCODE(i) (i)
@@ -76,6 +76,7 @@
 #define OP_BLE OPCODE(10)
 #define OP_CALL OPCODE(11)
 #define OP_JUMP OPCODE(12)
+#define OP_JUMPR OPCODE(12)
 #define OP_LOAD OPCODE(13)
 #define OP_LOADI OPCODE(14)
 #define OP_MALLOC OPCODE(15)

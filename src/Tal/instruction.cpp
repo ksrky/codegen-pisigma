@@ -14,6 +14,10 @@ public:
         : op_(op), rs_(rs), rt_(rt) {
                 ctx.addInstruction(I_FORMAT(op, rs, rt, 0));
         }
+        IFormat(TalContext &ctx, int op, int rs)
+        : op_(op), rs_(rs) {
+                ctx.addInstruction(I_FORMAT(op, rs, 0, 0));
+        }
         IFormat(TalContext &ctx, int op) : op_(op) {
                 ctx.addInstruction(I_FORMAT(op, 0, 0, 0));
         }
@@ -93,6 +97,12 @@ public:
         : RFormat(ctx, OP_DIV, rs, rt, rd) {}
 };
 
+class BeqInst : public IFormat {
+public:
+        BeqInst(TalContext &ctx, int rs, int rt, int16_t imm)
+        : IFormat(ctx, OP_BEQ, rs, rt, imm) {}
+};
+
 class BneInst : public IFormat {
 public:
         BneInst(TalContext &ctx, int rs, int rt, int16_t imm)
@@ -133,6 +143,12 @@ class JumpInst : public JFormat {
 public:
         JumpInst(TalContext &ctx, int addr)
         : JFormat(ctx, OP_JUMP, addr) {}
+};
+
+class JumpRInst : public IFormat {
+public:
+        JumpRInst(TalContext &ctx, int rs)
+        : IFormat(ctx, OP_JUMPR, rs) {}
 };
 
 class LoadInst : public IFormat {

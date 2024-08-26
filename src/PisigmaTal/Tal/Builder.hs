@@ -1,5 +1,6 @@
 module PisigmaTal.Tal.Builder
     ( buildProgram
+    , buildNewProgram
     ) where
 
 import Foreign.C.Types
@@ -59,7 +60,7 @@ buildInstr _ ctx (ISstore rd i rs) = Tal.createSstoreInst ctx (regId rs) (regId 
 
 buildInstrs :: LabelDict -> Ptr Context -> Instrs -> IO ()
 buildInstrs d ctx (ISeq i is) = buildInstr d ctx i >> buildInstrs d ctx is
-buildInstrs d ctx (IJump l)   = Tal.createJumpInst ctx (buildVal d l)
+buildInstrs d ctx (IJump v)   = Tal.createJumpInst ctx (buildVal d v)
 buildInstrs _ ctx (IHalt _)   = Tal.createHaltInst ctx
 
 buildHeaps :: LabelDict -> Ptr Context -> Heaps -> IO LabelDict
@@ -79,4 +80,9 @@ buildProgram :: Ptr Context -> Program -> IO ()
 buildProgram ctx (heaps, is) = do
     dict <- buildHeaps [] ctx heaps
     buildInstrs dict ctx is
-    return ()
+
+buildNewProgram :: Program -> IO (Ptr Context)
+buildNewProgram prog = do
+    ctx <- createContext
+    buildProgram ctx prog
+    return ctx
