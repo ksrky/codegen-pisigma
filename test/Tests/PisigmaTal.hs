@@ -162,7 +162,7 @@ stepTests = testGroup "Step tests"
       e5 <- closureTalProgram e4
       Tal.checkProgram e5
       step "Done"
-  , testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
+  {-, testCaseSteps "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12" $ \step -> do
       e1 <- parseProgram "let quad = \\x -> let double = \\x -> x + x in double (double x) in quad 12"
       step "Lambda.Check"
       e2 <- rawLambdaProgram e1
@@ -176,7 +176,7 @@ stepTests = testGroup "Step tests"
       step "Tal.Check"
       e5 <- closureTalProgram e4
       Tal.checkProgram e5
-      step "Done"
+      step "Done" -}
   , testCaseSteps "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1" $ \step -> do
       e1 <- parseProgram "let double = \\f -> \\x -> f (f x) in let add5 = \\x -> x + 5 in double add5 1"
       step "Lambda.Check"

@@ -96,6 +96,7 @@ test-suite pisigma-tal-test
       Tests.PisigmaTal.Closure
       Tests.PisigmaTal.Lambda
       Tests.PisigmaTal.Raw
+      Tests.Tal.Interpreter
       Paths_pisigma_tal
   autogen-modules:
       Paths_pisigma_tal

@@ -39,8 +39,8 @@
 
 
 #define M_FORMAT(op, rs, imm) \
-        ((op) << OP_OFFSET |      \
-         (rs) << RS_OFFSET |      \
+        ((op) << OP_OFFSET |  \
+         (rs) << RS_OFFSET |  \
          imm & IMM_MASK)
 
 /*
@@ -49,7 +49,7 @@
 
 #define ZR 0
 #define RA 1
-#define SP 2
+// #define SP 2
 #define RV 3
 #define A0 4
 #define A1 5
@@ -83,14 +83,13 @@
 #define OP_BLE OPCODE(10)
 #define OP_CALL OPCODE(11)
 #define OP_JUMP OPCODE(12)
-#define OP_JUMPR OPCODE(12)
-#define OP_LOAD OPCODE(13)
-#define OP_LOADI OPCODE(14)
-#define OP_MALLOC OPCODE(15)
-#define OP_STORE OPCODE(16)
-#define OP_UNPACK OPCODE(17)
-#define OP_SALLOC OPCODE(18)
-#define OP_SFREE OPCODE(19)
-#define OP_SLOAD OPCODE(20)
-#define OP_SSTORE OPCODE(21)
-
+#define OP_JUMPR OPCODE(13)
+#define OP_LOAD OPCODE(14)
+#define OP_LOADI OPCODE(15)
+#define OP_MALLOC OPCODE(16)
+#define OP_STORE OPCODE(17)
+#define OP_UNPACK OPCODE(18)
+#define OP_SALLOC OPCODE(19)
+#define OP_SFREE OPCODE(20)
+#define OP_SLOAD OPCODE(21)
+#define OP_SSTORE OPCODE(22)

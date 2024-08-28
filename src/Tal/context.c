@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "context.h"
@@ -15,10 +16,11 @@ TalContext *CreateTalContext() {
         ctx->pr = seg_ptrs.prog_base;
         ctx->dr = seg_ptrs.data_base;
         ctx->seg_ptrs = seg_ptrs;
+        return ctx;
 }
 
 void AddInstruction(TalContext *ctx, word instr) {
-        ctx->pr = &instr;
+        *(ctx->pr) = instr;
         ctx->pr++;
 }
 
