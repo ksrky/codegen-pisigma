@@ -66,11 +66,11 @@ buildInstrs _ ctx (IHalt _)   = Tal.createHaltInst ctx
 buildHeaps :: LabelDict -> Ptr Context -> Heaps -> IO LabelDict
 buildHeaps dict _ [] = return dict
 buildHeaps dict ctx (HGlobal l v : heaps)    = do
-    addr <- getDataEnd ctx
+    addr <- getDataAddress ctx
     Tal.createIntegerData ctx (buildVal dict v)
     buildHeaps ((l, addr) : dict) ctx heaps
 buildHeaps dict ctx (HCode l _ _ is : heaps) = do
-    addr <- getProgramEnd ctx
+    addr <- getProgramAddress ctx
     let dict' = (l, addr) : dict
     buildInstrs dict ctx is
     buildHeaps dict' ctx heaps

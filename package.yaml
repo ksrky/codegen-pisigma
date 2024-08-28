@@ -53,12 +53,12 @@ default-extensions:
 
 library:
   source-dirs: src
-  include-dirs: # Where to look for C header files?
+  include-dirs:
     - src
-  cxx-sources:
-    - src/Tal/context.cpp
-    - src/Tal/instruction.cpp
-    - src/Tal/interpreter.cpp
+  c-sources:
+    - src/Tal/context.c
+    - src/Tal/instruction.c
+    - src/Tal/interpreter.c
 
 tests:
   pisigma-tal-test:

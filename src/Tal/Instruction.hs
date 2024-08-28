@@ -66,50 +66,50 @@ r5 = 13
 r6 = 14
 r7 = 15
 
-foreign import ccall unsafe "HaltInst" createHaltInst :: Ptr Context -> IO ()
+foreign import ccall unsafe "CreateHaltInst" createHaltInst :: Ptr Context -> IO ()
 
-foreign import ccall unsafe "AddInst" createAddInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
+foreign import ccall unsafe "CreateAddInst" createAddInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
 
-foreign import ccall unsafe "SubInst" createSubInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
+foreign import ccall unsafe "CreateSubInst" createSubInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
 
-foreign import ccall unsafe "MulInst" createMulInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
+foreign import ccall unsafe "CreateMulInst" createMulInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
 
-foreign import ccall unsafe "DivInst" createDivInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
+foreign import ccall unsafe "CreateDivInst" createDivInst :: Ptr Context -> Reg -> Reg -> Reg -> IO ()
 
-foreign import ccall unsafe "BeqInst" createBeqInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateBeqInst" createBeqInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "BneInst" createBneInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateBneInst" createBneInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "BltInst" createBltInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateBltInst" createBltInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "BgtInst" createBgtInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateBgtInst" createBgtInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "BleInst" createBleInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateBleInst" createBleInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "BgeInst" createBgeInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateBgeInst" createBgeInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "CallInst" createCallInst :: Ptr Context -> Addr -> IO ()
+foreign import ccall unsafe "CreateCallInst" createCallInst :: Ptr Context -> Addr -> IO ()
 
-foreign import ccall unsafe "JumpInst" createJumpInst :: Ptr Context -> Addr -> IO ()
+foreign import ccall unsafe "CreateJumpInst" createJumpInst :: Ptr Context -> Addr -> IO ()
 
-foreign import ccall unsafe "JumpRInst" createJumpRInst :: Ptr Context -> Addr -> IO ()
+foreign import ccall unsafe "CreateJumpRInst" createJumpRInst :: Ptr Context -> Addr -> IO ()
 
-foreign import ccall unsafe "LoadInst" createLoadInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateLoadInst" createLoadInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "LoadiInst" createLoadiInst :: Ptr Context -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateLoadiInst" createLoadiInst :: Ptr Context -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "MallocInst" createMallocInst :: Ptr Context -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateMallocInst" createMallocInst :: Ptr Context -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "StoreInst" createStoreInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateStoreInst" createStoreInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "UnpackInst" createUnpackInst :: Ptr Context -> Reg -> Reg -> IO ()
+foreign import ccall unsafe "CreateUnpackInst" createUnpackInst :: Ptr Context -> Reg -> Reg -> IO ()
 
-foreign import ccall unsafe "SallocInst" createSallocInst :: Ptr Context -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateSallocInst" createSallocInst :: Ptr Context -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "SfreeInst" createSfreeInst :: Ptr Context -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateSfreeInst" createSfreeInst :: Ptr Context -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "SloadInst" createSloadInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateSloadInst" createSloadInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "SstoreInst" createSstoreInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
+foreign import ccall unsafe "CreateSstoreInst" createSstoreInst :: Ptr Context -> Reg -> Reg -> Imm -> IO ()
 
-foreign import ccall unsafe "IntegerData" createIntegerData :: Ptr Context -> Imm -> IO ()
+foreign import ccall unsafe "CreateIntegerData" createIntegerData :: Ptr Context -> Imm -> IO ()

@@ -10,7 +10,7 @@ import Tal.Context
 
 data RuntimeContext
 
-foreign import ccall unsafe "RuntimeContext" createRuntimeContext :: Ptr Context -> IO (Ptr RuntimeContext)
+foreign import ccall unsafe "CreateRuntimeContext" createRuntimeContext :: Ptr Context -> IO (Ptr RuntimeContext)
 
 foreign import ccall unsafe "step" step :: Ptr RuntimeContext -> IO ()
 

@@ -16,13 +16,14 @@
 #define RS_OFFSET 21 /* RS_BITS = 5 */
 #define RT_OFFSET 16 /* RT_BITS = 5 */
 #define IMM_BITS 16
+#define IMM_MASK 0xffff
 #define I_FORMAT(op, rs, rt, imm) \
         ((op) << OP_OFFSET |      \
          (rs) << RS_OFFSET |      \
          (rt) << RT_OFFSET |      \
-         imm)
+         imm & IMM_MASK)
 
-#define ADDR_BITS 26
+#define ADDR_BITS 18
 #define J_FORMAT(op, addr) ((op) << OP_OFFSET | addr)
 
 #define RD_OFFSET 11 /* RD_BITS = 5 */
@@ -35,6 +36,12 @@
          (rd) << RD_OFFSET |                   \
          (shamt) << SHAMT_OFFSET |             \
          funct)
+
+
+#define M_FORMAT(op, rs, imm) \
+        ((op) << OP_OFFSET |      \
+         (rs) << RS_OFFSET |      \
+         imm & IMM_MASK)
 
 /*
  * Registers

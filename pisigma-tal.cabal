@@ -70,10 +70,10 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   include-dirs:
       src
-  cxx-sources:
-      src/Tal/context.cpp
-      src/Tal/instruction.cpp
-      src/Tal/interpreter.cpp
+  c-sources:
+      src/Tal/context.c
+      src/Tal/instruction.c
+      src/Tal/interpreter.c
   build-depends:
       base >=4.7 && <5
     , containers
