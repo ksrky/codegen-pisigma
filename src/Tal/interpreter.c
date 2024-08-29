@@ -1,29 +1,11 @@
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "context.h"
-
-typedef struct {
-        word *memory;
-        word *bp;
-        word *pc;
-        word *hp;
-        word *sp;
-        word *prog_end;
-        word register_file[REG_SIZE];
-        bool halt;
-} RuntimeContext;
-
-#define BP (ctx->bp)
-#define PC (ctx->pc)
-#define HP (ctx->hp)
-#define SP (ctx->sp)
-#define REG(r) (ctx->register_file[r])
+#include "interpreter.h"
 
 RuntimeContext *CreateRuntimeContext(TalContext *tc) {
-        printf("CreateRuntimeContext");
         RuntimeContext *ctx = (RuntimeContext *) malloc(sizeof(RuntimeContext));
         ctx->memory = tc->memory;
         BP = tc->seg_ptrs.bp;
@@ -43,55 +25,77 @@ int LookupRegister(RuntimeContext *ctx, int reg) {
 
 void Step(RuntimeContext *ctx) {
         word c = *(ctx->pc)++;
-        switch (c >> OP_OFFSET) {
+        switch (GET_OP(c)) {
         case OP_HALT:
                 ctx->halt = true;
+                break;
         case OP_ADD:
-                REG(c >> RD_OFFSET) = REG(c >> RS_OFFSET) + REG(c >> RT_OFFSET);
+                REG(GET_RD(c)) = REG(GET_RS(c)) + REG(GET_RT(c));
+                break;
         case OP_SUB:
-                REG(c >> RD_OFFSET) = REG(c >> RS_OFFSET) - REG(c >> RT_OFFSET);
+                REG(GET_RD(c)) = REG(GET_RS(c)) - REG(GET_RT(c));
+                break;
         case OP_MUL:
-                REG(c >> RD_OFFSET) = REG(c >> RS_OFFSET) * REG(c >> RT_OFFSET);
+                REG(GET_RD(c)) = REG(GET_RS(c)) * REG(GET_RT(c));
+                break;
         case OP_DIV:
-                REG(c >> RD_OFFSET) = REG(c >> RS_OFFSET) / REG(c >> RT_OFFSET);
+                REG(GET_RD(c)) = REG(GET_RS(c)) / REG(GET_RT(c));
+                break;
         case OP_BEQ:
-                if (REG(c >> RS_OFFSET) == REG(c >> RT_OFFSET)) PC += c & IMM_BITS;
+                if (REG(GET_RS(c)) == REG(GET_RT(c))) PC += GET_IMM(c);
+                break;
         case OP_BNE:
-                if (REG(c >> RS_OFFSET) != REG(c >> RT_OFFSET)) PC += c & IMM_BITS;
+                if (REG(GET_RS(c)) != REG(GET_RT(c))) PC += GET_IMM(c);
+                break;
         case OP_BGT:
-                if (REG(c >> RS_OFFSET) > REG(c >> RT_OFFSET)) PC += c & IMM_BITS;
+                if (REG(GET_RS(c)) > REG(GET_RT(c))) PC += GET_IMM(c);
+                break;
         case OP_BLT:
-                if (REG(c >> RS_OFFSET) < REG(c >> RT_OFFSET)) PC += c & IMM_BITS;
+                if (REG(GET_RS(c)) < REG(GET_RT(c))) PC += GET_IMM(c);
+                break;
         case OP_BGE:
-                if (REG(c >> RS_OFFSET) >= REG(c >> RT_OFFSET)) PC += c & IMM_BITS;
+                if (REG(GET_RS(c)) >= REG(GET_RT(c))) PC += GET_IMM(c);
+                break;
         case OP_BLE:
-                if (REG(c >> RS_OFFSET) <= REG(c >> RT_OFFSET)) PC += c & IMM_BITS;
+                if (REG(GET_RS(c)) <= REG(GET_RT(c))) PC += GET_IMM(c);
+                break;
         case OP_CALL:
                 REG(RA) = (PC++) - BP;
                 PC = BP + (c & ADDR_BITS);
+                break;
         case OP_JUMP:
                 PC = BP + (c & ADDR_BITS);
+                break;
         case OP_JUMPR:
-                PC = BP + REG(c >> RS_OFFSET);
+                PC = BP + REG(GET_RS(c));
+                break;
         case OP_LOAD:
-                REG(c >> RS_OFFSET) = ctx->memory[REG(c >> RT_OFFSET) + (c & IMM_BITS)];
+                REG(GET_RS(c)) = ctx->memory[REG(GET_RT(c)) + GET_IMM(c)];
+                break;
         case OP_LOADI:
-                REG(c >> RS_OFFSET) = REG(c & IMM_BITS);
+                REG(GET_RS(c)) = GET_IMM(c);
+                break;
         case OP_MALLOC:
-                REG(c >> RT_OFFSET) = HP - BP;
-                HP += REG(c >> RS_OFFSET);
+                REG(GET_RT(c)) = HP - BP;
+                HP += REG(GET_RS(c));
+                break;
         case OP_STORE:
-                ctx->memory[REG(c >> RT_OFFSET) + (c & IMM_BITS)] = REG(c >> RS_OFFSET);
+                ctx->memory[REG(GET_RT(c)) + (GET_IMM(c))] = REG(GET_RS(c));
+                break;
         case OP_UNPACK:
                 break;
         case OP_SALLOC:
                 SP -= c & ADDR_BITS;
+                break;
         case OP_SFREE:
                 SP += c & ADDR_BITS;
+                break;
         case OP_SLOAD:
-                REG((c >> RS_OFFSET)) = *(SP + REG(c >> RT_OFFSET));
+                REG((GET_RS(c))) = *(SP + REG(GET_RT(c)));
+                break;
         case OP_SSTORE:
-                *(SP + REG(c >> RT_OFFSET)) = REG(c >> RS_OFFSET);
+                *(SP + REG(GET_RT(c))) = REG(GET_RS(c));
+                break;
         default:
                 break;
         }

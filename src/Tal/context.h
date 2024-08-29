@@ -19,6 +19,8 @@ typedef struct {
         SegmentPointers seg_ptrs;
 } TalContext;
 
+TalContext *CreateTalContext();
+
 void AddInstruction(TalContext *ctx, word instr);
 
 void AddData(TalContext *ctx, word data);

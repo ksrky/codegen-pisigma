@@ -2,9 +2,9 @@
  * Memory segmentation
  */
 
-#define MEM_SIZE (1 << 20)
-#define TEXT_SEG_SIZE (1 << 18)
-#define DATA_SEG_SIZE (1 << 18)
+#define MEM_SIZE (1 << 12)
+#define TEXT_SEG_SIZE (1 << 10)
+#define DATA_SEG_SIZE (1 << 10)
 
 #define REG_SIZE 16
 
@@ -16,6 +16,10 @@
 #define RS_OFFSET 21 /* RS_BITS = 5 */
 #define RT_OFFSET 16 /* RT_BITS = 5 */
 #define IMM_BITS 16
+#define GET_OP(c) ((c >> OP_OFFSET) & 0x3f)
+#define GET_RS(c) ((c >> RS_OFFSET) & 0x1f)
+#define GET_RT(c) (c >> RT_OFFSET) & 0x1f
+#define GET_IMM(c) (c & 0xffff)
 #define IMM_MASK 0xffff
 #define I_FORMAT(op, rs, rt, imm) \
         ((op) << OP_OFFSET |      \
@@ -29,6 +33,9 @@
 #define RD_OFFSET 11 /* RD_BITS = 5 */
 #define SHAMT_OFFSET 6
 #define FUNCT_BITS 6
+#define GET_RD(c) ((c >> RD_OFFSET) & 0x1f)
+#define GET_SHAMT(c) ((c >> SHAMT_OFFSET) & 0x1f)
+#define GET_FUNCT(c) (c & 0x3f)
 #define R_FORMAT(op, rs, rt, rd, shamt, funct) \
         ((op) << OP_OFFSET |                   \
          (rs) << RS_OFFSET |                   \
