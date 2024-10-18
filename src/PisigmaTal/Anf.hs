@@ -19,6 +19,7 @@ module PisigmaTal.Anf (
     lookupBindEnv,
     extendBindEnv,
     Typeable(..),
+    StripAnnot(..),
     bindVar
 ) where
 
@@ -131,6 +132,13 @@ instance Typeable Exp where
                      | otherwise         -> error "impossible"
         EReturnF v -> typeof v
         EAnnotF _ t -> t
+
+class StripAnnot a where
+    stripAnnotTop :: a -> a
+
+instance StripAnnot Val where
+    stripAnnotTop (VAnnot v _) = stripAnnotTop v
+    stripAnnotTop v            = v
 
 bindVar :: Bind -> Var
 bindVar (BVal x _)       = x
